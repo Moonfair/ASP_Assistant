@@ -1,5 +1,7 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.App.Controls;
@@ -32,6 +34,10 @@ public partial class EquipmentCard : UserControl
         _showElite = false;
         if (DataContext is Equipment eq && IsTrackedCheck != null)
             IsTracked = IsTrackedCheck(eq.Name);
+        if (DataContext is Equipment eq2)
+        {
+            LoadIcon(eq2.IconPath);
+        }
         UpdateVariantDisplay();
         UpdateTrackButton();
     }
@@ -62,6 +68,22 @@ public partial class EquipmentCard : UserControl
     private void OnTrackClick(object sender, RoutedEventArgs e)
     {
         RaiseEvent(new RoutedEventArgs(TrackingToggledEvent, this));
+    }
+
+    private void LoadIcon(string iconPath)
+    {
+        if (string.IsNullOrEmpty(iconPath))
+            return;
+        var fullPath = Path.Combine(AppContext.BaseDirectory, "data", iconPath);
+        if (File.Exists(fullPath))
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(fullPath, UriKind.Absolute);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+            IconImage.Source = bitmap;
+        }
     }
 
     private void UpdateTrackButton()

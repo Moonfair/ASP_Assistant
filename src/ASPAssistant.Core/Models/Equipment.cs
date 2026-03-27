@@ -21,4 +21,7 @@ public class Equipment
 
     [JsonPropertyName("elite")]
     public EquipmentVariant Elite { get; set; } = new();
+
+    [JsonPropertyName("iconPath")]
+    public string IconPath { get; set; } = "";
 }

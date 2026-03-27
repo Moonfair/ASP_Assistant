@@ -36,4 +36,7 @@ public class Operator
 
     [JsonPropertyName("elite")]
     public OperatorVariant Elite { get; set; } = new();
+
+    [JsonPropertyName("iconPath")]
+    public string IconPath { get; set; } = "";
 }

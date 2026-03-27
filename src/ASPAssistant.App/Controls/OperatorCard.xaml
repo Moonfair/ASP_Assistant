@@ -9,6 +9,9 @@
     <Border Style="{StaticResource ItemCardBorder}">
         <StackPanel>
             <DockPanel>
+                <Image x:Name="IconImage" DockPanel.Dock="Left"
+                       Width="36" Height="36" Margin="0,0,6,0"
+                       Stretch="UniformToFill" />
                 <TextBlock DockPanel.Dock="Left"
                            Text="{Binding Tier, Converter={StaticResource TierToRoman}}"
                            Foreground="{StaticResource AccentBrush}"
