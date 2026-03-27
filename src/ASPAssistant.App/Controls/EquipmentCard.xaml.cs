@@ -1,7 +1,9 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using ASPAssistant.App.Views;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.App.Controls;
@@ -32,6 +34,9 @@ public partial class EquipmentCard : UserControl
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         _showElite = false;
+        // Inherit IsTrackedCheck from parent view if not explicitly set
+        if (IsTrackedCheck == null)
+            IsTrackedCheck = FindAncestor<EquipmentBrowseView>()?.IsTrackedCheck;
         if (DataContext is Equipment eq && IsTrackedCheck != null)
             IsTracked = IsTrackedCheck(eq.Name);
         if (DataContext is Equipment eq2)
@@ -40,6 +45,17 @@ public partial class EquipmentCard : UserControl
         }
         UpdateVariantDisplay();
         UpdateTrackButton();
+    }
+
+    private T? FindAncestor<T>() where T : DependencyObject
+    {
+        DependencyObject? current = VisualTreeHelper.GetParent(this);
+        while (current != null)
+        {
+            if (current is T t) return t;
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
     }
 
     private void OnNormalClick(object sender, RoutedEventArgs e)
@@ -89,5 +105,6 @@ public partial class EquipmentCard : UserControl
     private void UpdateTrackButton()
     {
         TrackButton.Content = IsTracked ? "★ 追踪中" : "☆ 追踪";
+        TrackButton.Tag = IsTracked ? "tracked" : "";
     }
 }

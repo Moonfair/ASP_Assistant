@@ -14,6 +14,19 @@ public partial class OperatorBrowseView : UserControl
     public OperatorBrowseView()
     {
         InitializeComponent();
+        DataContextChanged += OnViewDataContextChanged;
+    }
+
+    private void OnViewDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is OperatorBrowseViewModel)
+        {
+            // Pre-select "全部" (index 0) so the chip appears highlighted and
+            // clicking it later always triggers SelectionChanged.
+            TierFilterList.SelectedIndex = 0;
+            CovenantFilterList.SelectedIndex = 0;
+            TraitFilterList.SelectedIndex = 0;
+        }
     }
 
     private void OnOperatorTrackingToggled(object sender, RoutedEventArgs e)

@@ -1,7 +1,9 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using ASPAssistant.App.Views;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.App.Controls;
@@ -32,6 +34,9 @@ public partial class OperatorCard : UserControl
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         _showElite = false;
+        // Inherit IsTrackedCheck from parent view if not explicitly set
+        if (IsTrackedCheck == null)
+            IsTrackedCheck = FindAncestor<OperatorBrowseView>()?.IsTrackedCheck;
         if (DataContext is Operator op && IsTrackedCheck != null)
             IsTracked = IsTrackedCheck(op.Name);
         if (DataContext is Operator op2)
@@ -40,6 +45,17 @@ public partial class OperatorCard : UserControl
         }
         UpdateVariantDisplay();
         UpdateTrackButton();
+    }
+
+    private T? FindAncestor<T>() where T : DependencyObject
+    {
+        DependencyObject? current = VisualTreeHelper.GetParent(this);
+        while (current != null)
+        {
+            if (current is T t) return t;
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
     }
 
     private void OnNormalClick(object sender, RoutedEventArgs e)

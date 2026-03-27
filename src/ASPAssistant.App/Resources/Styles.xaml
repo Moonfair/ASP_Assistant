@@ -93,13 +93,13 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Tag" Value="tracked">
-                            <Setter TargetName="bg" Property="Background" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="bg" Property="Background" Value="#224FC3F7" />
                             <Setter TargetName="bg" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="#FF1A1A2E" />
+                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bg" Property="Background" Value="#224FC3F7" />
+                            <Setter TargetName="bg" Property="Background" Value="#334FC3F7" />
                             <Setter TargetName="bg" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
                             <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
                         </Trigger>
@@ -108,8 +108,9 @@
                                 <Condition Property="Tag" Value="tracked" />
                                 <Condition Property="IsMouseOver" Value="True" />
                             </MultiTrigger.Conditions>
-                            <Setter TargetName="bg" Property="Background" Value="{StaticResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="#FF1A1A2E" />
+                            <Setter TargetName="bg" Property="Background" Value="#334FC3F7" />
+                            <Setter TargetName="bg" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
                         </MultiTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -165,6 +166,7 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="0" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
         <Setter Property="ItemContainerStyle" Value="{StaticResource FilterChipItem}" />
         <Setter Property="ItemsPanel">
             <Setter.Value>
@@ -215,8 +217,8 @@
                         <!-- Tab strip fills full width -->
                         <Border DockPanel.Dock="Top" Background="#FF12122A" BorderThickness="0,0,0,1"
                                 BorderBrush="{StaticResource BorderBrush}">
-                            <TabPanel x:Name="HeaderPanel" IsItemsHost="True"
-                                      HorizontalAlignment="Stretch" />
+                            <UniformGrid x:Name="HeaderPanel" IsItemsHost="True"
+                                         Rows="1" />
                         </Border>
                         <Border x:Name="ContentPanel" Background="{StaticResource PanelBackgroundBrush}">
                             <ContentPresenter x:Name="PART_SelectedContentHost"
@@ -237,7 +239,6 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
-        <Setter Property="Width" Value="103" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">
