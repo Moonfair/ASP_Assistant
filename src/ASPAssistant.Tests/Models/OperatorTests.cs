@@ -16,12 +16,14 @@ public class OperatorTests
             "coreCovenant": "拉特兰",
             "additionalCovenants": ["迅捷"],
             "normal": {
-                "traitType": "作战能力",
-                "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+1"
+                "traits": [
+                    { "traitType": "作战能力", "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+1" }
+                ]
             },
             "elite": {
-                "traitType": "作战能力",
-                "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+2"
+                "traits": [
+                    { "traitType": "作战能力", "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+2" }
+                ]
             }
         }
         """;
@@ -33,9 +35,9 @@ public class OperatorTests
         op.Tier.Should().Be(6);
         op.CoreCovenant.Should().Be("拉特兰");
         op.AdditionalCovenants.Should().ContainSingle("迅捷");
-        op.Normal.TraitType.Should().Be("作战能力");
-        op.Normal.TraitDescription.Should().Contain("攻击速度+1");
-        op.Elite.TraitDescription.Should().Contain("攻击速度+2");
+        op.Normal.Traits[0].TraitType.Should().Be("作战能力");
+        op.Normal.Traits[0].TraitDescription.Should().Contain("攻击速度+1");
+        op.Elite.Traits[0].TraitDescription.Should().Contain("攻击速度+2");
     }
 
     [Fact]
@@ -47,8 +49,16 @@ public class OperatorTests
             "tier": 4,
             "coreCovenant": "谢拉格",
             "additionalCovenants": ["坚守"],
-            "normal": { "traitType": "单次叠加", "traitDescription": "层数+2" },
-            "elite": { "traitType": "单次叠加", "traitDescription": "层数+4" }
+            "normal": {
+                "traits": [
+                    { "traitType": "单次叠加", "traitDescription": "层数+2" }
+                ]
+            },
+            "elite": {
+                "traits": [
+                    { "traitType": "单次叠加", "traitDescription": "层数+4" }
+                ]
+            }
         }
         """;
 

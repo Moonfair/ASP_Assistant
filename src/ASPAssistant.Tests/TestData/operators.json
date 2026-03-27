@@ -5,24 +5,48 @@
       "tier": 6,
       "coreCovenant": "拉特兰",
       "additionalCovenants": ["迅捷"],
-      "normal": { "traitType": "作战能力", "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+1" },
-      "elite": { "traitType": "作战能力", "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+2" }
+      "normal": {
+        "traits": [
+          { "traitType": "作战能力", "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+1" }
+        ]
+      },
+      "elite": {
+        "traits": [
+          { "traitType": "作战能力", "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+2" }
+        ]
+      }
     },
     {
       "name": "角峰",
       "tier": 4,
       "coreCovenant": "谢拉格",
       "additionalCovenants": ["坚守"],
-      "normal": { "traitType": "单次叠加", "traitDescription": "<获得时>自身所属盟约层数+2（无需激活盟约）" },
-      "elite": { "traitType": "单次叠加", "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）" }
+      "normal": {
+        "traits": [
+          { "traitType": "单次叠加", "traitDescription": "<获得时>自身所属盟约层数+2（无需激活盟约）" }
+        ]
+      },
+      "elite": {
+        "traits": [
+          { "traitType": "单次叠加", "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）" }
+        ]
+      }
     },
     {
       "name": "惊蛰",
       "tier": 6,
       "coreCovenant": "炎",
       "additionalCovenants": [],
-      "normal": { "traitType": "单次叠加", "traitDescription": "<获得时>获得等于当前调度中心等级的【炎】层数（无需激活盟约）" },
-      "elite": { "traitType": "单次叠加", "traitDescription": "<获得时>获得等于两倍的当前调度中心等级的【炎】层数（无需激活盟约）" }
+      "normal": {
+        "traits": [
+          { "traitType": "单次叠加", "traitDescription": "<获得时>获得等于当前调度中心等级的【炎】层数（无需激活盟约）" }
+        ]
+      },
+      "elite": {
+        "traits": [
+          { "traitType": "单次叠加", "traitDescription": "<获得时>获得等于两倍的当前调度中心等级的【炎】层数（无需激活盟约）" }
+        ]
+      }
     }
   ]
 }

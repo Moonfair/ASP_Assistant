@@ -56,8 +56,7 @@ public partial class OperatorCard : UserControl
     {
         if (DataContext is not Operator op) return;
         var variant = _showElite ? op.Elite : op.Normal;
-        TraitTypeText.Text = variant.TraitType;
-        TraitDescriptionText.Text = variant.TraitDescription;
+        TraitsPanel.ItemsSource = variant.Traits;
     }
 
     private void OnTrackClick(object sender, RoutedEventArgs e)

@@ -49,13 +49,19 @@
                 </ItemsControl>
             </WrapPanel>
 
-            <StackPanel Margin="0,4,0,0">
-                <TextBlock x:Name="TraitTypeText"
-                           FontSize="11" Foreground="{StaticResource TrackingBrush}" />
-                <TextBlock x:Name="TraitDescriptionText"
-                           FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"
-                           TextWrapping="Wrap" />
-            </StackPanel>
+            <ItemsControl x:Name="TraitsPanel" Margin="0,4,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,2">
+                            <TextBlock Text="{Binding TraitType}"
+                                       FontSize="11" Foreground="{StaticResource TrackingBrush}" />
+                            <TextBlock Text="{Binding TraitDescription}"
+                                       FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             <Button x:Name="TrackButton" HorizontalAlignment="Right"
                     Style="{StaticResource TrackingButton}"

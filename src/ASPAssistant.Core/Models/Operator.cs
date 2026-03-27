@@ -2,13 +2,19 @@ using System.Text.Json.Serialization;
 
 namespace ASPAssistant.Core.Models;
 
-public class OperatorVariant
+public class TraitEntry
 {
     [JsonPropertyName("traitType")]
     public string TraitType { get; set; } = "";
 
     [JsonPropertyName("traitDescription")]
     public string TraitDescription { get; set; } = "";
+}
+
+public class OperatorVariant
+{
+    [JsonPropertyName("traits")]
+    public List<TraitEntry> Traits { get; set; } = [];
 }
 
 public class Operator
