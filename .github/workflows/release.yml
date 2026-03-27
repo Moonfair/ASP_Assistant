@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish self-contained
+        run: >
+          dotnet publish src/ASPAssistant.App/ASPAssistant.App.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/win-x64
+
+      - name: Zip release assets
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path publish/win-x64/ASPAssistant.App.exe, `
+                  publish/win-x64/data, `
+                  publish/win-x64/MaaAgentBinary, `
+                  publish/win-x64/plugins, `
+                  publish/win-x64/runtimes `
+            -DestinationPath publish/ASPAssistant-win-x64.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: publish/ASPAssistant-win-x64.zip
+          generate_release_notes: true
