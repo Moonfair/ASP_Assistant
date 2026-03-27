@@ -1,0 +1,16 @@
+{
+  "equipment": [
+    {
+      "name": "不屈弹射器",
+      "tier": 2,
+      "normal": { "effectDescription": "再部署时间-30%，生命值-30%" },
+      "elite": { "effectDescription": "再部署时间-50%，生命值-30%" }
+    },
+    {
+      "name": "红豆购物袋",
+      "tier": 1,
+      "normal": { "effectDescription": "购买价格为1" },
+      "elite": { "effectDescription": "购买价格为1" }
+    }
+  ]
+}
