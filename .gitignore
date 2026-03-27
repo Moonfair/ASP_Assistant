@@ -1,0 +1,75 @@
+# .NET build output
+bin/
+obj/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# NuGet package restore lock file
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Roslyn cache
+*.cache
+
+# Test results
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+
+# Publish
+publish/
+PublishProfiles/
+
+# MSBuild
+*.pidb
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# User-specific files
+*.rsuser
+*.sap
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Superpowers IDE
+.superpowers/
