@@ -1,0 +1,43 @@
+<UserControl x:Class="ASPAssistant.App.Controls.EquipmentCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:ASPAssistant.App.Converters">
+    <UserControl.Resources>
+        <converters:TierToRomanConverter x:Key="TierToRoman" />
+    </UserControl.Resources>
+
+    <Border Style="{StaticResource ItemCardBorder}">
+        <StackPanel>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding Tier, Converter={StaticResource TierToRoman}}"
+                           Foreground="{StaticResource AccentBrush}"
+                           FontWeight="Bold" FontSize="13" Margin="0,0,6,0" />
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding Name}"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontWeight="Bold" FontSize="13" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                            HorizontalAlignment="Right">
+                    <ToggleButton x:Name="NormalToggle" Content="普通"
+                                  IsChecked="True"
+                                  Style="{StaticResource VariantToggleButton}"
+                                  Click="OnNormalClick" />
+                    <TextBlock Text="|" Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="2,0" VerticalAlignment="Center" FontSize="11" />
+                    <ToggleButton x:Name="EliteToggle" Content="精锐"
+                                  Style="{StaticResource VariantToggleButton}"
+                                  Click="OnEliteClick" />
+                </StackPanel>
+            </DockPanel>
+
+            <TextBlock x:Name="EffectText" Margin="0,4,0,0"
+                       FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"
+                       TextWrapping="Wrap" />
+
+            <Button x:Name="TrackButton" HorizontalAlignment="Right"
+                    Style="{StaticResource TrackingButton}"
+                    Margin="0,4,0,0" Click="OnTrackClick" />
+        </StackPanel>
+    </Border>
+</UserControl>
