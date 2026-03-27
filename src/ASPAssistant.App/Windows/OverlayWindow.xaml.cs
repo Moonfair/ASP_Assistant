@@ -34,6 +34,11 @@ public partial class OverlayWindow : Window
         Height = gameClientRect.Height;
     }
 
+    public void ClearMarkers()
+    {
+        OverlayCanvas.Children.Clear();
+    }
+
     public void UpdateMarkers(List<ShopItem> trackedShopItems, RECT gameClientRect)
     {
         OverlayCanvas.Children.Clear();

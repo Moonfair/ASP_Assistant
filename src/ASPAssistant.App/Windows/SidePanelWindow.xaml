@@ -7,13 +7,6 @@
         WindowStyle="ToolWindow"
         ShowInTaskbar="True"
         Background="{StaticResource PanelBackgroundBrush}">
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/Styles.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
     <DockPanel>
         <Border DockPanel.Dock="Top" Background="#FF12122A" Padding="8,6"
                 MouseLeftButtonDown="OnTitleBarDrag">

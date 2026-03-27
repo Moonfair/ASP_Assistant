@@ -17,6 +17,7 @@ public partial class EquipmentCard : UserControl
         remove => RemoveHandler(TrackingToggledEvent, value);
     }
 
+    public Func<string, bool>? IsTrackedCheck { get; set; }
     public bool IsTracked { get; set; }
     private bool _showElite;
 
@@ -29,6 +30,8 @@ public partial class EquipmentCard : UserControl
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         _showElite = false;
+        if (DataContext is Equipment eq && IsTrackedCheck != null)
+            IsTracked = IsTrackedCheck(eq.Name);
         UpdateVariantDisplay();
         UpdateTrackButton();
     }

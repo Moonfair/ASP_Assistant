@@ -60,7 +60,8 @@ public partial class App : Application
             captureService, garrisonMode.OcrStrategy, gameState,
             _settingsManager.OcrScanIntervalSeconds);
 
-        _windowTracker = new WindowTrackerService();
+        _windowTracker = new WindowTrackerService(
+            () => (int)SystemParameters.PrimaryScreenWidth);
 
         // Windows
         _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm);
@@ -112,16 +113,22 @@ public partial class App : Application
                 }
                 else
                 {
-                    _overlay.OverlayCanvas.Children.Clear();
+                    _overlay.ClearMarkers();
                 }
             });
         };
 
         // Auto-save tracking changes
         trackingVm.TrackedOperators.CollectionChanged += async (_, _) =>
-            await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList());
+        {
+            try { await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList()); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to save tracking: {ex.Message}"); }
+        };
         trackingVm.TrackedEquipment.CollectionChanged += async (_, _) =>
-            await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList());
+        {
+            try { await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList()); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to save tracking: {ex.Message}"); }
+        };
 
         // Show windows and start services
         _sidePanel.Show();

@@ -25,9 +25,14 @@ public partial class SidePanelWindow : Window
 
         InitializeComponent();
 
+        trackingVm.GameState = gameStateVm;
+
         OperatorView.DataContext = operatorVm;
         EquipmentView.DataContext = equipmentVm;
         TrackingView.DataContext = trackingVm;
+
+        OperatorView.IsTrackedCheck = trackingVm.IsTracked;
+        EquipmentView.IsTrackedCheck = trackingVm.IsTracked;
 
         OperatorView.TrackingRequested += (name, type) => trackingVm.AddTracking(name, type);
         EquipmentView.TrackingRequested += (name, type) => trackingVm.AddTracking(name, type);

@@ -8,6 +8,7 @@ namespace ASPAssistant.App.Views;
 public partial class EquipmentBrowseView : UserControl
 {
     public event Action<string, TrackingType>? TrackingRequested;
+    public Func<string, bool>? IsTrackedCheck { get; set; }
 
     public EquipmentBrowseView()
     {
@@ -18,6 +19,8 @@ public partial class EquipmentBrowseView : UserControl
     {
         if (e.OriginalSource is EquipmentCard card && card.DataContext is Equipment eq)
         {
+            card.IsTracked = !card.IsTracked;
+            card.IsTrackedCheck = IsTrackedCheck;
             TrackingRequested?.Invoke(eq.Name, TrackingType.Equipment);
         }
     }

@@ -15,6 +15,9 @@ public partial class TrackingViewModel : ObservableObject
     [ObservableProperty]
     private Dictionary<string, int> _covenantCounts = new();
 
+    [ObservableProperty]
+    private object? _gameState;
+
     public IReadOnlyList<TrackingEntry> AllEntries =>
         [.. TrackedOperators, .. TrackedEquipment];
 

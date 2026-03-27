@@ -8,6 +8,7 @@ namespace ASPAssistant.App.Views;
 public partial class OperatorBrowseView : UserControl
 {
     public event Action<string, TrackingType>? TrackingRequested;
+    public Func<string, bool>? IsTrackedCheck { get; set; }
 
     public OperatorBrowseView()
     {
@@ -18,6 +19,8 @@ public partial class OperatorBrowseView : UserControl
     {
         if (e.OriginalSource is OperatorCard card && card.DataContext is Operator op)
         {
+            card.IsTracked = !card.IsTracked;
+            card.IsTrackedCheck = IsTrackedCheck;
             TrackingRequested?.Invoke(op.Name, TrackingType.Operator);
         }
     }

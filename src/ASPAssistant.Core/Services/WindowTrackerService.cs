@@ -8,6 +8,7 @@ public class WindowTrackerService : IDisposable
 {
     private IntPtr _gameWindowHandle;
     private readonly Timer _pollTimer;
+    private readonly Func<int> _getScreenWidth;
 
     public event Action<RECT>? GameWindowMoved;
     public event Action? GameWindowLost;
@@ -19,8 +20,9 @@ public class WindowTrackerService : IDisposable
                                 && User32.IsWindow(_gameWindowHandle);
     public bool ShouldAttachInside { get; private set; }
 
-    public WindowTrackerService(int pollIntervalMs = 100)
+    public WindowTrackerService(Func<int>? getScreenWidth = null, int pollIntervalMs = 100)
     {
+        _getScreenWidth = getScreenWidth ?? (() => 1920);
         _pollTimer = new Timer(pollIntervalMs);
         _pollTimer.Elapsed += OnPollTick;
     }
@@ -79,9 +81,9 @@ public class WindowTrackerService : IDisposable
         return rect.Left <= 0 && rect.Width >= screenWidth - 10;
     }
 
-    private static int GetPrimaryScreenWidth()
+    private int GetPrimaryScreenWidth()
     {
-        return 1920; // Will be replaced by actual SystemParameters in App layer
+        return _getScreenWidth();
     }
 
     public void Dispose()
