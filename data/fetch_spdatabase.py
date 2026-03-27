@@ -10,9 +10,11 @@ SPDatabase 数据抓取工具
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Optional
@@ -21,6 +23,7 @@ from typing import Optional
 
 TORAPPU_ENDPOINT = "https://torappu.prts.wiki"
 ARCHIVE_ENDPOINT = "https://static.prts.wiki/app/spdatabase"
+MEDIA_ENDPOINT = "https://media.prts.wiki"
 
 PROFESSION_MAP = {
     "PIONEER": "先锋",
@@ -80,6 +83,27 @@ def fetch_json(url: str) -> dict:
 
 def strip_rich_text(text: str) -> str:
     return re.sub(r'<@[^>]*>|</>', '', text)
+
+
+def get_prts_media_url(filename: str) -> str:
+    """构造 PRTS Media Wiki 图片 URL（MD5 路径）"""
+    md5 = hashlib.md5(filename.encode("utf-8")).hexdigest()
+    encoded = urllib.parse.quote(filename)
+    return f"{MEDIA_ENDPOINT}/{md5[0]}/{md5[:2]}/{encoded}"
+
+
+def download_image(url: str, save_path: Path) -> bool:
+    """下载图片到本地，已存在则跳过。返回是否新下载。"""
+    if save_path.exists():
+        return False
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "SPDatabase-Scraper/1.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            save_path.write_bytes(resp.read())
+        return True
+    except Exception as e:
+        print(f"    ⚠ 下载失败 {save_path.name}: {e}")
+        return False
 
 
 # ── 干员处理 ──────────────────────────────────────────────────────────────────
@@ -161,6 +185,8 @@ def process_operators(
 
         operator = {
             "name": name,
+            "iconPath": f"icons/operators/{name}.png",
+            "_charId": char_id,
             "tier": tier,
             "coreCovenant": core_covenant or "",
             "additionalCovenants": additional_covenants,
@@ -214,6 +240,7 @@ def process_equipment(season_data: dict) -> list[dict]:
 
         equip = {
             "name": name,
+            "iconPath": f"icons/equipment/{name}.png",
             "tier": tier,
             "normal": {
                 "effectDescription": normal_desc,
@@ -238,6 +265,7 @@ def main():
         choices=SP_SEASONS.keys(),
         help="赛季编号 (默认: 1 = 最新赛季)",
     )
+    parser.add_argument("--skip-icons", action="store_true", help="跳过图标下载")
     args = parser.parse_args()
 
     season_no = args.season
@@ -282,7 +310,53 @@ def main():
     equipment = process_equipment(season_data)
     print(f"  装备数: {len(equipment)}")
 
-    # 6. 输出 JSON
+    # 6. 下载图标
+    if not args.skip_icons:
+        op_icon_dir = data_dir / "icons" / "operators"
+        eq_icon_dir = data_dir / "icons" / "equipment"
+        op_icon_dir.mkdir(parents=True, exist_ok=True)
+        eq_icon_dir.mkdir(parents=True, exist_ok=True)
+
+        print("下载干员图标...")
+        dl_new, dl_skip, dl_fail = 0, 0, 0
+        for op in operators:
+            char_id = op.get("_charId", "")
+            if not char_id:
+                dl_fail += 1
+                continue
+            url = f"{TORAPPU_ENDPOINT}/assets/char_avatar/{char_id}.png"
+            save_path = op_icon_dir / f"{op['name']}.png"
+            result = download_image(url, save_path)
+            if result:
+                dl_new += 1
+            elif save_path.exists():
+                dl_skip += 1
+            else:
+                dl_fail += 1
+        print(f"  干员图标: {dl_new} 新下载, {dl_skip} 已存在, {dl_fail} 失败")
+
+        print("下载装备图标...")
+        dl_new, dl_skip, dl_fail = 0, 0, 0
+        for eq in equipment:
+            filename = f"卫戍协议_道具_{eq['name']}.png"
+            url = get_prts_media_url(filename)
+            save_path = eq_icon_dir / f"{eq['name']}.png"
+            result = download_image(url, save_path)
+            if result:
+                dl_new += 1
+            elif save_path.exists():
+                dl_skip += 1
+            else:
+                dl_fail += 1
+        print(f"  装备图标: {dl_new} 新下载, {dl_skip} 已存在, {dl_fail} 失败")
+    else:
+        print("跳过图标下载 (--skip-icons)")
+
+    # 清理临时字段
+    for op in operators:
+        op.pop("_charId", None)
+
+    # 7. 输出 JSON
     operators_path = data_dir / "operators.json"
     equipment_path = data_dir / "equipment.json"
 

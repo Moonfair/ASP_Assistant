@@ -2,6 +2,7 @@
   "operators": [
     {
       "name": "隐现",
+      "iconPath": "icons/operators/隐现.png",
       "tier": 1,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [
@@ -26,6 +27,7 @@
     },
     {
       "name": "角峰",
+      "iconPath": "icons/operators/角峰.png",
       "tier": 1,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -50,6 +52,7 @@
     },
     {
       "name": "惊蛰",
+      "iconPath": "icons/operators/惊蛰.png",
       "tier": 1,
       "coreCovenant": "炎",
       "additionalCovenants": [],
@@ -72,6 +75,7 @@
     },
     {
       "name": "深巡",
+      "iconPath": "icons/operators/深巡.png",
       "tier": 1,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [],
@@ -94,6 +98,7 @@
     },
     {
       "name": "红豆",
+      "iconPath": "icons/operators/红豆.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -118,6 +123,7 @@
     },
     {
       "name": "刺玫",
+      "iconPath": "icons/operators/刺玫.png",
       "tier": 1,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [
@@ -142,6 +148,7 @@
     },
     {
       "name": "普罗旺斯",
+      "iconPath": "icons/operators/普罗旺斯.png",
       "tier": 1,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [],
@@ -164,6 +171,7 @@
     },
     {
       "name": "德克萨斯",
+      "iconPath": "icons/operators/德克萨斯.png",
       "tier": 1,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [
@@ -188,6 +196,7 @@
     },
     {
       "name": "跃跃",
+      "iconPath": "icons/operators/跃跃.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -212,6 +221,7 @@
     },
     {
       "name": "古米",
+      "iconPath": "icons/operators/古米.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -236,6 +246,7 @@
     },
     {
       "name": "地灵",
+      "iconPath": "icons/operators/地灵.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -261,6 +272,7 @@
     },
     {
       "name": "艾丝黛尔",
+      "iconPath": "icons/operators/艾丝黛尔.png",
       "tier": 1,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [],
@@ -283,6 +295,7 @@
     },
     {
       "name": "波登可",
+      "iconPath": "icons/operators/波登可.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -307,6 +320,7 @@
     },
     {
       "name": "格雷伊",
+      "iconPath": "icons/operators/格雷伊.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -331,6 +345,7 @@
     },
     {
       "name": "盟约·辅助干员",
+      "iconPath": "icons/operators/盟约·辅助干员.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -356,6 +371,7 @@
     },
     {
       "name": "锡人",
+      "iconPath": "icons/operators/锡人.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -380,6 +396,7 @@
     },
     {
       "name": "深靛",
+      "iconPath": "icons/operators/深靛.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -405,6 +422,7 @@
     },
     {
       "name": "宴",
+      "iconPath": "icons/operators/宴.png",
       "tier": 1,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -429,6 +447,7 @@
     },
     {
       "name": "野鬃",
+      "iconPath": "icons/operators/野鬃.png",
       "tier": 1,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [
@@ -453,6 +472,7 @@
     },
     {
       "name": "送葬人",
+      "iconPath": "icons/operators/送葬人.png",
       "tier": 2,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [
@@ -477,6 +497,7 @@
     },
     {
       "name": "赫默",
+      "iconPath": "icons/operators/赫默.png",
       "tier": 2,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -501,6 +522,7 @@
     },
     {
       "name": "崖心",
+      "iconPath": "icons/operators/崖心.png",
       "tier": 2,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -525,6 +547,7 @@
     },
     {
       "name": "小满",
+      "iconPath": "icons/operators/小满.png",
       "tier": 2,
       "coreCovenant": "炎",
       "additionalCovenants": [
@@ -549,6 +572,7 @@
     },
     {
       "name": "哈洛德",
+      "iconPath": "icons/operators/哈洛德.png",
       "tier": 2,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [],
@@ -579,6 +603,7 @@
     },
     {
       "name": "莎草",
+      "iconPath": "icons/operators/莎草.png",
       "tier": 2,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [],
@@ -601,6 +626,7 @@
     },
     {
       "name": "幽灵鲨",
+      "iconPath": "icons/operators/幽灵鲨.png",
       "tier": 2,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [],
@@ -623,6 +649,7 @@
     },
     {
       "name": "泡泡",
+      "iconPath": "icons/operators/泡泡.png",
       "tier": 2,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [
@@ -647,6 +674,7 @@
     },
     {
       "name": "休谟斯",
+      "iconPath": "icons/operators/休谟斯.png",
       "tier": 2,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -671,6 +699,7 @@
     },
     {
       "name": "洛洛",
+      "iconPath": "icons/operators/洛洛.png",
       "tier": 2,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [
@@ -695,6 +724,7 @@
     },
     {
       "name": "风丸",
+      "iconPath": "icons/operators/风丸.png",
       "tier": 2,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -719,6 +749,7 @@
     },
     {
       "name": "砾",
+      "iconPath": "icons/operators/砾.png",
       "tier": 2,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [
@@ -751,6 +782,7 @@
     },
     {
       "name": "蒂比",
+      "iconPath": "icons/operators/蒂比.png",
       "tier": 2,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -776,6 +808,7 @@
     },
     {
       "name": "调香师",
+      "iconPath": "icons/operators/调香师.png",
       "tier": 2,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -800,6 +833,7 @@
     },
     {
       "name": "协律",
+      "iconPath": "icons/operators/协律.png",
       "tier": 2,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -825,6 +859,7 @@
     },
     {
       "name": "拉普兰德",
+      "iconPath": "icons/operators/拉普兰德.png",
       "tier": 2,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [],
@@ -847,6 +882,7 @@
     },
     {
       "name": "折桠",
+      "iconPath": "icons/operators/折桠.png",
       "tier": 2,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -872,6 +908,7 @@
     },
     {
       "name": "灰毫",
+      "iconPath": "icons/operators/灰毫.png",
       "tier": 2,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [
@@ -896,6 +933,7 @@
     },
     {
       "name": "能天使",
+      "iconPath": "icons/operators/能天使.png",
       "tier": 3,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [
@@ -920,6 +958,7 @@
     },
     {
       "name": "断崖",
+      "iconPath": "icons/operators/断崖.png",
       "tier": 3,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -944,6 +983,7 @@
     },
     {
       "name": "诗怀雅",
+      "iconPath": "icons/operators/诗怀雅.png",
       "tier": 3,
       "coreCovenant": "炎",
       "additionalCovenants": [
@@ -968,6 +1008,7 @@
     },
     {
       "name": "琳琅诗怀雅",
+      "iconPath": "icons/operators/琳琅诗怀雅.png",
       "tier": 3,
       "coreCovenant": "炎",
       "additionalCovenants": [
@@ -992,6 +1033,7 @@
     },
     {
       "name": "斯卡蒂",
+      "iconPath": "icons/operators/斯卡蒂.png",
       "tier": 3,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [
@@ -1017,6 +1059,7 @@
     },
     {
       "name": "菲莱",
+      "iconPath": "icons/operators/菲莱.png",
       "tier": 3,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [],
@@ -1039,6 +1082,7 @@
     },
     {
       "name": "见行者",
+      "iconPath": "icons/operators/见行者.png",
       "tier": 3,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [],
@@ -1061,6 +1105,7 @@
     },
     {
       "name": "薄绿",
+      "iconPath": "icons/operators/薄绿.png",
       "tier": 3,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [],
@@ -1083,6 +1128,7 @@
     },
     {
       "name": "海霓",
+      "iconPath": "icons/operators/海霓.png",
       "tier": 3,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [
@@ -1107,6 +1153,7 @@
     },
     {
       "name": "松果",
+      "iconPath": "icons/operators/松果.png",
       "tier": 3,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1132,6 +1179,7 @@
     },
     {
       "name": "雪猎",
+      "iconPath": "icons/operators/雪猎.png",
       "tier": 3,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -1156,6 +1204,7 @@
     },
     {
       "name": "瑕光",
+      "iconPath": "icons/operators/瑕光.png",
       "tier": 3,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [
@@ -1180,6 +1229,7 @@
     },
     {
       "name": "至简",
+      "iconPath": "icons/operators/至简.png",
       "tier": 3,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [
@@ -1204,6 +1254,7 @@
     },
     {
       "name": "初雪",
+      "iconPath": "icons/operators/初雪.png",
       "tier": 3,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -1228,6 +1279,7 @@
     },
     {
       "name": "巫恋",
+      "iconPath": "icons/operators/巫恋.png",
       "tier": 3,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [
@@ -1252,6 +1304,7 @@
     },
     {
       "name": "蛇屠箱",
+      "iconPath": "icons/operators/蛇屠箱.png",
       "tier": 3,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1277,6 +1330,7 @@
     },
     {
       "name": "流星",
+      "iconPath": "icons/operators/流星.png",
       "tier": 3,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [
@@ -1309,6 +1363,7 @@
     },
     {
       "name": "忍冬",
+      "iconPath": "icons/operators/忍冬.png",
       "tier": 3,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [
@@ -1333,6 +1388,7 @@
     },
     {
       "name": "信仰搅拌机",
+      "iconPath": "icons/operators/信仰搅拌机.png",
       "tier": 4,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [
@@ -1357,6 +1413,7 @@
     },
     {
       "name": "莫斯提马",
+      "iconPath": "icons/operators/莫斯提马.png",
       "tier": 4,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [
@@ -1381,6 +1438,7 @@
     },
     {
       "name": "耶拉",
+      "iconPath": "icons/operators/耶拉.png",
       "tier": 4,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -1405,6 +1463,7 @@
     },
     {
       "name": "伊内丝",
+      "iconPath": "icons/operators/伊内丝.png",
       "tier": 4,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1430,6 +1489,7 @@
     },
     {
       "name": "蜜蜡",
+      "iconPath": "icons/operators/蜜蜡.png",
       "tier": 4,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [
@@ -1454,6 +1514,7 @@
     },
     {
       "name": "寒芒克洛丝",
+      "iconPath": "icons/operators/寒芒克洛丝.png",
       "tier": 4,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1478,6 +1539,7 @@
     },
     {
       "name": "风笛",
+      "iconPath": "icons/operators/风笛.png",
       "tier": 4,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [
@@ -1503,6 +1565,7 @@
     },
     {
       "name": "瑰盐",
+      "iconPath": "icons/operators/瑰盐.png",
       "tier": 4,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1527,6 +1590,7 @@
     },
     {
       "name": "水月",
+      "iconPath": "icons/operators/水月.png",
       "tier": 4,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [
@@ -1551,6 +1615,7 @@
     },
     {
       "name": "阿罗玛",
+      "iconPath": "icons/operators/阿罗玛.png",
       "tier": 4,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [
@@ -1575,6 +1640,7 @@
     },
     {
       "name": "凯瑟琳",
+      "iconPath": "icons/operators/凯瑟琳.png",
       "tier": 4,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [
@@ -1599,6 +1665,7 @@
     },
     {
       "name": "歌蕾蒂娅",
+      "iconPath": "icons/operators/歌蕾蒂娅.png",
       "tier": 4,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [],
@@ -1621,6 +1688,7 @@
     },
     {
       "name": "灵知",
+      "iconPath": "icons/operators/灵知.png",
       "tier": 4,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -1645,6 +1713,7 @@
     },
     {
       "name": "莱恩哈特",
+      "iconPath": "icons/operators/莱恩哈特.png",
       "tier": 4,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1670,6 +1739,7 @@
     },
     {
       "name": "录武官",
+      "iconPath": "icons/operators/录武官.png",
       "tier": 4,
       "coreCovenant": "炎",
       "additionalCovenants": [
@@ -1694,6 +1764,7 @@
     },
     {
       "name": "缄默德克萨斯",
+      "iconPath": "icons/operators/缄默德克萨斯.png",
       "tier": 4,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [
@@ -1718,6 +1789,7 @@
     },
     {
       "name": "星熊",
+      "iconPath": "icons/operators/星熊.png",
       "tier": 4,
       "coreCovenant": "炎",
       "additionalCovenants": [],
@@ -1740,6 +1812,7 @@
     },
     {
       "name": "泥岩",
+      "iconPath": "icons/operators/泥岩.png",
       "tier": 4,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1764,6 +1837,7 @@
     },
     {
       "name": "焰尾",
+      "iconPath": "icons/operators/焰尾.png",
       "tier": 4,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [],
@@ -1786,6 +1860,7 @@
     },
     {
       "name": "远牙",
+      "iconPath": "icons/operators/远牙.png",
       "tier": 4,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [
@@ -1810,6 +1885,7 @@
     },
     {
       "name": "圣约送葬人",
+      "iconPath": "icons/operators/圣约送葬人.png",
       "tier": 5,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [
@@ -1842,6 +1918,7 @@
     },
     {
       "name": "缇缇",
+      "iconPath": "icons/operators/缇缇.png",
       "tier": 5,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [
@@ -1866,6 +1943,7 @@
     },
     {
       "name": "烛煌",
+      "iconPath": "icons/operators/烛煌.png",
       "tier": 5,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [],
@@ -1888,6 +1966,7 @@
     },
     {
       "name": "华法琳",
+      "iconPath": "icons/operators/华法琳.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1912,6 +1991,7 @@
     },
     {
       "name": "乌尔比安",
+      "iconPath": "icons/operators/乌尔比安.png",
       "tier": 5,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [],
@@ -1934,6 +2014,7 @@
     },
     {
       "name": "隐德来希",
+      "iconPath": "icons/operators/隐德来希.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1959,6 +2040,7 @@
     },
     {
       "name": "史尔特尔",
+      "iconPath": "icons/operators/史尔特尔.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -1984,6 +2066,7 @@
     },
     {
       "name": "号角",
+      "iconPath": "icons/operators/号角.png",
       "tier": 5,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [],
@@ -2006,6 +2089,7 @@
     },
     {
       "name": "魔王",
+      "iconPath": "icons/operators/魔王.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2031,6 +2115,7 @@
     },
     {
       "name": "铃兰",
+      "iconPath": "icons/operators/铃兰.png",
       "tier": 5,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [
@@ -2055,6 +2140,7 @@
     },
     {
       "name": "塞雷娅",
+      "iconPath": "icons/operators/塞雷娅.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2080,6 +2166,7 @@
     },
     {
       "name": "夕",
+      "iconPath": "icons/operators/夕.png",
       "tier": 5,
       "coreCovenant": "炎",
       "additionalCovenants": [
@@ -2104,6 +2191,7 @@
     },
     {
       "name": "归溟幽灵鲨",
+      "iconPath": "icons/operators/归溟幽灵鲨.png",
       "tier": 5,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [
@@ -2128,6 +2216,7 @@
     },
     {
       "name": "凛御银灰",
+      "iconPath": "icons/operators/凛御银灰.png",
       "tier": 5,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -2153,6 +2242,7 @@
     },
     {
       "name": "引星棘刺",
+      "iconPath": "icons/operators/引星棘刺.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2178,6 +2268,7 @@
     },
     {
       "name": "白面鸮",
+      "iconPath": "icons/operators/白面鸮.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2203,6 +2294,7 @@
     },
     {
       "name": "山",
+      "iconPath": "icons/operators/山.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2227,6 +2319,7 @@
     },
     {
       "name": "百炼嘉维尔",
+      "iconPath": "icons/operators/百炼嘉维尔.png",
       "tier": 5,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [],
@@ -2249,6 +2342,7 @@
     },
     {
       "name": "玛恩纳",
+      "iconPath": "icons/operators/玛恩纳.png",
       "tier": 5,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [],
@@ -2271,6 +2365,7 @@
     },
     {
       "name": "安洁莉娜",
+      "iconPath": "icons/operators/安洁莉娜.png",
       "tier": 5,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [
@@ -2295,6 +2390,7 @@
     },
     {
       "name": "寒檀",
+      "iconPath": "icons/operators/寒檀.png",
       "tier": 5,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2327,6 +2423,7 @@
     },
     {
       "name": "蕾缪安",
+      "iconPath": "icons/operators/蕾缪安.png",
       "tier": 6,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [
@@ -2351,6 +2448,7 @@
     },
     {
       "name": "圣聆初雪",
+      "iconPath": "icons/operators/圣聆初雪.png",
       "tier": 6,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -2375,6 +2473,7 @@
     },
     {
       "name": "余",
+      "iconPath": "icons/operators/余.png",
       "tier": 6,
       "coreCovenant": "炎",
       "additionalCovenants": [
@@ -2399,6 +2498,7 @@
     },
     {
       "name": "浊心斯卡蒂",
+      "iconPath": "icons/operators/浊心斯卡蒂.png",
       "tier": 6,
       "coreCovenant": "阿戈尔",
       "additionalCovenants": [],
@@ -2421,6 +2521,7 @@
     },
     {
       "name": "异客",
+      "iconPath": "icons/operators/异客.png",
       "tier": 6,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [
@@ -2446,6 +2547,7 @@
     },
     {
       "name": "佩佩",
+      "iconPath": "icons/operators/佩佩.png",
       "tier": 6,
       "coreCovenant": "萨尔贡",
       "additionalCovenants": [
@@ -2470,6 +2572,7 @@
     },
     {
       "name": "维娜·维多利亚",
+      "iconPath": "icons/operators/维娜·维多利亚.png",
       "tier": 6,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [
@@ -2502,6 +2605,7 @@
     },
     {
       "name": "焰影苇草",
+      "iconPath": "icons/operators/焰影苇草.png",
       "tier": 6,
       "coreCovenant": "维多利亚",
       "additionalCovenants": [
@@ -2526,6 +2630,7 @@
     },
     {
       "name": "塑心",
+      "iconPath": "icons/operators/塑心.png",
       "tier": 6,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [],
@@ -2548,6 +2653,7 @@
     },
     {
       "name": "妮芙",
+      "iconPath": "icons/operators/妮芙.png",
       "tier": 6,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2572,6 +2678,7 @@
     },
     {
       "name": "缪尔赛思",
+      "iconPath": "icons/operators/缪尔赛思.png",
       "tier": 6,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2596,6 +2703,7 @@
     },
     {
       "name": "迷迭香",
+      "iconPath": "icons/operators/迷迭香.png",
       "tier": 6,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2630,6 +2738,7 @@
     },
     {
       "name": "新约能天使",
+      "iconPath": "icons/operators/新约能天使.png",
       "tier": 6,
       "coreCovenant": "拉特兰",
       "additionalCovenants": [],
@@ -2652,6 +2761,7 @@
     },
     {
       "name": "流明",
+      "iconPath": "icons/operators/流明.png",
       "tier": 6,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2676,6 +2786,7 @@
     },
     {
       "name": "仇白",
+      "iconPath": "icons/operators/仇白.png",
       "tier": 6,
       "coreCovenant": "炎",
       "additionalCovenants": [
@@ -2700,6 +2811,7 @@
     },
     {
       "name": "溯光星源",
+      "iconPath": "icons/operators/溯光星源.png",
       "tier": 6,
       "coreCovenant": "",
       "additionalCovenants": [
@@ -2725,6 +2837,7 @@
     },
     {
       "name": "耀骑士临光",
+      "iconPath": "icons/operators/耀骑士临光.png",
       "tier": 6,
       "coreCovenant": "卡西米尔",
       "additionalCovenants": [
@@ -2757,6 +2870,7 @@
     },
     {
       "name": "荒芜拉普兰德",
+      "iconPath": "icons/operators/荒芜拉普兰德.png",
       "tier": 6,
       "coreCovenant": "叙拉古",
       "additionalCovenants": [],
@@ -2779,6 +2893,7 @@
     },
     {
       "name": "锏",
+      "iconPath": "icons/operators/锏.png",
       "tier": 6,
       "coreCovenant": "谢拉格",
       "additionalCovenants": [
@@ -2803,6 +2918,7 @@
     },
     {
       "name": "纯烬艾雅法拉",
+      "iconPath": "icons/operators/纯烬艾雅法拉.png",
       "tier": 6,
       "coreCovenant": "",
       "additionalCovenants": [

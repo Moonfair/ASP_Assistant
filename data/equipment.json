@@ -2,6 +2,7 @@
   "equipment": [
     {
       "name": "维式重锤",
+      "iconPath": "icons/equipment/维式重锤.png",
       "tier": 1,
       "normal": {
         "effectDescription": "攻击力+15%"
@@ -12,6 +13,7 @@
     },
     {
       "name": "坚守盾牌",
+      "iconPath": "icons/equipment/坚守盾牌.png",
       "tier": 1,
       "normal": {
         "effectDescription": "防御力+20%"
@@ -22,6 +24,7 @@
     },
     {
       "name": "盟约之币",
+      "iconPath": "icons/equipment/盟约之币.png",
       "tier": 1,
       "normal": {
         "effectDescription": "装备时销毁，并获得1资金"
@@ -32,6 +35,7 @@
     },
     {
       "name": "随身身份牌",
+      "iconPath": "icons/equipment/随身身份牌.png",
       "tier": 1,
       "normal": {
         "effectDescription": "装备时销毁，并使携带者所属盟约层数+3（无需激活盟约）"
@@ -42,6 +46,7 @@
     },
     {
       "name": "源石溶剂",
+      "iconPath": "icons/equipment/源石溶剂.png",
       "tier": 1,
       "normal": {
         "effectDescription": "携带者每秒流失60点生命值，攻击力+40%"
@@ -52,6 +57,7 @@
     },
     {
       "name": "不屈弹射器",
+      "iconPath": "icons/equipment/不屈弹射器.png",
       "tier": 2,
       "normal": {
         "effectDescription": "再部署时间-30%，生命值-30%"
@@ -62,6 +68,7 @@
     },
     {
       "name": "紧急调度券",
+      "iconPath": "icons/equipment/紧急调度券.png",
       "tier": 2,
       "normal": {
         "effectDescription": "装备时销毁，随机获取当前调度中心内的1名干员 （调度中心中对应干员消失）"
@@ -72,6 +79,7 @@
     },
     {
       "name": "战栗维式重锤",
+      "iconPath": "icons/equipment/战栗维式重锤.png",
       "tier": 2,
       "normal": {
         "effectDescription": "攻击力+20%；若携带者是地面干员则攻击时有10%概率使目标<$ba.tremble>战栗2秒"
@@ -82,6 +90,7 @@
     },
     {
       "name": "萨尔贡浓茶",
+      "iconPath": "icons/equipment/萨尔贡浓茶.png",
       "tier": 2,
       "normal": {
         "effectDescription": "技力自然回复速度+0.15/秒"
@@ -92,6 +101,7 @@
     },
     {
       "name": "精打细算玩偶",
+      "iconPath": "icons/equipment/精打细算玩偶.png",
       "tier": 2,
       "normal": {
         "effectDescription": "装备时销毁，之后每回合开始时额外获得1资金"
@@ -102,6 +112,7 @@
     },
     {
       "name": "简易通讯机",
+      "iconPath": "icons/equipment/简易通讯机.png",
       "tier": 2,
       "normal": {
         "effectDescription": "装备时销毁，随机获得1名与该干员有相同盟约的干员"
@@ -112,6 +123,7 @@
     },
     {
       "name": "见钱眼开玩偶",
+      "iconPath": "icons/equipment/见钱眼开玩偶.png",
       "tier": 2,
       "normal": {
         "effectDescription": "装备时销毁，下回合额外获得2资金"
@@ -122,6 +134,7 @@
     },
     {
       "name": "叙拉古正装",
+      "iconPath": "icons/equipment/叙拉古正装.png",
       "tier": 3,
       "normal": {
         "effectDescription": "攻击速度+15，携带者部署方向左右两侧的我方干员攻击速度+10"
@@ -132,6 +145,7 @@
     },
     {
       "name": "精准狙击镜",
+      "iconPath": "icons/equipment/精准狙击镜.png",
       "tier": 3,
       "normal": {
         "effectDescription": "攻击距离自身3格及以上的目标时，伤害提高30%"
@@ -142,6 +156,7 @@
     },
     {
       "name": "激光发射器",
+      "iconPath": "icons/equipment/激光发射器.png",
       "tier": 3,
       "normal": {
         "effectDescription": "攻击无视目标25%法术抗性"
@@ -152,6 +167,7 @@
     },
     {
       "name": "炎国短刀",
+      "iconPath": "icons/equipment/炎国短刀.png",
       "tier": 3,
       "normal": {
         "effectDescription": "每开启一次技能，获得5%的攻击力加成（最多叠加10次）"
@@ -162,6 +178,7 @@
     },
     {
       "name": "迅捷作战粮",
+      "iconPath": "icons/equipment/迅捷作战粮.png",
       "tier": 3,
       "normal": {
         "effectDescription": "部署时，获得3点技力；每有一个同盟约的其他干员，额外获得3点技力"
@@ -172,6 +189,7 @@
     },
     {
       "name": "歌利亚头盔",
+      "iconPath": "icons/equipment/歌利亚头盔.png",
       "tier": 3,
       "normal": {
         "effectDescription": "生命值+25%；部署时若身前一格没有其他干员，生命值额外+15%"
@@ -182,6 +200,7 @@
     },
     {
       "name": "阿戈尔重刃",
+      "iconPath": "icons/equipment/阿戈尔重刃.png",
       "tier": 3,
       "normal": {
         "effectDescription": "攻击力+40%，攻击速度-10"
@@ -192,6 +211,7 @@
     },
     {
       "name": "奥术法阵",
+      "iconPath": "icons/equipment/奥术法阵.png",
       "tier": 3,
       "normal": {
         "effectDescription": "法术抗性+20"
@@ -202,6 +222,7 @@
     },
     {
       "name": "坚固维式重锤",
+      "iconPath": "icons/equipment/坚固维式重锤.png",
       "tier": 3,
       "normal": {
         "effectDescription": "攻击力+25%；首次受到致命伤害时生命值不低于1，持续8秒"
@@ -212,6 +233,7 @@
     },
     {
       "name": "加速维式重锤",
+      "iconPath": "icons/equipment/加速维式重锤.png",
       "tier": 3,
       "normal": {
         "effectDescription": "攻击力+25%；攻击速度+30"
@@ -222,6 +244,7 @@
     },
     {
       "name": "突袭手雷",
+      "iconPath": "icons/equipment/突袭手雷.png",
       "tier": 3,
       "normal": {
         "effectDescription": "每次部署后的10秒内，攻击时使目标<$ba.stun>晕眩2秒"
@@ -232,6 +255,7 @@
     },
     {
       "name": "骑士储蓄罐",
+      "iconPath": "icons/equipment/骑士储蓄罐.png",
       "tier": 3,
       "normal": {
         "effectDescription": "装备时销毁，并随机获得1~6资金"
@@ -242,6 +266,7 @@
     },
     {
       "name": "寻呼模块",
+      "iconPath": "icons/equipment/寻呼模块.png",
       "tier": 4,
       "normal": {
         "effectDescription": "装备时销毁，立即特殊刷新一次调度中心，出现三名与该干员有相同盟约的干员，免费获取其中一名！（不高于当前调度中心等级）"
@@ -252,6 +277,7 @@
     },
     {
       "name": "蜂鸣器",
+      "iconPath": "icons/equipment/蜂鸣器.png",
       "tier": 4,
       "normal": {
         "effectDescription": "更容易受到攻击，生命值+40%"
@@ -262,6 +288,7 @@
     },
     {
       "name": "有限加速器",
+      "iconPath": "icons/equipment/有限加速器.png",
       "tier": 4,
       "normal": {
         "effectDescription": "每次攻击或治疗后，本场战斗中攻击速度+1，最高60层"
@@ -272,6 +299,7 @@
     },
     {
       "name": "伪装服",
+      "iconPath": "icons/equipment/伪装服.png",
       "tier": 4,
       "normal": {
         "effectDescription": "首次受到伤害后获得<$ba.invisible>隐匿，持续15秒"
@@ -282,6 +310,7 @@
     },
     {
       "name": "防暴盾",
+      "iconPath": "icons/equipment/防暴盾.png",
       "tier": 4,
       "normal": {
         "effectDescription": "阻挡敌人时，受到来自非自身阻挡单位的伤害降低40%"
@@ -292,6 +321,7 @@
     },
     {
       "name": "休眠子裔",
+      "iconPath": "icons/equipment/休眠子裔.png",
       "tier": 4,
       "normal": {
         "effectDescription": "每攻击1个目标，回复自身2%最大生命值"
@@ -302,6 +332,7 @@
     },
     {
       "name": "卡西米尔竞技旗",
+      "iconPath": "icons/equipment/卡西米尔竞技旗.png",
       "tier": 4,
       "normal": {
         "effectDescription": "部署后15秒内造成的伤害提升至135%，随后逐渐衰减"
@@ -312,6 +343,7 @@
     },
     {
       "name": "拉特兰桥夹",
+      "iconPath": "icons/equipment/拉特兰桥夹.png",
       "tier": 4,
       "normal": {
         "effectDescription": "子弹类技能剩余一发子弹时有50%概率恢复40%的子弹（每次部署最多触发3次）"
@@ -322,6 +354,7 @@
     },
     {
       "name": "灼燃维式重锤",
+      "iconPath": "icons/equipment/灼燃维式重锤.png",
       "tier": 4,
       "normal": {
         "effectDescription": "攻击力+30%；造成法术伤害附带相当于10%伤害的<$ba.dt.burning2>灼燃损伤"
@@ -332,6 +365,7 @@
     },
     {
       "name": "浓缩嗅盐",
+      "iconPath": "icons/equipment/浓缩嗅盐.png",
       "tier": 4,
       "normal": {
         "effectDescription": "生命值大于70%时，免疫<$ba.stun>晕眩、<$ba.frozen>冻结等特殊状态"
@@ -342,6 +376,7 @@
     },
     {
       "name": "护盾无人机",
+      "iconPath": "icons/equipment/护盾无人机.png",
       "tier": 4,
       "normal": {
         "effectDescription": "治疗时有10%概率使目标获得1层<$ba.shield>护盾（最多1层）"
@@ -352,6 +387,7 @@
     },
     {
       "name": "M3茧甲",
+      "iconPath": "icons/equipment/M3茧甲.png",
       "tier": 4,
       "normal": {
         "effectDescription": "战斗阶段被击倒时立刻复活（一场战斗仅1次）"
@@ -362,6 +398,7 @@
     },
     {
       "name": "催泪瓦斯",
+      "iconPath": "icons/equipment/催泪瓦斯.png",
       "tier": 5,
       "normal": {
         "effectDescription": "攻击时有3%概率使目标获得一层<$ba.palsy>麻痹"
@@ -372,6 +409,7 @@
     },
     {
       "name": "谢拉格不融冰",
+      "iconPath": "icons/equipment/谢拉格不融冰.png",
       "tier": 5,
       "normal": {
         "effectDescription": "攻击时有12%概率对目标施加1.5秒的<$ba.cold>寒冷"
@@ -382,6 +420,7 @@
     },
     {
       "name": "双模机械臂",
+      "iconPath": "icons/equipment/双模机械臂.png",
       "tier": 5,
       "normal": {
         "effectDescription": "攻击力+30%，自身造成物理和法术伤害时，伤害类型转化为<$ba.weaknessatk>弱点伤害"
@@ -392,6 +431,7 @@
     },
     {
       "name": "信标",
+      "iconPath": "icons/equipment/信标.png",
       "tier": 5,
       "normal": {
         "effectDescription": "装备时，目标干员和本装备销毁并进行一次特殊刷新，出现两名与携带者同等阶的干员，免费获取其中一名\\n若在同盟模拟中且存在其他队友，下个休整期向相应盟约人数最多的队友发送1个原干员\\n相应盟约人数相同则随机发送\\n无法装备给自编干员"
@@ -402,6 +442,7 @@
     },
     {
       "name": "拟态物质",
+      "iconPath": "icons/equipment/拟态物质.png",
       "tier": 5,
       "normal": {
         "effectDescription": "装备时销毁，若已拥有至少2名该初始干员，则再获得1名该初始干员；否则随机获得1名同盟约初始干员"
@@ -412,6 +453,7 @@
     },
     {
       "name": "博士投影",
+      "iconPath": "icons/equipment/博士投影.png",
       "tier": 5,
       "normal": {
         "effectDescription": "任意干员可装备，下个回合开始时销毁，并使该干员晋升为精锐干员"
@@ -422,6 +464,7 @@
     },
     {
       "name": "商业包装方案",
+      "iconPath": "icons/equipment/商业包装方案.png",
       "tier": 5,
       "normal": {
         "effectDescription": "每出售7名干员，额外获得一个与此装备携带者的同盟约初始干员（不高于当前调度中心等级）"
@@ -432,6 +475,7 @@
     },
     {
       "name": "突变细胞",
+      "iconPath": "icons/equipment/突变细胞.png",
       "tier": 5,
       "normal": {
         "effectDescription": "战斗结束后，装备者替换为高一阶的随机干员"
@@ -442,6 +486,7 @@
     },
     {
       "name": "天马之盔",
+      "iconPath": "icons/equipment/天马之盔.png",
       "tier": 5,
       "normal": {
         "effectDescription": "生命值+50%，若与“天马之枪”一起装备，每秒回复8%最大生命值。"
@@ -452,6 +497,7 @@
     },
     {
       "name": "天马之枪",
+      "iconPath": "icons/equipment/天马之枪.png",
       "tier": 6,
       "normal": {
         "effectDescription": "攻击力+40%，若与“天马之盔”一起装备，造成伤害时额外造成30%的真实伤害"
@@ -462,6 +508,7 @@
     },
     {
       "name": "铳骑之威",
+      "iconPath": "icons/equipment/铳骑之威.png",
       "tier": 6,
       "normal": {
         "effectDescription": "攻击力+40%；若携带者为【拉特兰】盟约干员，该干员每次攻击时，有35%概率额外对攻击范围内一名敌人发射子弹造成150%攻击力的物理伤害\\n若该【拉特兰】盟约干员同时装备“拉特兰桥夹”，子弹伤害改为300%攻击力"
@@ -472,6 +519,7 @@
     },
     {
       "name": "天师古鼎",
+      "iconPath": "icons/equipment/天师古鼎.png",
       "tier": 6,
       "normal": {
         "effectDescription": "生命值+45%；若携带者为【炎】盟约干员，本回合每获得过1名干员战斗开始后攻击速度+25（最多3层）\\n若该【炎】盟约干员同时装备“炎国短刀”，每次获得干员时获得2资金（每回合最多3次）"
@@ -482,6 +530,7 @@
     },
     {
       "name": "海沟实验体",
+      "iconPath": "icons/equipment/海沟实验体.png",
       "tier": 6,
       "normal": {
         "effectDescription": "获得180点<$ba.dmgresistance>伤害减免；若携带者为【阿戈尔】盟约干员，自身受到伤害时对伤害来源造成自身攻击力50%的法术伤害（每0.5秒最多触发一次）\\n若该【阿戈尔】盟约干员同时装备“阿戈尔重刃”，则自身受到伤害时额外造成一次50%攻击力的法术伤害（每0.5秒最多触发一次）"
@@ -492,6 +541,7 @@
     },
     {
       "name": "蒸汽之心",
+      "iconPath": "icons/equipment/蒸汽之心.png",
       "tier": 6,
       "normal": {
         "effectDescription": "攻击速度+35；若携带者为【维多利亚】盟约干员，该干员获得当前场上所有维式重锤特殊效果\\n若该【维多利亚】盟约干员同时装备“维式重锤”系列装备，该“维式重锤”装备特殊效果获得强化（效果变为2倍）"
@@ -502,6 +552,7 @@
     },
     {
       "name": "耶拉冈德之泪",
+      "iconPath": "icons/equipment/耶拉冈德之泪.png",
       "tier": 6,
       "normal": {
         "effectDescription": "法术抗性+30；若携带者为【谢拉格】盟约干员，该干员攻击范围内被<$ba.cold>寒冷或<$ba.frozen>冻结的敌人每秒受到一次自身攻击力30%的法术伤害\\n若该【谢拉格】盟约干员同时装备“谢拉格不融冰”，则使自身攻击范围内<$ba.cold>寒冷或<$ba.frozen>冻结的敌人每秒受到的法术伤害提升至100%攻击力"
@@ -512,6 +563,7 @@
     },
     {
       "name": "黄沙罗盘",
+      "iconPath": "icons/equipment/黄沙罗盘.png",
       "tier": 6,
       "normal": {
         "effectDescription": "初始技力+30；若携带者为【萨尔贡】盟约干员，该干员首次技能结束时立刻回复30点技力\\n若该【萨尔贡】盟约干员同时装备“萨尔贡浓茶”，每次开启技能时为全部【萨尔贡】干员回复3点技力"
@@ -522,6 +574,7 @@
     },
     {
       "name": "人事部文档",
+      "iconPath": "icons/equipment/人事部文档.png",
       "tier": 6,
       "normal": {
         "effectDescription": "装备时销毁，最大可部署人数变为9"
@@ -532,6 +585,7 @@
     },
     {
       "name": "变形同构体",
+      "iconPath": "icons/equipment/变形同构体.png",
       "tier": 6,
       "normal": {
         "effectDescription": "携带者获得额外盟约（由另一件携带装备而定）\\n具体对应关系可在模拟中查看本装备天赋栏"
@@ -542,6 +596,7 @@
     },
     {
       "name": "骑士戒律",
+      "iconPath": "icons/equipment/骑士戒律.png",
       "tier": 6,
       "normal": {
         "effectDescription": "再部署时间-40%；若携带者为【卡西米尔】盟约干员，开启技能后20s内，使攻击范围内敌人攻击速度-35%，移动速度-35%\\n若该【卡西米尔】盟约干员同时装备“卡西米尔竞技旗”，该卡西米尔干员技能持续期间，攻击力+100%，且受到致命伤害时不撤退，技能结束后退场"
@@ -552,6 +607,7 @@
     },
     {
       "name": "家族徽章",
+      "iconPath": "icons/equipment/家族徽章.png",
       "tier": 6,
       "normal": {
         "effectDescription": "技力自然回复速度+0.2/秒；若携带者为【叙拉古】盟约干员，该干员处于隐匿状态时，攻击力逐渐提升至200%，持续至隐匿结束后首次造成伤害或干员离场\\n若该【叙拉古】盟约干员同时装备“叙拉古正装”，该叙拉古干员失去隐匿后首次造成伤害时额外造成800%攻击力的真实伤害"
