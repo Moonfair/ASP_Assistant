@@ -18,13 +18,106 @@
                      CaretBrush="{StaticResource AccentBrush}" />
         </Border>
 
-        <!-- Filter panel -->
-        <Expander DockPanel.Dock="Top" Margin="8,0,8,4"
-                  Foreground="{StaticResource TextSecondaryBrush}" IsExpanded="False">
-            <Expander.Header>
-                <TextBlock Text="筛选" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
-            </Expander.Header>
-            <StackPanel Margin="0,6,0,2">
+        <!-- Filter panel: two-row Grid — header row (toggle + tags) above content row (lists).
+             No overlay: tags fill the DockPanel remainder, toggle is always protected on the left. -->
+        <Grid DockPanel.Dock="Top" Margin="8,0,8,4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition x:Name="FilterContentRow" Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Row 0: "筛选" toggle (left) + active filter tag chips (fills right) -->
+            <DockPanel Grid.Row="0" LastChildFill="True">
+                <ToggleButton x:Name="FilterToggle" DockPanel.Dock="Left"
+                              Foreground="{StaticResource TextSecondaryBrush}"
+                              FontSize="12" Padding="0,4,12,4" Cursor="Hand">
+                    <ToggleButton.Style>
+                        <Style TargetType="ToggleButton">
+                            <Setter Property="Content" Value="▶ 筛选" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Left" />
+                            <Setter Property="VerticalContentAlignment" Value="Top" />
+                            <!-- Custom template: no hover/press color changes -->
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <ContentPresenter HorizontalAlignment="Left"
+                                                          VerticalAlignment="Top"
+                                                          Margin="{TemplateBinding Padding}" />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Content" Value="▼ 筛选" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ToggleButton.Style>
+                </ToggleButton>
+
+                <ItemsControl x:Name="FilterTagsControl"
+                              ItemsSource="{Binding ActiveFilterTags}"
+                              HorizontalAlignment="Right">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel HorizontalAlignment="Right" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Border Padding="7,2" Margin="0,0,3,2"
+                                        Background="#224FC3F7"
+                                        BorderBrush="{StaticResource AccentBrush}"
+                                        BorderThickness="1" CornerRadius="10">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding}" Value="|">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding}" FontSize="11"
+                                               Foreground="{StaticResource AccentBrush}" />
+                                </Border>
+                                <TextBlock Text="|" FontSize="11" Margin="1,0,3,2"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding}" Value="|">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DockPanel>
+
+            <!-- Row 1: Filter lists — shown only when FilterToggle is checked -->
+            <StackPanel x:Name="FilterContentPanel" Grid.Row="1"
+                        ClipToBounds="True" Margin="0,6,0,2">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsChecked, ElementName=FilterToggle}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+
                 <TextBlock Text="等阶" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,0,0,4" />
                 <ListBox x:Name="TierFilterList"
@@ -70,11 +163,26 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
+                <TextBlock Text="触发时机" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="11" Margin="0,6,0,4" />
+                <ListBox x:Name="TriggerTimingFilterList"
+                         Style="{StaticResource FilterChipListBox}"
+                         ItemsSource="{Binding AvailableTriggerTimings}"
+                         PreviewMouseLeftButtonDown="OnFilterListPreviewMouseDown"
+                         SelectionChanged="OnTriggerTimingFilterChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                                       FontSize="11" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </StackPanel>
-        </Expander>
+        </Grid>
 
         <!-- Operator list (virtualized: ScrollViewer lives inside the template so WPF can recycle cards) -->
-        <ItemsControl ItemsSource="{Binding FilteredOperators}"
+        <ItemsControl x:Name="OperatorListControl" ItemsSource="{Binding FilteredOperators}"
                       VirtualizingPanel.IsVirtualizing="True"
                       VirtualizingPanel.VirtualizationMode="Recycling"
                       VirtualizingPanel.ScrollUnit="Pixel">

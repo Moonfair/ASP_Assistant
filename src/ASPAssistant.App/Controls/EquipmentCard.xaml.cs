@@ -83,6 +83,8 @@ public partial class EquipmentCard : UserControl
 
     private void OnTrackClick(object sender, RoutedEventArgs e)
     {
+        IsTracked = !IsTracked;
+        UpdateTrackButton();
         RaiseEvent(new RoutedEventArgs(TrackingToggledEvent, this));
     }
 

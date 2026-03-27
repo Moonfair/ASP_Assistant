@@ -19,8 +19,6 @@ public partial class EquipmentBrowseView : UserControl
     {
         if (e.OriginalSource is EquipmentCard card && card.DataContext is Equipment eq)
         {
-            card.IsTracked = !card.IsTracked;
-            card.IsTrackedCheck = IsTrackedCheck;
             TrackingRequested?.Invoke(eq.Name, TrackingType.Equipment);
         }
     }

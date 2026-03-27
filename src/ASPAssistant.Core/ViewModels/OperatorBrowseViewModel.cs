@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ASPAssistant.Core.Models;
 
@@ -22,9 +23,45 @@ public partial class OperatorBrowseViewModel : ObservableObject
     [ObservableProperty]
     private string? _selectedTraitTypeFilter;
 
+    [ObservableProperty]
+    private string? _selectedTriggerTimingFilter;
+
     public List<int?> AvailableTiers { get; private set; } = [];
     public List<string?> AvailableCovenants { get; private set; } = [];
     public List<string?> AvailableTraitTypes { get; private set; } = [];
+    public List<string?> AvailableTriggerTimings { get; private set; } = [];
+
+    /// <summary>
+    /// Individual tag strings for the active-filter summary bar.
+    /// Regular tags are the filter values; "|" items are dimension separators.
+    /// </summary>
+    public List<string> ActiveFilterTags
+    {
+        get
+        {
+            var groups = new List<List<string>>();
+            if (SelectedTierFilter.HasValue)
+                groups.Add([TierToRoman(SelectedTierFilter.Value)]);
+            if (_selectedCovenantFilters.Count > 0)
+                groups.Add([.. _selectedCovenantFilters.Order()]);
+            if (!string.IsNullOrEmpty(SelectedTraitTypeFilter))
+                groups.Add([SelectedTraitTypeFilter]);
+            if (!string.IsNullOrEmpty(SelectedTriggerTimingFilter))
+                groups.Add([$"<{SelectedTriggerTimingFilter}>"]);
+
+            var result = new List<string>();
+            for (int i = 0; i < groups.Count; i++)
+            {
+                if (i > 0) result.Add("|");
+                result.AddRange(groups[i]);
+            }
+            return result;
+        }
+    }
+
+    private static readonly string[] _romanNumerals = ["", "Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
+    private static string TierToRoman(int tier) =>
+        tier >= 1 && tier <= 6 ? _romanNumerals[tier] : tier.ToString();
 
     public void LoadOperators(List<Operator> operators)
     {
@@ -41,9 +78,17 @@ public partial class OperatorBrowseViewModel : ObservableObject
             .Where(t => !string.IsNullOrEmpty(t))
             .Distinct().Order()];
 
+        var timingRegex = new Regex(@"<([^>]+)>");
+        AvailableTriggerTimings = [null, .. operators
+            .SelectMany(o => o.Normal.Traits.Select(t => t.TraitDescription)
+                .Concat(o.Elite.Traits.Select(t => t.TraitDescription)))
+            .SelectMany(desc => timingRegex.Matches(desc).Select(m => m.Groups[1].Value))
+            .Distinct().Order()];
+
         OnPropertyChanged(nameof(AvailableTiers));
         OnPropertyChanged(nameof(AvailableCovenants));
         OnPropertyChanged(nameof(AvailableTraitTypes));
+        OnPropertyChanged(nameof(AvailableTriggerTimings));
 
         ApplyFilters();
     }
@@ -51,6 +96,7 @@ public partial class OperatorBrowseViewModel : ObservableObject
     partial void OnSearchTextChanged(string value) => ApplyFilters();
     partial void OnSelectedTierFilterChanged(int? value) => ApplyFilters();
     partial void OnSelectedTraitTypeFilterChanged(string? value) => ApplyFilters();
+    partial void OnSelectedTriggerTimingFilterChanged(string? value) => ApplyFilters();
 
     public void SetCovenantFilters(IEnumerable<string> covenants)
     {
@@ -77,10 +123,19 @@ public partial class OperatorBrowseViewModel : ObservableObject
                 o.Normal.Traits.Any(t => t.TraitType == SelectedTraitTypeFilter) ||
                 o.Elite.Traits.Any(t => t.TraitType == SelectedTraitTypeFilter));
 
+        if (!string.IsNullOrEmpty(SelectedTriggerTimingFilter))
+        {
+            var tag = $"<{SelectedTriggerTimingFilter}>";
+            filtered = filtered.Where(o =>
+                o.Normal.Traits.Any(t => t.TraitDescription.Contains(tag)) ||
+                o.Elite.Traits.Any(t => t.TraitDescription.Contains(tag)));
+        }
+
         if (!string.IsNullOrEmpty(SearchText))
             filtered = filtered.Where(o =>
                 o.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 
         FilteredOperators = new ObservableCollection<Operator>(filtered);
+        OnPropertyChanged(nameof(ActiveFilterTags));
     }
 }

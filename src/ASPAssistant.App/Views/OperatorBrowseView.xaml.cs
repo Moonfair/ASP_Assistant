@@ -1,6 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using ASPAssistant.App.Controls;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.ViewModels;
@@ -12,10 +15,18 @@ public partial class OperatorBrowseView : UserControl
     public event Action<string, TrackingType>? TrackingRequested;
     public Func<string, bool>? IsTrackedCheck { get; set; }
 
+    // ── Scroll-driven filter collapse state ─────────────────────────────────
+    private ScrollViewer? _resultsScrollViewer;
+    private double _filterContentHeight;   // natural rendered height of the filter panel
+    private double _scrollAnchorOffset;    // VerticalOffset at which the panel was last at full height
+    private bool _suppressToggleEvents;    // prevents re-entrant handlers during programmatic toggle
+
     public OperatorBrowseView()
     {
         InitializeComponent();
         DataContextChanged += OnViewDataContextChanged;
+        FilterToggle.Checked += OnFilterToggleChecked;
+        FilterToggle.Click += OnFilterToggleClick;
     }
 
     private void OnViewDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -27,15 +38,115 @@ public partial class OperatorBrowseView : UserControl
             TierFilterList.SelectedIndex = 0;
             CovenantFilterList.SelectedIndex = 0;
             TraitFilterList.SelectedIndex = 0;
+            TriggerTimingFilterList.SelectedIndex = 0;
+
+            // Hook the inner ScrollViewer once the visual tree is ready.
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, HookScrollViewer);
         }
+    }
+
+    // ── Scroll-driven collapse helpers ──────────────────────────────────────
+
+    private void HookScrollViewer()
+    {
+        if (_resultsScrollViewer != null) return;
+        _resultsScrollViewer = FindChild<ScrollViewer>(OperatorListControl);
+        if (_resultsScrollViewer != null)
+            _resultsScrollViewer.ScrollChanged += OnResultsScrollChanged;
+    }
+
+    private void OnResultsScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        // Only respond while the filter panel is open; ignore non-vertical events.
+        if (FilterToggle.IsChecked != true || e.VerticalChange == 0) return;
+
+        // Capture natural height and anchor on the first scroll event after opening.
+        if (_filterContentHeight <= 0)
+        {
+            if (FilterContentPanel.ActualHeight <= 0) return;
+            _filterContentHeight = FilterContentPanel.ActualHeight;
+            // Anchor = position BEFORE this event so the first pixel of scroll begins collapsing.
+            _scrollAnchorOffset = e.VerticalOffset - e.VerticalChange;
+        }
+
+        // Height is proportional to how far we are from the anchor.
+        // Scrolling down (delta > 0) collapses; scrolling up (delta < 0) re-opens.
+        double delta = e.VerticalOffset - _scrollAnchorOffset;
+        double newHeight = Math.Min(_filterContentHeight, Math.Max(0, _filterContentHeight - delta));
+
+        if (newHeight >= _filterContentHeight)
+        {
+            // Scrolled back to (or above) the anchor — restore Auto so the row is naturally sized.
+            if (!FilterContentRow.Height.IsAuto)
+                FilterContentRow.Height = GridLength.Auto;
+            return;
+        }
+
+        FilterContentRow.Height = new GridLength(newHeight);
+
+        if (newHeight <= 0)
+        {
+            // Fully collapsed by scroll — uncheck toggle.
+            // _suppressToggleEvents prevents OnFilterToggleClick from treating this as a
+            // user-initiated partial-collapse click.
+            _suppressToggleEvents = true;
+            FilterToggle.IsChecked = false;
+            _suppressToggleEvents = false;
+        }
+    }
+
+    private void OnFilterToggleChecked(object sender, RoutedEventArgs e)
+    {
+        if (_suppressToggleEvents) return;
+
+        // Reset to Auto so the panel naturally re-expands to its full content height.
+        // _filterContentHeight and anchor will be re-captured on the next scroll event.
+        FilterContentRow.Height = GridLength.Auto;
+        _filterContentHeight = 0;
+        _scrollAnchorOffset = 0;
+    }
+
+    private void OnFilterToggleClick(object sender, RoutedEventArgs e)
+    {
+        if (_suppressToggleEvents) return;
+
+        // Detect a click that would close the panel while it is partially scroll-collapsed.
+        // In that state we want to re-expand to full height instead of closing.
+        bool isPartiallyCollapsed =
+            _filterContentHeight > 0 &&
+            FilterContentRow.Height.IsAbsolute &&
+            FilterContentRow.Height.Value > 0 &&
+            FilterContentRow.Height.Value < _filterContentHeight;
+
+        if (isPartiallyCollapsed && FilterToggle.IsChecked == false)
+        {
+            // The click just set IsChecked = false; override that.
+            _suppressToggleEvents = true;
+            FilterToggle.IsChecked = true;
+            FilterContentRow.Height = GridLength.Auto;
+            _filterContentHeight = 0;
+            // Update anchor to current position so future scrolling collapses from here.
+            _scrollAnchorOffset = _resultsScrollViewer?.VerticalOffset ?? 0;
+            _suppressToggleEvents = false;
+        }
+    }
+
+    private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T t) return t;
+            var result = FindChild<T>(child);
+            if (result != null) return result;
+        }
+        return null;
     }
 
     private void OnOperatorTrackingToggled(object sender, RoutedEventArgs e)
     {
         if (e.OriginalSource is OperatorCard card && card.DataContext is Operator op)
         {
-            card.IsTracked = !card.IsTracked;
-            card.IsTrackedCheck = IsTrackedCheck;
             TrackingRequested?.Invoke(op.Name, TrackingType.Operator);
         }
     }
@@ -64,6 +175,13 @@ public partial class OperatorBrowseView : UserControl
         if (DataContext is not OperatorBrowseViewModel vm) return;
         vm.SelectedTraitTypeFilter = TraitFilterList.SelectedItem as string;
     }
+
+    private void OnTriggerTimingFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is not OperatorBrowseViewModel vm) return;
+        vm.SelectedTriggerTimingFilter = TriggerTimingFilterList.SelectedItem as string;
+    }
+
 
     // ── Covenant multi-select ────────────────────────────────────────────────
 
