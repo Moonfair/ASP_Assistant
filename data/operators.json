@@ -1,1 +1,2829 @@
-{"operators": []}
+{
+  "operators": [
+    {
+      "name": "隐现",
+      "tier": 1,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [
+        "迅捷"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【拉特兰】每叠加5层，本干员攻击速度+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "角峰",
+      "tier": 1,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "坚守"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+2（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "惊蛰",
+      "tier": 1,
+      "coreCovenant": "炎",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>获得等于当前调度中心等级的【炎】层数（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>获得等于两倍的当前调度中心等级的【炎】层数（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "深巡",
+      "tier": 1,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击海怪敌人时攻击力提升至150%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击海怪敌人时攻击力提升至200%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "红豆",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "不屈"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "购买价格为1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "购买价格为1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "刺玫",
+      "tier": 1,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>进入下个休整期额外获得1资金"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>进入下个休整期额外获得2资金"
+          }
+        ]
+      }
+    },
+    {
+      "name": "普罗旺斯",
+      "tier": 1,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得1次免费刷新"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得2次免费刷新"
+          }
+        ]
+      }
+    },
+    {
+      "name": "德克萨斯",
+      "tier": 1,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [
+        "独行"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>获得1次免费刷新"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>获得2次免费刷新"
+          }
+        ]
+      }
+    },
+    {
+      "name": "跃跃",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击无人机敌人时攻击力提升至150%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击无人机敌人时攻击力提升至200%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "古米",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "坚守"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "技力自然恢复速度+0.15/秒"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "技力自然恢复速度+0.3/秒"
+          }
+        ]
+      }
+    },
+    {
+      "name": "地灵",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "奇迹",
+        "远见"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+2（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "艾丝黛尔",
+      "tier": 1,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+2（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "波登可",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>当前激活且层数最多的盟约层数+1，此干员在整备区时也有效"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>当前激活且层数最多的盟约层数+2，此干员在整备区时也有效"
+          }
+        ]
+      }
+    },
+    {
+      "name": "格雷伊",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>进入下个休整期额外获得1资金"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>进入下个休整期额外获得2资金"
+          }
+        ]
+      }
+    },
+    {
+      "name": "盟约·辅助干员",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "调和",
+        "协防干员"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+20%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+40%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "锡人",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "投资人"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+2（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "深靛",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "奥术",
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+2（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "宴",
+      "tier": 1,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "突袭"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>造成的伤害变为弱点伤害（基于敌人的防御力和法术抗性变换物理和法术伤害）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>造成的伤害变为弱点伤害（基于敌人的防御力和法术抗性变换物理和法术伤害）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "野鬃",
+      "tier": 1,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [
+        "迅捷"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+2（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "送葬人",
+      "tier": 2,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>首次击倒敌人时，使已激活的【精准】【拉特兰】层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>首次击倒敌人时，使已激活的【精准】【拉特兰】层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "赫默",
+      "tier": 2,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "远见"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<进入休整期时>使自身已激活的盟约层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<进入休整期时>使自身已激活的盟约层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "崖心",
+      "tier": 2,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "不屈"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+3（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+6（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "小满",
+      "tier": 2,
+      "coreCovenant": "炎",
+      "additionalCovenants": [
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每获得过1名干员，使已激活的【炎】层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每获得过1名干员，使已激活的【炎】层数+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "哈洛德",
+      "tier": 2,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+20%；核心盟约每叠加3层，本干员攻击力和生命值+1%"
+          },
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+20%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+40%；核心盟约每叠加3层，本干员攻击力和生命值+2%"
+          },
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+40%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "莎草",
+      "tier": 2,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>首次开启技能时，使已激活的【萨尔贡】层数+3"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>首次开启技能时，使已激活的【萨尔贡】层数+6"
+          }
+        ]
+      }
+    },
+    {
+      "name": "幽灵鲨",
+      "tier": 2,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身被击倒时，使已激活的【阿戈尔】层数+3"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身被击倒时，使已激活的【阿戈尔】层数+6"
+          }
+        ]
+      }
+    },
+    {
+      "name": "泡泡",
+      "tier": 2,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [
+        "坚守"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【萨尔贡】【坚守】每叠加3层，本干员防御力+1%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【萨尔贡】【坚守】每叠加3层，本干员防御力+2%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "休谟斯",
+      "tier": 2,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "突袭"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>每击倒2名敌人时，使已激活的【突袭】层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>每击倒2名敌人，使已激活的【突袭】层数+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "洛洛",
+      "tier": 2,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [
+        "奥术"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>随机制造1件洛洛的定制品"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>随机制造2件洛洛的定制品"
+          }
+        ]
+      }
+    },
+    {
+      "name": "风丸",
+      "tier": 2,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "奇迹"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "只需2个相同的本干员即可合成精锐"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "只需2个相同的本干员即可合成精锐"
+          }
+        ]
+      }
+    },
+    {
+      "name": "砾",
+      "tier": 2,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [
+        "不屈"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<部署时>使已激活的【卡西米尔】层数+1\n<被击倒时>使已激活的【不屈】层数+2"
+          },
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<部署时>使已激活的【卡西米尔】层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<部署时>使已激活的【卡西米尔】层数+2\n<被击倒时>使已激活的【不屈】层数+4"
+          },
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<部署时>使已激活的【卡西米尔】层数+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "蒂比",
+      "tier": 2,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "迅捷",
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<进入休整期时>使自身已激活的盟约层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<进入休整期时>使自身已激活的盟约层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "调香师",
+      "tier": 2,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>当前激活且层数最多的盟约层数+2，此干员在整备区时也有效"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>当前激活且层数最多的盟约层数+4，此干员在整备区时也有效"
+          }
+        ]
+      }
+    },
+    {
+      "name": "协律",
+      "tier": 2,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "奥术",
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+4（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+8（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "拉普兰德",
+      "tier": 2,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<刷新时>若为本回合首次主动刷新，使已激活的【叙拉古】层数+3，此干员在整备区时也有效"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<刷新时>若为本回合首次主动刷新，使已激活的【叙拉古】层数+6，此干员在整备区时也有效"
+          }
+        ]
+      }
+    },
+    {
+      "name": "折桠",
+      "tier": 2,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "坚守",
+        "独行"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使已激活的【坚守】层数+4"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使已激活的【坚守】层数+8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "灰毫",
+      "tier": 2,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [
+        "坚守"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>当前激活且层数最多的盟约层数+3"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>当前激活且层数最多的盟约层数+6"
+          }
+        ]
+      }
+    },
+    {
+      "name": "能天使",
+      "tier": 3,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [
+        "奇迹"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>使下个休整期额外获得1资金"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>使下个休整期额外获得2资金"
+          }
+        ]
+      }
+    },
+    {
+      "name": "断崖",
+      "tier": 3,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<进入休整期时>使自身及身前一格干员的已激活盟约分别各层数+3"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<进入休整期时>使自身及身前一格干员的已激活盟约分别各层数+6"
+          }
+        ]
+      }
+    },
+    {
+      "name": "诗怀雅",
+      "tier": 3,
+      "coreCovenant": "炎",
+      "additionalCovenants": [
+        "远见"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得1个“盟约之币”"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得2个“盟约之币”"
+          }
+        ]
+      }
+    },
+    {
+      "name": "琳琅诗怀雅",
+      "tier": 3,
+      "coreCovenant": "炎",
+      "additionalCovenants": [
+        "投资人"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<休整期结束时>使下个休整期额外获得1资金（若已激活【炎】/【投资人】此特质在整备区也有效）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<休整期结束时>使下个休整期额外获得2资金（若已激活【炎】/【投资人】此特质在整备区也有效）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "斯卡蒂",
+      "tier": 3,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [
+        "坚守",
+        "突袭"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>每击倒2名单位时，使已激活的【阿戈尔】【坚守】【突袭】层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>每击倒2名敌人时，使已激活的【阿戈尔】【坚守】【突袭】层数+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "菲莱",
+      "tier": 3,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>开启技能时，使已激活的【萨尔贡】层数+4"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>开启技能时，使已激活的【萨尔贡】层数+8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "见行者",
+      "tier": 3,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使自身及身后一格干员的已激活盟约分别各层数+3"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使自身及身后一格干员的已激活盟约分别各层数+6"
+          }
+        ]
+      }
+    },
+    {
+      "name": "薄绿",
+      "tier": 3,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>场上每有1名不同阶的【维多利亚】干员，使已激活的【维多利亚】层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>场上每有1名不同阶的【维多利亚】干员，使已激活的【维多利亚】层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "海霓",
+      "tier": 3,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [
+        "奥术"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>首次击倒敌人或我方干员时，使已激活的【阿戈尔】【奥术】层数+3"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>首次击倒敌人或我方干员时，使已激活的【阿戈尔】【奥术】层数+6"
+          }
+        ]
+      }
+    },
+    {
+      "name": "松果",
+      "tier": 3,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "迅捷",
+        "协防干员"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>进行一次I阶干员的免费特殊招募\n本干员合成为精锐状态后，上述特殊招募变为V阶干员"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>进行一次V阶干员的免费特殊招募"
+          }
+        ]
+      }
+    },
+    {
+      "name": "雪猎",
+      "tier": 3,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+5（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+10（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "瑕光",
+      "tier": 3,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [
+        "突袭"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<部署时>使自身已激活的盟约层数+4（每场作战至多12层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<部署时>使自身已激活的盟约层数+8（每场作战至多24层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "至简",
+      "tier": 3,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "购买价格为1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "购买价格为1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "初雪",
+      "tier": 3,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "远见"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>每当范围内1名敌人进入冻结时，有30%概率使已激活的【谢拉格】层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>每当范围内1名敌人进入冻结时，有60%概率使已激活的【谢拉格】层数+1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "巫恋",
+      "tier": 3,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>获得2次免费刷新"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>获得4次免费刷新"
+          }
+        ]
+      }
+    },
+    {
+      "name": "蛇屠箱",
+      "tier": 3,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "坚守",
+        "不屈"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>同一行每有1名干员，使已激活的【坚守】层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>同一行每有1名干员，使已激活的【坚守】层数+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "流星",
+      "tier": 3,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [
+        "独行"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>攻击力和生命值+25%，造成的伤害变为弱点伤害（基于敌人的防御力和法术抗性变换物理和法术伤害）"
+          },
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>造成的伤害变为弱点伤害（基于敌人的防御力和法术抗性变换物理和法术伤害）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>攻击力和生命值+50%，造成的伤害变为弱点伤害（基于敌人的防御力和法术抗性变换物理和法术伤害）"
+          },
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>造成的伤害变为弱点伤害（基于敌人的防御力和法术抗性变换物理和法术伤害）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "忍冬",
+      "tier": 3,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [
+        "迅捷"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+6（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+12（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "信仰搅拌机",
+      "tier": 4,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [
+        "坚守"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【拉特兰】【坚守】每叠加3层，本干员防御力+1%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【拉特兰】【坚守】每叠加3层，本干员防御力+2%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "莫斯提马",
+      "tier": 4,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [
+        "奥术"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身周围4格的干员每消耗6发弹药，使已激活的【拉特兰】层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身周围4格的干员每消耗6发弹药，使已激活的【拉特兰】层数+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "耶拉",
+      "tier": 4,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得1件“谢拉格不融冰”"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得2件“谢拉格不融冰”"
+          }
+        ]
+      }
+    },
+    {
+      "name": "伊内丝",
+      "tier": 4,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "远见",
+        "突袭"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使自身已激活的盟约层数+6"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使自身已激活的盟约层数+12"
+          }
+        ]
+      }
+    },
+    {
+      "name": "蜜蜡",
+      "tier": 4,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得1件“迅捷作战粮”"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得2件“迅捷作战粮”"
+          }
+        ]
+      }
+    },
+    {
+      "name": "寒芒克洛丝",
+      "tier": 4,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使身前一格干员获得特质“开启技能时使已激活【精准】层数+1”（每场战斗至多10层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使身前一格干员获得特质“开启技能时使已激活【精准】层数+2”（每场战斗至多20层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "风笛",
+      "tier": 4,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [
+        "远见",
+        "不屈"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>前3次击倒敌人时，使已激活的【维多利亚】【远见】【不屈】层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>前3次击倒敌人时，使已激活的【维多利亚】【远见】【不屈】层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "瑰盐",
+      "tier": 4,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "协防干员"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "特异化",
+            "traitDescription": "<售出时>触发场上一名拥有“休整期结束时”的干员的特质（优先触发部署位置更靠上的和更靠右的）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "特异化",
+            "traitDescription": "<售出时>触发场上一名拥有“休整期结束时”的干员的特质（优先触发部署位置更靠上的和更靠右的）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "水月",
+      "tier": 4,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [
+        "独行"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【阿戈尔】每叠加3层，本干员攻击力+1%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【阿戈尔】每叠加3层，本干员攻击力+2%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "阿罗玛",
+      "tier": 4,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [
+        "奥术"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每刷新过1次，使已激活的【叙拉古】【奥术】层数+2（至多6层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每刷新过1次，使已激活的【叙拉古】【奥术】层数+4（每回合至多12层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "凯瑟琳",
+      "tier": 4,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>若当前为奇数回合，获得1件随机装备"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>若当前为奇数回合，获得2件随机装备"
+          }
+        ]
+      }
+    },
+    {
+      "name": "歌蕾蒂娅",
+      "tier": 4,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>若同一行有3名干员，获得1个斯卡蒂、幽灵鲨或深巡"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>若同一行有3名干员，获得1个斯卡蒂、幽灵鲨或深巡，重复2次"
+          }
+        ]
+      }
+    },
+    {
+      "name": "灵知",
+      "tier": 4,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+5（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+10（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "莱恩哈特",
+      "tier": 4,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "迅捷",
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使自身已激活的盟约层数+4"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使自身已激活的盟约层数+8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "录武官",
+      "tier": 4,
+      "coreCovenant": "炎",
+      "additionalCovenants": [
+        "奇迹"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+6（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+12（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "缄默德克萨斯",
+      "tier": 4,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [
+        "突袭"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>获得1次免费刷新"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>获得2次免费刷新"
+          }
+        ]
+      }
+    },
+    {
+      "name": "星熊",
+      "tier": 4,
+      "coreCovenant": "炎",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+8（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+16（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "泥岩",
+      "tier": 4,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "独行"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>进入下个休整期额外获得2资金"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<售出时>进入下个休整期额外获得4资金"
+          }
+        ]
+      }
+    },
+    {
+      "name": "焰尾",
+      "tier": 4,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得1个野鬃或灰毫，小概率获得远牙"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得2个野鬃或灰毫，小概率获得远牙"
+          }
+        ]
+      }
+    },
+    {
+      "name": "远牙",
+      "tier": 4,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使同一行最右边一名干员获得特质“<部署时>使已激活的【卡西米尔】【精准】层数+4（每场作战至多24层）”"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使同一行最右边一名干员获得特质“<部署时>使已激活的【卡西米尔】【精准】层数+8（每场作战至多48层）”"
+          }
+        ]
+      }
+    },
+    {
+      "name": "圣约送葬人",
+      "tier": 5,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [
+        "远见"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身每消耗7发子弹，使已激活的【拉特兰】层数+7、【远见】层数+3（每场战斗分别至多触发7次）"
+          },
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "【23】<战斗中>自身每消耗7发子弹，使已激活的【拉特兰】层数+7、【远见】层数+3（【远见】每场战斗至多21层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身每消耗7发子弹，使已激活的【拉特兰】层数+14、【远见】层数+6（每场战斗至多触发7次）"
+          },
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "【23】<战斗中>自身每消耗7发子弹，使已激活的【拉特兰】层数+14、【远见】层数+6（【远见】每场战斗至多42层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "缇缇",
+      "tier": 5,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>每当范围内有敌人或干员进入睡眠或晕眩时，使已激活的【萨尔贡】【精准】层数+1（每场战斗至多24层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>每当范围内有敌人或干员进入睡眠或晕眩时，使已激活的【萨尔贡】【精准】层数+2（每场战斗至多48层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "烛煌",
+      "tier": 5,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>【炎】【维多利亚】层数+5（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>【炎】【维多利亚】层数+10（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "华法琳",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "奇迹"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使身前一格干员获得特质“开启技能时使自身所属已激活盟约层数+1”（每场战斗至多12层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使身前一格干员获得特质“开启技能时使自身所属已激活盟约层数+2”（每场战斗至多24层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "乌尔比安",
+      "tier": 5,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【阿戈尔】每叠加2层，本干员攻击力+1%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【阿戈尔】每叠加2层，本干员攻击力+2%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "隐德来希",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "不屈",
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "核心盟约每叠加3层，本干员攻击力和生命值+1%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "核心盟约每叠加3层，本干员攻击力和生命值+2%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "史尔特尔",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "突袭",
+        "奥术"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<部署时>使已激活的【突袭】层数+8（每场作战至多50层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<部署时>使已激活的【突袭】层数+16（每场作战至多100层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "号角",
+      "tier": 5,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>当前已激活且层数最多的盟约每有1名不同阶干员在场，层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>当前已激活且层数最多的盟约每有1名不同阶干员在场，层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "魔王",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "奇迹",
+        "协防干员"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>战斗中当本干员身前一格的干员因特质使层数提升时，使其额外层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>战斗中当本干员身前一格的干员因特质使层数提升时，使其额外层数+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "铃兰",
+      "tier": 5,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [
+        "协防干员"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "特异化",
+            "traitDescription": "<进入休整期时>触发身前一格的其他干员的“获得时”类效果"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "特异化",
+            "traitDescription": "<进入休整期时>触发身前两格的其他干员的“获得时”类效果"
+          }
+        ]
+      }
+    },
+    {
+      "name": "塞雷娅",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "坚守",
+        "独行"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "特异化",
+            "traitDescription": "身前一格干员若为“休整期结束时”特质，本干员的特质与其相同"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "特异化",
+            "traitDescription": "身前一格干员若为“休整期结束时”特质，本干员的特质与其相同"
+          }
+        ]
+      }
+    },
+    {
+      "name": "夕",
+      "tier": 5,
+      "coreCovenant": "炎",
+      "additionalCovenants": [
+        "奥术"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>当前休整期每获得过一名干员，使已激活的【炎】【奥术】层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>当前休整期每获得过一名干员，使已激活的【炎】【奥术】层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "归溟幽灵鲨",
+      "tier": 5,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [
+        "不屈"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身被击倒或替身与本体进行切换时，使已激活的【阿戈尔】层数+4、【不屈】层数+4"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身被击倒或替身与本体进行切换时，使已激活的【阿戈尔】层数+8、【不屈】层数+8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "凛御银灰",
+      "tier": 5,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "投资人",
+        "迅捷"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使身前一格【谢拉格】干员获得特质“范围内1名敌人进入冻结时，有35%概率使已激活的【谢拉格】层数+1”"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使身前一格【谢拉格】干员获得特质“范围内1名敌人进入冻结时，有70%概率使已激活的【谢拉格】层数+1”"
+          }
+        ]
+      }
+    },
+    {
+      "name": "引星棘刺",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "迅捷",
+        "奇迹"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使自身及身前一格干员的已激活盟约分别各层数+4"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使自身及身前一格干员的已激活盟约分别各层数+8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "白面鸮",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "助力",
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "特异化",
+            "traitDescription": "身前一格干员若为“进入休整期时”特质，本干员的特质与其相同"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "特异化",
+            "traitDescription": "身前一格干员若为“进入休整期时”特质，本干员的特质与其相同"
+          }
+        ]
+      }
+    },
+    {
+      "name": "山",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "投资人"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每获得过1名干员，使已激活的【投资人】层数+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每获得过1名干员，使已激活的【投资人】层数+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "百炼嘉维尔",
+      "tier": 5,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>开启技能时，使已激活的【萨尔贡】层数+8"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>开启技能时，使已激活的【萨尔贡】层数+16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "玛恩纳",
+      "tier": 5,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【卡西米尔】每叠加5层，本干员部署后100秒内基础攻击力+10、基础生命值+50"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【卡西米尔】每叠加5层，本干员部署后100秒内基础攻击力+20、基础生命值+100"
+          }
+        ]
+      }
+    },
+    {
+      "name": "安洁莉娜",
+      "tier": 5,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [
+        "奇迹"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每刷新过1次，使已激活的【叙拉古】层数+4（每回合至多12层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每刷新过1次，使已激活的【叙拉古】层数+8（每回合至多24层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "寒檀",
+      "tier": 5,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "远见"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<进入休整期时><休整期结束时>使已激活的【远见】层数+4"
+          },
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使已激活的【远见】层数+4"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<进入休整期时><休整期结束时>使已激活的【远见】层数+8"
+          },
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>使已激活的【远见】层数+8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "蕾缪安",
+      "tier": 6,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身每消耗10发子弹，若同一行有3名干员，使已激活的【拉特兰】【精准】层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>自身每消耗10发子弹，若同一行有3名干员，使已激活的【拉特兰】【精准】层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "圣聆初雪",
+      "tier": 6,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "奥术"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【谢拉格】【奥术】每叠加3层，本干员攻击力+1%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【谢拉格】【奥术】每叠加3层，本干员攻击力+2%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "余",
+      "tier": 6,
+      "coreCovenant": "炎",
+      "additionalCovenants": [
+        "坚守"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>若同一行有3名干员，随机获得1名当前人数最多盟约的干员"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>随机获得1名当前人数最多盟约的干员"
+          }
+        ]
+      }
+    },
+    {
+      "name": "浊心斯卡蒂",
+      "tier": 6,
+      "coreCovenant": "阿戈尔",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【阿戈尔】每叠加10层，本干员每秒回复50生命，自然技力回复速度+0.15/秒"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【阿戈尔】每叠加10层，本干员每秒回复100生命，自然技力回复速度+0.3/秒"
+          }
+        ]
+      }
+    },
+    {
+      "name": "异客",
+      "tier": 6,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [
+        "迅捷",
+        "独行"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【萨尔贡】【迅捷】每叠加3层，本干员攻击力+2%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【萨尔贡】【迅捷】每叠加3层，本干员攻击力+4%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "佩佩",
+      "tier": 6,
+      "coreCovenant": "萨尔贡",
+      "additionalCovenants": [
+        "不屈"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>获得1件“盟约之币”或“萨尔贡浓茶”，有小概率发现“黄沙罗盘”"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<进入休整期时>获得2件“盟约之币”或“萨尔贡浓茶”，有概率发现“黄沙罗盘”"
+          }
+        ]
+      }
+    },
+    {
+      "name": "维娜·维多利亚",
+      "tier": 6,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [
+        "奇迹"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>场上每有1名不同阶的【维多利亚】/【奇迹】干员使已激活的【维多利亚】/【奇迹】层数+2"
+          },
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>场上每有1名不同阶的【维多利亚】/【奇迹】干员使已激活的【维多利亚】/【奇迹】层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>场上每有1名不同阶的【维多利亚】/【奇迹】干员使已激活的【维多利亚】/【奇迹】层数+4"
+          },
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>场上每有1名不同阶的【维多利亚】/【奇迹】干员使已激活的【维多利亚】/【奇迹】层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "焰影苇草",
+      "tier": 6,
+      "coreCovenant": "维多利亚",
+      "additionalCovenants": [
+        "精准"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【维多利亚】每叠加3层，本干员攻击速度+1"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【维多利亚】每叠加3层，本干员攻击速度+2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "塑心",
+      "tier": 6,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>开启技能时，同一行每有1名干员，当前已激活且层数最多的盟约层数+1（每场作战至多10层）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>开启技能时，同一行每有1名干员，当前已激活且层数最多的盟约层数+2（每场作战至多20层）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "妮芙",
+      "tier": 6,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "迅捷"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>整备区每有1个干员，使已激活的【迅捷】层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>整备区每有1个干员，使已激活的【迅捷】层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "缪尔赛思",
+      "tier": 6,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "调和"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得1个“变形同构体”"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>获得2个“变形同构体”"
+          }
+        ]
+      }
+    },
+    {
+      "name": "迷迭香",
+      "tier": 6,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "精准",
+        "远见",
+        "协防干员"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+20%；核心盟约每叠加3层，本干员攻击力和生命值+1%"
+          },
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+20%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+40%；核心盟约每叠加3层，本干员攻击力和生命值+2%"
+          },
+          {
+            "traitType": "作战能力",
+            "traitDescription": "攻击力和生命值+40%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "新约能天使",
+      "tier": 6,
+      "coreCovenant": "拉特兰",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>使下个休整期额外获得2资金"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "整备能力",
+            "traitDescription": "<获得时>使下个休整期额外获得4资金"
+          }
+        ]
+      }
+    },
+    {
+      "name": "流明",
+      "tier": 6,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>整备区中每名干员所在的已激活盟约分别层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>整备区中每名干员所在的已激活盟约分别层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "仇白",
+      "tier": 6,
+      "coreCovenant": "炎",
+      "additionalCovenants": [
+        "突袭"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【炎】【突袭】每叠加3层，本干员攻击束缚和停顿状态的敌人造成的伤害提升1%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【炎】【突袭】每叠加3层，本干员攻击束缚和停顿状态的敌人造成的伤害提升2%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "溯光星源",
+      "tier": 6,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "奥术",
+        "灵巧"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每花费3资金，使已激活的【灵巧】【奥术】层数+2"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<休整期结束时>本回合每花费3资金，使已激活的【灵巧】【奥术】层数+4"
+          }
+        ]
+      }
+    },
+    {
+      "name": "耀骑士临光",
+      "tier": 6,
+      "coreCovenant": "卡西米尔",
+      "additionalCovenants": [
+        "突袭"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使自身和身前一格干员获得特质“【卡西米尔】每叠加3层，本干员再部署时间-1.5%”"
+          },
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【145】【卡西米尔】每叠加3层，本干员再部署时间-1.5%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使自身和身前一格干员获得特质“【卡西米尔】每叠加3层，本干员再部署时间-3%”"
+          },
+          {
+            "traitType": "作战能力",
+            "traitDescription": "【卡西米尔】每叠加3层，本干员再部署时间-3%"
+          }
+        ]
+      }
+    },
+    {
+      "name": "荒芜拉普兰德",
+      "tier": 6,
+      "coreCovenant": "叙拉古",
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>击倒敌人时，使已激活的【叙拉古】层数+2\\n将荒芜拉普兰德合成为精锐即可在战斗中使所有【叙拉古】干员获得该效果"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗开始时>使所有【叙拉古】干员获得特质“击倒敌人时，使已激活的【叙拉古】层数+2”"
+          }
+        ]
+      }
+    },
+    {
+      "name": "锏",
+      "tier": 6,
+      "coreCovenant": "谢拉格",
+      "additionalCovenants": [
+        "迅捷"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+8（无需激活盟约）"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "单次叠加",
+            "traitDescription": "<获得时>自身所属盟约层数+16（无需激活盟约）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "纯烬艾雅法拉",
+      "tier": 6,
+      "coreCovenant": "",
+      "additionalCovenants": [
+        "助力"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>开启技能时，当前已激活且层数最多的盟约层数+3"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "持续叠加",
+            "traitDescription": "<战斗中>开启技能时，当前已激活且层数最多的盟约层数+6"
+          }
+        ]
+      }
+    }
+  ]
+}
