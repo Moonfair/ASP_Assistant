@@ -1,0 +1,83 @@
+<UserControl x:Class="ASPAssistant.App.Views.TrackingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource PanelBackgroundBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8">
+            <TextBlock Text="当前盟约持有" FontSize="12" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="8" Margin="0,0,0,12">
+                <ItemsControl x:Name="CovenantCountsPanel">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </Border>
+
+            <TextBlock FontSize="12" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4">
+                <Run Text="追踪中的干员 (" /><Run Text="{Binding TrackedOperators.Count, Mode=OneWay}" /><Run Text=")" />
+            </TextBlock>
+            <ItemsControl ItemsSource="{Binding TrackedOperators}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource ItemCardBorder}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="✕" Tag="{Binding Name}"
+                                        Style="{StaticResource TrackingButton}" Click="OnRemoveTracking" />
+                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="12" VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock FontSize="12" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,4">
+                <Run Text="追踪中的装备 (" /><Run Text="{Binding TrackedEquipment.Count, Mode=OneWay}" /><Run Text=")" />
+            </TextBlock>
+            <ItemsControl ItemsSource="{Binding TrackedEquipment}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource ItemCardBorder}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="✕" Tag="{Binding Name}"
+                                        Style="{StaticResource TrackingButton}" Click="OnRemoveTracking" />
+                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"
+                                           FontSize="12" VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="游戏状态（实时 OCR）" FontSize="12" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,4" />
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="8">
+                <StackPanel DataContext="{Binding GameState}">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="12">
+                            <Run Text="回合: " /><Run Text="{Binding CurrentRound}" />
+                        </TextBlock>
+                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="16,0,0,0">
+                            <Run Text="金币: " /><Run Text="{Binding Gold}" />
+                        </TextBlock>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding TrackingAlerts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Foreground="{StaticResource TrackingBrush}"
+                                           FontSize="12" FontWeight="Bold" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

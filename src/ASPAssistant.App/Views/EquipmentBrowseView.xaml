@@ -1,0 +1,28 @@
+<UserControl x:Class="ASPAssistant.App.Views.EquipmentBrowseView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ASPAssistant.App.Controls"
+             Background="{StaticResource PanelBackgroundBrush}">
+    <DockPanel>
+        <TextBox DockPanel.Dock="Top" Margin="8"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                 Background="#FF2A2A40" Foreground="{StaticResource TextPrimaryBrush}"
+                 BorderBrush="{StaticResource BorderBrush}" Padding="6,4" />
+        <Expander DockPanel.Dock="Top" Header="筛选" Margin="8,0"
+                  Foreground="{StaticResource TextSecondaryBrush}" IsExpanded="False">
+            <StackPanel Margin="0,4">
+                <TextBlock Text="等阶:" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" />
+                <WrapPanel x:Name="TierFilterPanel" Margin="0,2" />
+            </StackPanel>
+        </Expander>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding FilteredEquipment}" Margin="8">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <controls:EquipmentCard TrackingToggled="OnEquipmentTrackingToggled" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>
