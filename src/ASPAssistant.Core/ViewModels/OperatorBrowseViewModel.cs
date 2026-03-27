@@ -48,8 +48,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
 
         if (!string.IsNullOrEmpty(SelectedTraitTypeFilter))
             filtered = filtered.Where(o =>
-                o.Normal.TraitType == SelectedTraitTypeFilter ||
-                o.Elite.TraitType == SelectedTraitTypeFilter);
+                o.Normal.Traits.Any(t => t.TraitType == SelectedTraitTypeFilter) ||
+                o.Elite.Traits.Any(t => t.TraitType == SelectedTraitTypeFilter));
 
         if (!string.IsNullOrEmpty(SearchText))
             filtered = filtered.Where(o =>
