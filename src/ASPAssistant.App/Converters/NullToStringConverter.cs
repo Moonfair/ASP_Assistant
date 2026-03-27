@@ -7,7 +7,7 @@ public class NullToStringConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is null)
+        if (value is null || (value is string s && s.Length == 0))
             return parameter?.ToString() ?? "全部";
         return value.ToString() ?? "";
     }

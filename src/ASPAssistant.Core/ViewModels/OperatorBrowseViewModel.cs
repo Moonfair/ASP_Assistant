@@ -17,8 +17,7 @@ public partial class OperatorBrowseViewModel : ObservableObject
     [ObservableProperty]
     private int? _selectedTierFilter;
 
-    [ObservableProperty]
-    private string? _selectedCovenantFilter;
+    private readonly HashSet<string> _selectedCovenantFilters = [];
 
     [ObservableProperty]
     private string? _selectedTraitTypeFilter;
@@ -32,7 +31,7 @@ public partial class OperatorBrowseViewModel : ObservableObject
         _allOperators = operators;
 
         AvailableTiers = [null, .. operators.Select(o => (int?)o.Tier).Distinct().OrderBy(t => t)];
-        AvailableCovenants = [null, .. operators
+        AvailableCovenants = ["", .. operators
             .SelectMany(o => new[] { o.CoreCovenant }.Concat(o.AdditionalCovenants))
             .Where(c => !string.IsNullOrEmpty(c))
             .Distinct().Order()];
@@ -51,8 +50,15 @@ public partial class OperatorBrowseViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => ApplyFilters();
     partial void OnSelectedTierFilterChanged(int? value) => ApplyFilters();
-    partial void OnSelectedCovenantFilterChanged(string? value) => ApplyFilters();
     partial void OnSelectedTraitTypeFilterChanged(string? value) => ApplyFilters();
+
+    public void SetCovenantFilters(IEnumerable<string> covenants)
+    {
+        _selectedCovenantFilters.Clear();
+        foreach (var c in covenants)
+            _selectedCovenantFilters.Add(c);
+        ApplyFilters();
+    }
 
     private void ApplyFilters()
     {
@@ -61,10 +67,10 @@ public partial class OperatorBrowseViewModel : ObservableObject
         if (SelectedTierFilter.HasValue)
             filtered = filtered.Where(o => o.Tier == SelectedTierFilter.Value);
 
-        if (!string.IsNullOrEmpty(SelectedCovenantFilter))
+        if (_selectedCovenantFilters.Count > 0)
             filtered = filtered.Where(o =>
-                o.CoreCovenant == SelectedCovenantFilter ||
-                o.AdditionalCovenants.Contains(SelectedCovenantFilter));
+                _selectedCovenantFilters.All(f =>
+                    o.CoreCovenant == f || o.AdditionalCovenants.Contains(f)));
 
         if (!string.IsNullOrEmpty(SelectedTraitTypeFilter))
             filtered = filtered.Where(o =>

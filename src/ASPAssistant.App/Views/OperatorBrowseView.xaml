@@ -30,6 +30,7 @@
                 <ListBox x:Name="TierFilterList"
                          Style="{StaticResource FilterChipListBox}"
                          ItemsSource="{Binding AvailableTiers}"
+                         PreviewMouseLeftButtonDown="OnFilterListPreviewMouseDown"
                          SelectionChanged="OnTierFilterChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -42,8 +43,10 @@
                 <TextBlock Text="盟约" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,6,0,4" />
                 <ListBox x:Name="CovenantFilterList"
+                         SelectionMode="Multiple"
                          Style="{StaticResource FilterChipListBox}"
                          ItemsSource="{Binding AvailableCovenants}"
+                         PreviewMouseLeftButtonDown="OnCovenantPreviewMouseDown"
                          SelectionChanged="OnCovenantFilterChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -58,6 +61,7 @@
                 <ListBox x:Name="TraitFilterList"
                          Style="{StaticResource FilterChipListBox}"
                          ItemsSource="{Binding AvailableTraitTypes}"
+                         PreviewMouseLeftButtonDown="OnFilterListPreviewMouseDown"
                          SelectionChanged="OnTraitFilterChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -69,15 +73,30 @@
             </StackPanel>
         </Expander>
 
-        <!-- Operator list -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding FilteredOperators}" Margin="8,0,8,8">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <controls:OperatorCard TrackingToggled="OnOperatorTrackingToggled" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+        <!-- Operator list (virtualized: ScrollViewer lives inside the template so WPF can recycle cards) -->
+        <ItemsControl ItemsSource="{Binding FilteredOperators}"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      VirtualizingPanel.ScrollUnit="Pixel">
+            <ItemsControl.Template>
+                <ControlTemplate TargetType="ItemsControl">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  CanContentScroll="True"
+                                  Focusable="False">
+                        <ItemsPresenter Margin="8,0,8,8" />
+                    </ScrollViewer>
+                </ControlTemplate>
+            </ItemsControl.Template>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <controls:OperatorCard TrackingToggled="OnOperatorTrackingToggled" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </DockPanel>
 </UserControl>

@@ -102,7 +102,7 @@ def download_image(url: str, save_path: Path) -> bool:
             save_path.write_bytes(resp.read())
         return True
     except Exception as e:
-        print(f"    ⚠ 下载失败 {save_path.name}: {e}")
+        print(f"    [FAIL] {save_path.name}: {e}")
         return False
 
 
@@ -303,6 +303,16 @@ def main():
     # 4. 处理干员
     print("处理干员数据...")
     operators = process_operators(char_table, season_data, bond_info_dict)
+    # Deduplicate by name (keep first occurrence)
+    seen_names: set[str] = set()
+    unique_operators = []
+    for op in operators:
+        if op["name"] not in seen_names:
+            seen_names.add(op["name"])
+            unique_operators.append(op)
+    if len(unique_operators) < len(operators):
+        print(f"  重复干员 (已去重): {len(operators) - len(unique_operators)}")
+    operators = unique_operators
     print(f"  干员数: {len(operators)}")
 
     # 5. 处理装备

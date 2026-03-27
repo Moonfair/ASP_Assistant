@@ -18,7 +18,9 @@ public static class GameStateUpdater
         List<Operator> operatorDatabase)
     {
         var counts = new Dictionary<string, int>();
-        var dbLookup = operatorDatabase.ToDictionary(o => o.Name);
+        var dbLookup = operatorDatabase
+            .GroupBy(o => o.Name)
+            .ToDictionary(g => g.Key, g => g.First());
 
         foreach (var (name, count) in ownedOperators)
         {
