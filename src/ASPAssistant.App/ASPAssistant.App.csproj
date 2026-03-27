@@ -10,4 +10,10 @@
   <ItemGroup>
     <ProjectReference Include="..\ASPAssistant.Core\ASPAssistant.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\data\**\*.json" Link="data\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>
