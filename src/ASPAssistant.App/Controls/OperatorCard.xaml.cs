@@ -89,5 +89,6 @@ public partial class OperatorCard : UserControl
     private void UpdateTrackButton()
     {
         TrackButton.Content = IsTracked ? "★ 追踪中" : "☆ 追踪";
+        TrackButton.Tag = IsTracked ? "tracked" : "";
     }
 }

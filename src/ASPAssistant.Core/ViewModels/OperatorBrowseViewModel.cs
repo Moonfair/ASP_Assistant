@@ -23,9 +23,29 @@ public partial class OperatorBrowseViewModel : ObservableObject
     [ObservableProperty]
     private string? _selectedTraitTypeFilter;
 
+    public List<int?> AvailableTiers { get; private set; } = [];
+    public List<string?> AvailableCovenants { get; private set; } = [];
+    public List<string?> AvailableTraitTypes { get; private set; } = [];
+
     public void LoadOperators(List<Operator> operators)
     {
         _allOperators = operators;
+
+        AvailableTiers = [null, .. operators.Select(o => (int?)o.Tier).Distinct().OrderBy(t => t)];
+        AvailableCovenants = [null, .. operators
+            .SelectMany(o => new[] { o.CoreCovenant }.Concat(o.AdditionalCovenants))
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct().Order()];
+        AvailableTraitTypes = [null, .. operators
+            .SelectMany(o => o.Normal.Traits.Select(t => t.TraitType)
+                .Concat(o.Elite.Traits.Select(t => t.TraitType)))
+            .Where(t => !string.IsNullOrEmpty(t))
+            .Distinct().Order()];
+
+        OnPropertyChanged(nameof(AvailableTiers));
+        OnPropertyChanged(nameof(AvailableCovenants));
+        OnPropertyChanged(nameof(AvailableTraitTypes));
+
         ApplyFilters();
     }
 

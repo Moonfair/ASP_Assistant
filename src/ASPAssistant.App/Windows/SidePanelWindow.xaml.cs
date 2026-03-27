@@ -65,4 +65,9 @@ public partial class SidePanelWindow : Window
     {
         WindowState = WindowState.Minimized;
     }
+
+    private void OnClose(object sender, RoutedEventArgs e)
+    {
+        Application.Current.Shutdown();
+    }
 }

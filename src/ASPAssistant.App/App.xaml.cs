@@ -56,9 +56,11 @@ public partial class App : Application
 
         // Services
         var captureService = new ScreenCaptureService();
+        var ocrEngine = new WindowsOcrEngine();
+        var operatorNames = operators.Select(o => o.Name).ToList();
         _ocrScanner = new OcrScannerService(
-            captureService, garrisonMode.OcrStrategy, gameState,
-            _settingsManager.OcrScanIntervalSeconds);
+            captureService, garrisonMode.OcrStrategy, ocrEngine, gameState,
+            operatorNames, _settingsManager.OcrScanIntervalSeconds);
 
         _windowTracker = new WindowTrackerService(
             () => (int)SystemParameters.PrimaryScreenWidth);

@@ -1,23 +1,43 @@
+using System.Drawing;
+using System.Drawing.Imaging;
+using ASPAssistant.Core.Interop;
+
 namespace ASPAssistant.Core.Services;
 
 public class ScreenCaptureService
 {
-    private IntPtr _gameWindowHandle;
-
-    public void SetTargetWindow(IntPtr handle)
-    {
-        _gameWindowHandle = handle;
-    }
-
+    /// <summary>
+    /// Captures the Arknights game window using PrintWindow (works with DirectX/fullscreen).
+    /// Returns PNG bytes, or null if the window is not found.
+    /// </summary>
     public byte[]? CaptureScreen()
     {
-        if (_gameWindowHandle == IntPtr.Zero)
+        var hwnd = User32.FindArknightsWindow();
+        if (hwnd == IntPtr.Zero)
             return null;
 
-        // MaaFramework integration point:
-        // var controller = MaaController.CreateWin32(handle, screencapMethod);
-        // controller.Screencap();
-        // return controller.GetImage();
-        return null;
+        if (!User32.GetClientRect(hwnd, out var clientRect))
+            return null;
+
+        int width = clientRect.Width;
+        int height = clientRect.Height;
+        if (width <= 0 || height <= 0)
+            return null;
+
+        using var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(bmp);
+        var hdc = g.GetHdc();
+        try
+        {
+            User32.PrintWindow(hwnd, hdc, User32.PW_RENDERFULLCONTENT);
+        }
+        finally
+        {
+            g.ReleaseHdc(hdc);
+        }
+
+        using var ms = new MemoryStream();
+        bmp.Save(ms, ImageFormat.Png);
+        return ms.ToArray();
     }
 }

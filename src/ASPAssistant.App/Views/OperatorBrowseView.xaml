@@ -2,25 +2,76 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:ASPAssistant.App.Controls"
+             xmlns:converters="clr-namespace:ASPAssistant.App.Converters"
              Background="{StaticResource PanelBackgroundBrush}">
+    <UserControl.Resources>
+        <converters:NullToStringConverter x:Key="NullToAll" />
+    </UserControl.Resources>
     <DockPanel>
-        <TextBox DockPanel.Dock="Top" Margin="8"
-                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                 Background="#FF2A2A40" Foreground="{StaticResource TextPrimaryBrush}"
-                 BorderBrush="{StaticResource BorderBrush}" Padding="6,4" />
-        <Expander DockPanel.Dock="Top" Header="筛选" Margin="8,0"
+        <!-- Search box -->
+        <Border DockPanel.Dock="Top" Margin="8,8,8,4"
+                Background="#FF1E1E38" BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1" CornerRadius="6">
+            <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                     BorderThickness="0" Padding="8,5"
+                     CaretBrush="{StaticResource AccentBrush}" />
+        </Border>
+
+        <!-- Filter panel -->
+        <Expander DockPanel.Dock="Top" Margin="8,0,8,4"
                   Foreground="{StaticResource TextSecondaryBrush}" IsExpanded="False">
-            <StackPanel Margin="0,4">
-                <TextBlock Text="等阶:" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,2" />
-                <WrapPanel x:Name="TierFilterPanel" Margin="0,2" />
-                <TextBlock Text="盟约:" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,4,0,2" />
-                <WrapPanel x:Name="CovenantFilterPanel" Margin="0,2" />
-                <TextBlock Text="词条:" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,4,0,2" />
-                <WrapPanel x:Name="TraitFilterPanel" Margin="0,2" />
+            <Expander.Header>
+                <TextBlock Text="筛选" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+            </Expander.Header>
+            <StackPanel Margin="0,6,0,2">
+                <TextBlock Text="等阶" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="11" Margin="0,0,0,4" />
+                <ListBox x:Name="TierFilterList"
+                         Style="{StaticResource FilterChipListBox}"
+                         ItemsSource="{Binding AvailableTiers}"
+                         SelectionChanged="OnTierFilterChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                                       FontSize="11" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Text="盟约" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="11" Margin="0,6,0,4" />
+                <ListBox x:Name="CovenantFilterList"
+                         Style="{StaticResource FilterChipListBox}"
+                         ItemsSource="{Binding AvailableCovenants}"
+                         SelectionChanged="OnCovenantFilterChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                                       FontSize="11" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Text="词条" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="11" Margin="0,6,0,4" />
+                <ListBox x:Name="TraitFilterList"
+                         Style="{StaticResource FilterChipListBox}"
+                         ItemsSource="{Binding AvailableTraitTypes}"
+                         SelectionChanged="OnTraitFilterChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                                       FontSize="11" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </StackPanel>
         </Expander>
+
+        <!-- Operator list -->
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding FilteredOperators}" Margin="8">
+            <ItemsControl ItemsSource="{Binding FilteredOperators}" Margin="8,0,8,8">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <controls:OperatorCard TrackingToggled="OnOperatorTrackingToggled" />
