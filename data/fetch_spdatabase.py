@@ -161,6 +161,8 @@ def process_operators(
         shop_entry = char_shop_dict.get(chess_id)
         if not shop_entry:
             continue
+        if shop_entry["isHidden"]:
+            continue
 
         char_id = shop_entry["charId"]
         tier = shop_entry["chessLevel"]
