@@ -17,6 +17,9 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Fetch SP database
+        run: python data/fetch_spdatabase.py
+
       - name: Publish self-contained
         run: >
           dotnet publish src/ASPAssistant.App/ASPAssistant.App.csproj
@@ -31,11 +34,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path publish/win-x64/ASPAssistant.App.exe, `
-                  publish/win-x64/data, `
-                  publish/win-x64/MaaAgentBinary, `
-                  publish/win-x64/plugins, `
-                  publish/win-x64/runtimes `
+            -Path publish/win-x64/* `
             -DestinationPath publish/ASPAssistant-win-x64.zip
 
       - name: Create GitHub Release
