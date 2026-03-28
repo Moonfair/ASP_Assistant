@@ -14,6 +14,17 @@
                 <Border DockPanel.Dock="Left" Width="72" Height="72" Margin="0,0,8,0"
                         CornerRadius="4" Background="#22FFFFFF" VerticalAlignment="Top"
                         ClipToBounds="True">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsChecked, ElementName=EliteToggle}" Value="True">
+                                    <Setter Property="BorderThickness" Value="2" />
+                                    <Setter Property="BorderBrush" Value="#FFD700" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Image x:Name="IconImage" Stretch="UniformToFill" />
                 </Border>
 
