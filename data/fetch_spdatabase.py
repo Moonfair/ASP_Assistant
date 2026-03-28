@@ -64,7 +64,9 @@ SP_SEASONS = {
         "name": "盟约 下半 (Alliance 2nd Phase)",
         "mode": "ACTIVITY_SEASON",
         "equipIconMap": {
-            # "数据中的名称": "Wiki图片中的名称",
+            "盟约之币": "幸运硬币",
+            "奥术法阵": "口袋法阵",
+            "骑士储蓄罐": "竞技投币机",
         },
     },
     2: {
