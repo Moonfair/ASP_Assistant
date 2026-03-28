@@ -28,8 +28,8 @@
     <Content Include="..\..\data\template\op_card.png" Link="data\maa_resource\image\op_card.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <!-- MaaFramework requires a pipeline/ directory inside the bundle root. -->
-    <Content Include="..\..\data\maa_resource\pipeline\.gitkeep" Link="data\maa_resource\pipeline\.gitkeep">
+    <!-- MaaFramework requires at least one valid JSON file inside pipeline/. -->
+    <Content Include="..\..\data\maa_resource\pipeline\empty.json" Link="data\maa_resource\pipeline\empty.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="..\..\data\model\**\*" Link="data\model\%(RecursiveDir)%(Filename)%(Extension)">
