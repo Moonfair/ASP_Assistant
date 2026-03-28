@@ -63,12 +63,18 @@ SP_SEASONS = {
         "seasonCode": "act2autochess",
         "name": "盟约 下半 (Alliance 2nd Phase)",
         "mode": "ACTIVITY_SEASON",
+        "equipIconMap": {
+            # "数据中的名称": "Wiki图片中的名称",
+        },
     },
     2: {
         "seasonCode": "act1autochess",
         "name": "盟约 (Alliance)",
         "mode": "ACTIVITY_SEASON_ARC",
         "archiveFile": "alliance_1st.json",
+        "equipIconMap": {
+            # "数据中的名称": "Wiki图片中的名称",
+        },
     },
 }
 
@@ -349,8 +355,10 @@ def main():
 
         print("下载装备图标...")
         dl_new, dl_skip, dl_fail = 0, 0, 0
+        equip_icon_map = season_cfg.get("equipIconMap", {})
         for eq in equipment:
-            filename = f"卫戍协议_道具_{eq['name']}.png"
+            icon_name = equip_icon_map.get(eq["name"], eq["name"])
+            filename = f"卫戍协议_道具_{icon_name}.png"
             url = get_prts_media_url(filename)
             save_path = eq_icon_dir / f"{eq['name']}.png"
             result = download_image(url, save_path)
