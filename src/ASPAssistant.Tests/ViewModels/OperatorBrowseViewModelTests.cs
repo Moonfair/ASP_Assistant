@@ -34,7 +34,7 @@ public class OperatorBrowseViewModelTests
     {
         var vm = new OperatorBrowseViewModel();
         vm.LoadOperators(TestOperators);
-        vm.SelectedCovenantFilter = "炎";
+        vm.SetCovenantFilters(["炎"]);
         vm.FilteredOperators.Should().HaveCount(1);
         vm.FilteredOperators[0].Name.Should().Be("惊蛰");
     }
