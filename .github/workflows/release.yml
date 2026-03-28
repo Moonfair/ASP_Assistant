@@ -26,15 +26,13 @@ jobs:
           -c Release
           -r win-x64
           --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish/win-x64
 
       - name: Zip release assets
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path publish/win-x64/* `
+            -Path publish/win-x64 `
             -DestinationPath publish/ASPAssistant-win-x64.zip
 
       - name: Create GitHub Release

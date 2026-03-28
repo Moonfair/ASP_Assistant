@@ -16,9 +16,40 @@ public partial class App : Application
     private OverlayWindow? _overlay;
     private SettingsManager? _settingsManager;
 
+    public App()
+    {
+        DispatcherUnhandledException += (_, args) =>
+        {
+            MessageBox.Show(
+                $"启动时发生错误，请将以下信息反馈给开发者：\n\n{args.Exception}",
+                "ASPAssistant 错误",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            args.Handled = true;
+            Shutdown(1);
+        };
+    }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        try
+        {
+            await StartupAsync(e);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"启动时发生错误，请将以下信息反馈给开发者：\n\n{ex}",
+                "ASPAssistant 错误",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+        }
+    }
+
+    private async Task StartupAsync(StartupEventArgs e)
+    {
 
         // Paths
         var appDir = AppContext.BaseDirectory;
