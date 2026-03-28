@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
@@ -10,7 +11,12 @@ namespace ASPAssistant.App.Windows;
 
 public partial class OverlayWindow : Window
 {
-    private const double MarkerSize = 28;
+    private const double MarkerSize = 18;
+
+    // Persistent marker elements keyed by ShopItem.Id.
+    // Using Id (not Name) lets multiple cards with the same operator name each
+    // have their own independent marker.
+    private readonly Dictionary<string, FrameworkElement> _markerPool = [];
 
     public OverlayWindow()
     {
@@ -34,31 +40,74 @@ public partial class OverlayWindow : Window
         Height = gameClientRect.Height;
     }
 
-    public void ClearMarkers()
+    /// <summary>
+    /// Synchronises the overlay with the current shop state.
+    /// New tracked items fade in; existing ones are repositioned without
+    /// recreation; items no longer tracked fade out and are released.
+    /// </summary>
+    public void UpdateShopItems(IReadOnlyList<ShopItem> shopItems)
     {
-        OverlayCanvas.Children.Clear();
+        var nowTracked = shopItems
+            .Where(s => s.IsTracked)
+            .ToDictionary(s => s.Id);
+
+        // Fade out markers whose card slots are no longer present
+        foreach (var id in _markerPool.Keys.Except(nowTracked.Keys).ToList())
+            FadeOutAndRemove(id);
+
+        // Add new markers or reposition existing ones
+        foreach (var item in nowTracked.Values)
+        {
+            var (mx, my) = ComputeMarkerPosition(item);
+
+            if (_markerPool.TryGetValue(item.Id, out var existing))
+            {
+                Canvas.SetLeft(existing, mx);
+                Canvas.SetTop(existing, my);
+            }
+            else
+            {
+                var marker = CreateMarker();
+                marker.Opacity = 0;
+                Canvas.SetLeft(marker, mx);
+                Canvas.SetTop(marker, my);
+                OverlayCanvas.Children.Add(marker);
+                _markerPool[item.Id] = marker;
+
+                marker.BeginAnimation(OpacityProperty,
+                    new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250)));
+            }
+        }
     }
 
-    public void UpdateMarkers(List<ShopItem> trackedShopItems, RECT gameClientRect)
+    private void FadeOutAndRemove(string id)
     {
-        OverlayCanvas.Children.Clear();
+        var el = _markerPool[id];
+        _markerPool.Remove(id);
 
-        foreach (var item in trackedShopItems)
+        var anim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(250));
+        anim.Completed += (_, _) =>
         {
-            if (!item.IsTracked)
-                continue;
+            OverlayCanvas.Children.Remove(el);
+        };
+        el.BeginAnimation(OpacityProperty, anim);
+    }
 
-            var markerX = item.OcrRegion.X + item.OcrRegion.Width - MarkerSize / 2;
-            var markerY = item.OcrRegion.Y - MarkerSize / 2;
+    /// <summary>
+    /// Returns the canvas pixel position for a marker placed at the top-right
+    /// corner of the operator card. OcrRegion stores the card's normalised
+    /// bounding box [0,1] (X, Y, Width, Height).
+    /// </summary>
+    private (double X, double Y) ComputeMarkerPosition(ShopItem item)
+    {
+        // Place marker just inside the card's top-right corner.
+        var mx = (item.OcrRegion.X + item.OcrRegion.Width) * ActualWidth - MarkerSize - 2;
+        var my = item.OcrRegion.Y * ActualHeight + 2;
 
-            markerX = Math.Max(0, Math.Min(markerX, ActualWidth - MarkerSize));
-            markerY = Math.Max(0, Math.Min(markerY, ActualHeight - MarkerSize));
+        mx = Math.Max(0, Math.Min(mx, ActualWidth - MarkerSize));
+        my = Math.Max(0, Math.Min(my, ActualHeight - MarkerSize));
 
-            var marker = CreateMarker();
-            Canvas.SetLeft(marker, markerX);
-            Canvas.SetTop(marker, markerY);
-            OverlayCanvas.Children.Add(marker);
-        }
+        return (mx, my);
     }
 
     private static Grid CreateMarker()
@@ -85,7 +134,7 @@ public partial class OverlayWindow : Window
         {
             Text = "★",
             Foreground = Brushes.White,
-            FontSize = 14,
+            FontSize = 10,
             FontWeight = FontWeights.Bold,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center

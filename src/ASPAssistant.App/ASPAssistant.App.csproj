@@ -19,5 +19,17 @@
     <Content Include="..\..\data\icons\**\*.png" Link="data\icons\%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Card template images (op_card.png, etc.) copied to data/template/ for reference. -->
+    <Content Include="..\..\data\template\*.png" Link="data\template\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- MaaFramework TemplateMatch bundle: op_card.png is looked up at
+         [bundle]/image/op_card.png when MaaCardDetector calls TemplateMatch. -->
+    <Content Include="..\..\data\template\op_card.png" Link="data\maa_resource\image\op_card.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\data\model\**\*" Link="data\model\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

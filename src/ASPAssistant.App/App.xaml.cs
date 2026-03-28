@@ -56,11 +56,12 @@ public partial class App : Application
 
         // Services
         var captureService = new ScreenCaptureService();
-        var ocrEngine = new WindowsOcrEngine();
-        var operatorNames = operators.Select(o => o.Name).ToList();
+        var cardDetector = new MaaCardDetector(dataDir);
+        var ocrEngine = new MaaOcrEngine(dataDir);
         _ocrScanner = new OcrScannerService(
-            captureService, garrisonMode.OcrStrategy, ocrEngine, gameState,
-            operatorNames, _settingsManager.OcrScanIntervalSeconds);
+            captureService, garrisonMode.OcrStrategy, cardDetector, ocrEngine, gameState,
+            () => trackingVm.TrackedOperators.Select(o => o.Name).ToList(),
+            intervalMs: 200);
 
         _windowTracker = new WindowTrackerService(
             () => (int)SystemParameters.PrimaryScreenWidth);
@@ -105,18 +106,7 @@ public partial class App : Application
                 trackingVm.CovenantCounts = state.CovenantCounts;
                 gameStateVm.UpdateFromGameState(state);
 
-                var trackedItems = state.ShopItems.Where(s => s.IsTracked).ToList();
-                var clientRect = Core.Interop.User32.GetClientRectScreen(
-                    Core.Interop.User32.FindArknightsWindow());
-                if (clientRect.HasValue && trackedItems.Count > 0)
-                {
-                    _overlay.Show();
-                    _overlay.UpdateMarkers(state.ShopItems, clientRect.Value);
-                }
-                else
-                {
-                    _overlay.ClearMarkers();
-                }
+                _overlay.UpdateShopItems(state.ShopItems);
             });
         };
 

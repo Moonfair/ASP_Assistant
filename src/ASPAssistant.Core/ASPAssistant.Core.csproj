@@ -3,7 +3,6 @@
     <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <WindowsSdkPackageVersion>10.0.17763.56</WindowsSdkPackageVersion>
   </PropertyGroup>
 
   <ItemGroup>

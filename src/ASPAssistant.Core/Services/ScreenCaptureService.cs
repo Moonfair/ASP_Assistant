@@ -7,7 +7,10 @@ namespace ASPAssistant.Core.Services;
 public class ScreenCaptureService
 {
     /// <summary>
-    /// Captures the Arknights game window using PrintWindow (works with DirectX/fullscreen).
+    /// Captures the Arknights game window by reading pixels directly from the screen
+    /// via BitBlt (Graphics.CopyFromScreen). This works with hardware-accelerated
+    /// renderers (DirectX/Vulkan) that do not honour PrintWindow/GDI capture.
+    /// Requires the window to be visible and not fully occluded.
     /// Returns PNG bytes, or null if the window is not found.
     /// </summary>
     public byte[]? CaptureScreen()
@@ -16,25 +19,19 @@ public class ScreenCaptureService
         if (hwnd == IntPtr.Zero)
             return null;
 
-        if (!User32.GetClientRect(hwnd, out var clientRect))
+        var screenRect = User32.GetClientRectScreen(hwnd);
+        if (screenRect == null)
             return null;
 
-        int width = clientRect.Width;
-        int height = clientRect.Height;
+        var rect = screenRect.Value;
+        int width = rect.Width;
+        int height = rect.Height;
         if (width <= 0 || height <= 0)
             return null;
 
         using var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
         using var g = Graphics.FromImage(bmp);
-        var hdc = g.GetHdc();
-        try
-        {
-            User32.PrintWindow(hwnd, hdc, User32.PW_RENDERFULLCONTENT);
-        }
-        finally
-        {
-            g.ReleaseHdc(hdc);
-        }
+        g.CopyFromScreen(rect.Left, rect.Top, 0, 0, new System.Drawing.Size(width, height));
 
         using var ms = new MemoryStream();
         bmp.Save(ms, ImageFormat.Png);
