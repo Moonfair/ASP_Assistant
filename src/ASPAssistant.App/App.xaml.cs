@@ -164,6 +164,9 @@ public partial class App : Application
         _overlay.Show();
         _windowTracker.Start();
         _ocrScanner.Start();
+
+        // Start background update check
+        _sidePanel.StartUpdateCheck(new UpdateService());
     }
 
     protected override void OnExit(ExitEventArgs e)

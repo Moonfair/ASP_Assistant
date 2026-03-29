@@ -120,16 +120,15 @@ def download_image(url: str, save_path: Path) -> bool:
 # ── 干员处理 ──────────────────────────────────────────────────────────────────
 
 def build_traits(chess_entry: dict, garrison_dict: dict) -> list[dict]:
-    """从棋子条目构建特质列表"""
-    traits = []
+    """从棋子条目构建特质列表（只保留第一条）"""
     for gar_id in chess_entry.get("garrisonIds", []):
         gar = garrison_dict.get(gar_id)
         if gar:
-            traits.append({
+            return [{
                 "traitType": gar["eventTypeDesc"],
                 "traitDescription": strip_rich_text(gar["garrisonDesc"]),
-            })
-    return traits
+            }]
+    return []
 
 
 def classify_bonds(chess_entry: dict, bond_info_dict: dict) -> tuple[str | None, list[str]]:

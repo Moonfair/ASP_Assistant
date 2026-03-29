@@ -20,12 +20,19 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Extract version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+
       - name: Publish self-contained
         run: >
           dotnet publish src/ASPAssistant.App/ASPAssistant.App.csproj
           -c Release
           -r win-x64
           --self-contained true
+          -p:Version=${{ env.VERSION }}
           -o publish/win-x64
 
       - name: Zip release assets
