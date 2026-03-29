@@ -57,6 +57,9 @@ SP_CHAR_REDIRECT = {
 
 BOND_BAN = {"绝技"}
 
+# 手动指定为"转职装备"的装备名称（用于名称中不含盟约名称但属于转职装备的情况，如维多利亚系列）
+MANUAL_JOB_CHANGE_EQUIPMENTS: list[str] = ["维氏重锤","战栗维式重锤","坚固维式重锤","加速维式重锤","灼燃维式重锤"]
+
 # 赛季配置
 SP_SEASONS = {
     1: {
@@ -386,7 +389,15 @@ def main():
         json.dump({"operators": operators}, f, ensure_ascii=False, indent=2)
 
     with open(equipment_path, "w", encoding="utf-8") as f:
-        json.dump({"equipment": equipment}, f, ensure_ascii=False, indent=2)
+        json.dump(
+            {
+                "manualJobChangeEquipments": MANUAL_JOB_CHANGE_EQUIPMENTS,
+                "equipment": equipment,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     print(f"\n完成！")
     print(f"  {operators_path.resolve()} ({operators_path.stat().st_size / 1024:.1f} KB)")

@@ -19,6 +19,11 @@ public class ScreenCaptureService
         if (hwnd == IntPtr.Zero)
             return null;
 
+        // Skip minimized windows: ClientToScreen returns (-32000,-32000) for them,
+        // which causes CopyFromScreen to throw Win32Exception(6) ERROR_INVALID_HANDLE.
+        if (User32.IsIconic(hwnd))
+            return null;
+
         var screenRect = User32.GetClientRectScreen(hwnd);
         if (screenRect == null)
             return null;
@@ -29,12 +34,21 @@ public class ScreenCaptureService
         if (width <= 0 || height <= 0)
             return null;
 
-        using var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bmp);
-        g.CopyFromScreen(rect.Left, rect.Top, 0, 0, new System.Drawing.Size(width, height));
+        try
+        {
+            using var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            using var g = Graphics.FromImage(bmp);
+            g.CopyFromScreen(rect.Left, rect.Top, 0, 0, new System.Drawing.Size(width, height));
 
-        using var ms = new MemoryStream();
-        bmp.Save(ms, ImageFormat.Png);
-        return ms.ToArray();
+            using var ms = new MemoryStream();
+            bmp.Save(ms, ImageFormat.Png);
+            return ms.ToArray();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Window state changed between the geometry query and the capture
+            // (e.g. minimized mid-capture). Treat as no screenshot available.
+            return null;
+        }
     }
 }

@@ -18,7 +18,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
     [ObservableProperty]
     private int? _selectedTierFilter;
 
-    private readonly HashSet<string> _selectedCovenantFilters = [];
+    private readonly HashSet<string> _selectedCoreCovenantFilters = [];
+    private readonly HashSet<string> _selectedOtherCovenantFilters = [];
 
     [ObservableProperty]
     private string? _selectedTraitTypeFilter;
@@ -27,7 +28,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
     private string? _selectedTriggerTimingFilter;
 
     public List<int?> AvailableTiers { get; private set; } = [];
-    public List<string?> AvailableCovenants { get; private set; } = [];
+    public List<string?> AvailableCoreCovenants { get; private set; } = [];
+    public List<string?> AvailableOtherCovenants { get; private set; } = [];
     public List<string?> AvailableTraitTypes { get; private set; } = [];
     public List<string?> AvailableTriggerTimings { get; private set; } = [];
 
@@ -42,8 +44,9 @@ public partial class OperatorBrowseViewModel : ObservableObject
             var groups = new List<List<string>>();
             if (SelectedTierFilter.HasValue)
                 groups.Add([TierToRoman(SelectedTierFilter.Value)]);
-            if (_selectedCovenantFilters.Count > 0)
-                groups.Add([.. _selectedCovenantFilters.Order()]);
+            var allCovenants = _selectedCoreCovenantFilters.Concat(_selectedOtherCovenantFilters).Order().ToList();
+            if (allCovenants.Count > 0)
+                groups.Add(allCovenants);
             if (!string.IsNullOrEmpty(SelectedTraitTypeFilter))
                 groups.Add([SelectedTraitTypeFilter]);
             if (!string.IsNullOrEmpty(SelectedTriggerTimingFilter))
@@ -68,10 +71,17 @@ public partial class OperatorBrowseViewModel : ObservableObject
         _allOperators = operators;
 
         AvailableTiers = [null, .. operators.Select(o => (int?)o.Tier).Distinct().OrderBy(t => t)];
-        AvailableCovenants = ["", .. operators
-            .SelectMany(o => new[] { o.CoreCovenant }.Concat(o.AdditionalCovenants))
+
+        var coreSet = operators
+            .Select(o => o.CoreCovenant)
             .Where(c => !string.IsNullOrEmpty(c))
+            .ToHashSet();
+        AvailableCoreCovenants = ["", .. coreSet.Order()];
+        AvailableOtherCovenants = ["", .. operators
+            .SelectMany(o => o.AdditionalCovenants)
+            .Where(c => !string.IsNullOrEmpty(c) && !coreSet.Contains(c))
             .Distinct().Order()];
+
         AvailableTraitTypes = [null, .. operators
             .SelectMany(o => o.Normal.Traits.Select(t => t.TraitType)
                 .Concat(o.Elite.Traits.Select(t => t.TraitType)))
@@ -86,7 +96,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
             .Distinct().Order()];
 
         OnPropertyChanged(nameof(AvailableTiers));
-        OnPropertyChanged(nameof(AvailableCovenants));
+        OnPropertyChanged(nameof(AvailableCoreCovenants));
+        OnPropertyChanged(nameof(AvailableOtherCovenants));
         OnPropertyChanged(nameof(AvailableTraitTypes));
         OnPropertyChanged(nameof(AvailableTriggerTimings));
 
@@ -98,11 +109,19 @@ public partial class OperatorBrowseViewModel : ObservableObject
     partial void OnSelectedTraitTypeFilterChanged(string? value) => ApplyFilters();
     partial void OnSelectedTriggerTimingFilterChanged(string? value) => ApplyFilters();
 
-    public void SetCovenantFilters(IEnumerable<string> covenants)
+    public void SetCoreCovenantFilters(IEnumerable<string> covenants)
     {
-        _selectedCovenantFilters.Clear();
+        _selectedCoreCovenantFilters.Clear();
         foreach (var c in covenants)
-            _selectedCovenantFilters.Add(c);
+            _selectedCoreCovenantFilters.Add(c);
+        ApplyFilters();
+    }
+
+    public void SetOtherCovenantFilters(IEnumerable<string> covenants)
+    {
+        _selectedOtherCovenantFilters.Clear();
+        foreach (var c in covenants)
+            _selectedOtherCovenantFilters.Add(c);
         ApplyFilters();
     }
 
@@ -113,10 +132,14 @@ public partial class OperatorBrowseViewModel : ObservableObject
         if (SelectedTierFilter.HasValue)
             filtered = filtered.Where(o => o.Tier == SelectedTierFilter.Value);
 
-        if (_selectedCovenantFilters.Count > 0)
+        // Core and other covenant dimensions are independent (AND between dimensions,
+        // OR within each dimension).
+        if (_selectedCoreCovenantFilters.Count > 0)
+            filtered = filtered.Where(o => _selectedCoreCovenantFilters.Contains(o.CoreCovenant));
+
+        if (_selectedOtherCovenantFilters.Count > 0)
             filtered = filtered.Where(o =>
-                _selectedCovenantFilters.All(f =>
-                    o.CoreCovenant == f || o.AdditionalCovenants.Contains(f)));
+                o.AdditionalCovenants.Any(c => _selectedOtherCovenantFilters.Contains(c)));
 
         if (!string.IsNullOrEmpty(SelectedTraitTypeFilter))
             filtered = filtered.Where(o =>

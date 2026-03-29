@@ -2,6 +2,8 @@ using System.Text.Json.Serialization;
 
 namespace ASPAssistant.Core.Models;
 
+public enum EquipmentType { Normal, JobChange, Exclusive }
+
 public class EquipmentVariant
 {
     [JsonPropertyName("effectDescription")]
@@ -24,4 +26,7 @@ public class Equipment
 
     [JsonPropertyName("iconPath")]
     public string IconPath { get; set; } = "";
+
+    [JsonIgnore]
+    public EquipmentType Type { get; set; } = EquipmentType.Normal;
 }

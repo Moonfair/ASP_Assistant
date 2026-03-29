@@ -36,7 +36,8 @@ public partial class OperatorBrowseView : UserControl
             // Pre-select "全部" (index 0) so the chip appears highlighted and
             // clicking it later always triggers SelectionChanged.
             TierFilterList.SelectedIndex = 0;
-            CovenantFilterList.SelectedIndex = 0;
+            CoreCovenantFilterList.SelectedIndex = 0;
+            OtherCovenantFilterList.SelectedIndex = 0;
             TraitFilterList.SelectedIndex = 0;
             TriggerTimingFilterList.SelectedIndex = 0;
 
@@ -57,8 +58,16 @@ public partial class OperatorBrowseView : UserControl
 
     private void OnResultsScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        // Only respond while the filter panel is open; ignore non-vertical events.
-        if (FilterToggle.IsChecked != true || e.VerticalChange == 0) return;
+        // Only respond to genuine user scrolls.
+        // ViewportHeightChange != 0: scroll position adjusted because our FilterContentRow
+        //   height change resized the viewport — this is a layout side-effect, not user input.
+        // ExtentHeightChange != 0: operator list was rebuilt by a filter/search change and
+        //   WPF adjusted the offset — also not user input.
+        // Responding to either would create a feedback loop (height → viewport → scroll → height …).
+        if (FilterToggle.IsChecked != true
+            || e.VerticalChange == 0
+            || e.ViewportHeightChange != 0
+            || e.ExtentHeightChange != 0) return;
 
         // Capture natural height and anchor on the first scroll event after opening.
         if (_filterContentHeight <= 0)
@@ -186,12 +195,17 @@ public partial class OperatorBrowseView : UserControl
     // ── Covenant multi-select ────────────────────────────────────────────────
 
     // Suppress flag prevents cascading SelectionChanged calls during programmatic
-    // selection updates inside OnCovenantPreviewMouseDown.
+    // selection updates inside HandleCovenantListMouseDown.
     private bool _suppressCovenantSelectionChanged = false;
 
-    private void OnCovenantPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    private void OnCoreCovenantPreviewMouseDown(object sender, MouseButtonEventArgs e)
+        => HandleCovenantListMouseDown(CoreCovenantFilterList, e);
+
+    private void OnOtherCovenantPreviewMouseDown(object sender, MouseButtonEventArgs e)
+        => HandleCovenantListMouseDown(OtherCovenantFilterList, e);
+
+    private void HandleCovenantListMouseDown(ListBox lb, MouseButtonEventArgs e)
     {
-        var lb = CovenantFilterList;
         var container = ItemsControl.ContainerFromElement(lb, e.OriginalSource as DependencyObject) as ListBoxItem;
         if (container == null) return;
 
@@ -199,25 +213,24 @@ public partial class OperatorBrowseView : UserControl
 
         _suppressCovenantSelectionChanged = true;
 
-        if (idx == 0) // "全部" clicked — clear all, select only 全部
+        if (idx == 0) // "全部" clicked — clear all selections in this row
         {
             for (int i = 1; i < lb.Items.Count; i++)
             {
                 if (lb.ItemContainerGenerator.ContainerFromIndex(i) is ListBoxItem c)
                     c.IsSelected = false;
             }
-            // Use "" (non-null) sentinel item so WPF can track selection without freezing
             container.IsSelected = true;
         }
         else // specific covenant clicked — toggle it
         {
             container.IsSelected = !container.IsSelected;
 
-            // Deselect 全部
+            // Deselect 全部 in this row
             if (lb.ItemContainerGenerator.ContainerFromIndex(0) is ListBoxItem allContainer)
                 allContainer.IsSelected = false;
 
-            // If nothing remains selected, fall back to 全部
+            // If nothing remains selected in this row, fall back to 全部
             bool anySelected = false;
             for (int i = 1; i < lb.Items.Count; i++)
             {
@@ -250,16 +263,23 @@ public partial class OperatorBrowseView : UserControl
     {
         if (DataContext is not OperatorBrowseViewModel vm) return;
 
-        var selected = new List<string>();
-        for (int i = 1; i < CovenantFilterList.Items.Count; i++)
+        var core = new List<string>();
+        CollectSelectedCovenants(CoreCovenantFilterList, core);
+        vm.SetCoreCovenantFilters(core);
+
+        var other = new List<string>();
+        CollectSelectedCovenants(OtherCovenantFilterList, other);
+        vm.SetOtherCovenantFilters(other);
+    }
+
+    private static void CollectSelectedCovenants(ListBox lb, List<string> selected)
+    {
+        for (int i = 1; i < lb.Items.Count; i++)
         {
-            if (CovenantFilterList.ItemContainerGenerator.ContainerFromIndex(i) is ListBoxItem c
+            if (lb.ItemContainerGenerator.ContainerFromIndex(i) is ListBoxItem c
                 && c.IsSelected
-                && CovenantFilterList.Items[i] is string s)
-            {
+                && lb.Items[i] is string s)
                 selected.Add(s);
-            }
         }
-        vm.SetCovenantFilters(selected);
     }
 }

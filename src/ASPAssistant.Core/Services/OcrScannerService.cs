@@ -54,6 +54,7 @@ public class OcrScannerService : IDisposable
             if (screenshot == null)
                 return;
 
+
             var hwnd = User32.FindArknightsWindow();
             if (hwnd == IntPtr.Zero)
                 return;
@@ -97,6 +98,11 @@ public class OcrScannerService : IDisposable
                 _gameState.ShopItems = stableItems.ToList();
                 GameStateUpdated?.Invoke(_gameState);
             }
+        }
+        catch
+        {
+            // Swallow unexpected errors (e.g. capture failure during window state change)
+            // so the timer-driven async void method never propagates an unhandled exception.
         }
         finally
         {

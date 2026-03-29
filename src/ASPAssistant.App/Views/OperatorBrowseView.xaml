@@ -135,19 +135,48 @@
 
                 <TextBlock Text="盟约" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,6,0,4" />
-                <ListBox x:Name="CovenantFilterList"
-                         SelectionMode="Multiple"
-                         Style="{StaticResource FilterChipListBox}"
-                         ItemsSource="{Binding AvailableCovenants}"
-                         PreviewMouseLeftButtonDown="OnCovenantPreviewMouseDown"
-                         SelectionChanged="OnCovenantFilterChanged">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
-                                       FontSize="11" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+
+                <!-- Core covenants row -->
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock DockPanel.Dock="Left" Text="核心"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="10" Opacity="0.6" Width="30" />
+                    <ListBox x:Name="CoreCovenantFilterList"
+                             SelectionMode="Multiple"
+                             Style="{StaticResource FilterChipListBox}"
+                             ItemsSource="{Binding AvailableCoreCovenants}"
+                             PreviewMouseLeftButtonDown="OnCoreCovenantPreviewMouseDown"
+                             SelectionChanged="OnCovenantFilterChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                                           FontSize="11" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+
+                <!-- Other covenants row -->
+                <DockPanel Margin="0,0,0,0">
+                    <TextBlock DockPanel.Dock="Left" Text="其他"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="10" Opacity="0.6" Width="30" />
+                    <ListBox x:Name="OtherCovenantFilterList"
+                             SelectionMode="Multiple"
+                             Style="{StaticResource FilterChipListBox}"
+                             ItemsSource="{Binding AvailableOtherCovenants}"
+                             PreviewMouseLeftButtonDown="OnOtherCovenantPreviewMouseDown"
+                             SelectionChanged="OnCovenantFilterChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                                           FontSize="11" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
 
                 <TextBlock Text="词条" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,6,0,4" />

@@ -24,10 +24,11 @@ public class JsonDataStoreTests
     public async Task LoadEquipment_ReturnsAllEquipment()
     {
         var store = new JsonDataStore(_testDataDir);
-        var equipment = await store.LoadEquipmentAsync();
+        var (equipment, manualJobChange) = await store.LoadEquipmentAsync();
 
         equipment.Should().HaveCount(2);
         equipment.Should().Contain(e => e.Name == "不屈弹射器");
+        manualJobChange.Should().BeEmpty();
     }
 
     [Fact]

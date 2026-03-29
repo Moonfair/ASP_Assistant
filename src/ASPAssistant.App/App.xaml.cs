@@ -64,15 +64,21 @@ public partial class App : Application
 
         // Load data
         var operators = await dataStore.LoadOperatorsAsync();
-        var equipment = await dataStore.LoadEquipmentAsync();
+        var (equipment, manualJobChangeEquipments) = await dataStore.LoadEquipmentAsync();
         var trackingEntries = await _settingsManager.LoadTrackingEntriesAsync();
 
         // ViewModels
         var operatorVm = new OperatorBrowseViewModel();
         operatorVm.LoadOperators(operators);
 
+        var covenantNames = operators
+            .SelectMany(o => new[] { o.CoreCovenant }.Concat(o.AdditionalCovenants))
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct()
+            .ToList();
+
         var equipmentVm = new EquipmentBrowseViewModel();
-        equipmentVm.LoadEquipment(equipment);
+        equipmentVm.LoadEquipment(equipment, covenantNames, manualJobChangeEquipments);
 
         var trackingVm = new TrackingViewModel();
         trackingVm.LoadEntries(trackingEntries);

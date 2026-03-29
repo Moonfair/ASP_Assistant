@@ -1,4 +1,11 @@
 {
+  "manualJobChangeEquipments": [
+    "维氏重锤",
+    "战栗维式重锤",
+    "坚固维式重锤",
+    "加速维式重锤",
+    "灼燃维式重锤"
+  ],
   "equipment": [
     {
       "name": "维式重锤",

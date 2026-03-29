@@ -28,15 +28,15 @@ public class JsonDataStore
         return wrapper?.Operators ?? [];
     }
 
-    public async Task<List<Equipment>> LoadEquipmentAsync()
+    public async Task<(List<Equipment> Equipment, List<string> ManualJobChangeEquipments)> LoadEquipmentAsync()
     {
         var path = Path.Combine(_dataDirectory, "equipment.json");
         if (!File.Exists(path))
-            return [];
+            return ([], []);
 
         var json = await File.ReadAllTextAsync(path);
         var wrapper = JsonSerializer.Deserialize<EquipmentDataFile>(json, JsonOptions);
-        return wrapper?.Equipment ?? [];
+        return (wrapper?.Equipment ?? [], wrapper?.ManualJobChangeEquipments ?? []);
     }
 
     private class OperatorDataFile
@@ -47,5 +47,6 @@ public class JsonDataStore
     private class EquipmentDataFile
     {
         public List<Equipment> Equipment { get; set; } = [];
+        public List<string> ManualJobChangeEquipments { get; set; } = [];
     }
 }
