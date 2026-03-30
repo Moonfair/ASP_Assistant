@@ -109,7 +109,9 @@ public partial class SidePanelWindow : Window
             if (gameActuallyMoved)
                 _isUserPositioned = false;
 
-            var targetLeft = attachInside ? gameRect.Right - Width : (double)gameRect.Right;
+            var targetLeft = attachInside
+                ? SystemParameters.PrimaryScreenWidth - Width
+                : (double)gameRect.Right;
             var targetTop  = (double)gameRect.Top;
             var targetHeight = (double)gameRect.Height;
 
