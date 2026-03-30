@@ -22,6 +22,8 @@ public partial class SidePanelWindow : Window
     private bool _isProgrammaticChange;   // 程序正在设置位置/尺寸，抑制事件响应
     private bool _isRestoring;            // 正在从最小化恢复，抑制事件响应
     private WindowState _previousWindowState;
+    // WPF 初始 Show() 会触发 SizeChanged/LocationChanged，在首次 UpdatePosition 前清除误设的标志
+    private bool _layoutInitialized;
 
     public SidePanelWindow(
         OperatorBrowseViewModel operatorVm,
@@ -106,6 +108,14 @@ public partial class SidePanelWindow : Window
         _isProgrammaticChange = true;
         try
         {
+            // 首次调用：清除 WPF 初始布局期间可能误设的标志
+            if (!_layoutInitialized)
+            {
+                _layoutInitialized = true;
+                _isUserSized = false;
+                _isUserPositioned = false;
+            }
+
             if (gameActuallyMoved)
                 _isUserPositioned = false;
 
@@ -117,9 +127,10 @@ public partial class SidePanelWindow : Window
             var targetHeight = (double)gameRect.Height;
 
             if (!_isUserPositioned)
+            {
                 Left = targetLeft;
-
-            Top = targetTop;
+                Top  = targetTop;
+            }
 
             if (!_isUserSized)
                 Height = targetHeight;
