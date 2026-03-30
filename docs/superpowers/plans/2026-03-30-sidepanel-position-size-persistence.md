@@ -250,7 +250,7 @@
   }
   ```
 
-  `OnStateChanged` 通过比较 `_previousWindowState`（旧值）与当前 `WindowState`（新值）精确识别 Minimized→Normal 转换，不会误触其他状态变化。
+  `OnStateChanged` 使用 `_previousWindowState != WindowState.Normal && WindowState == WindowState.Normal` 条件，同时覆盖 Minimized→Normal 和 Maximized→Normal 两种恢复路径，避免误触其他状态变化。
 
 - [ ] **Step 3: 在构造函数中订阅三个事件（在 Step 2 的处理器存在后才添加订阅）**
 

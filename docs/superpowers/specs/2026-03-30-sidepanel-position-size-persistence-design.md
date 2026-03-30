@@ -48,14 +48,23 @@ public event Action<RECT>? GameWindowPolled;
 
 **修改 `OnPollTick`：**
 
-在现有 `CurrentGameRect = windowRect; GameWindowMoved?.Invoke(windowRect);` 之前加入 rect 比较：
+在计算 `ShouldAttachInside` 并更新 `CurrentGameRect` 之前，与上一轮结果比较，决定触发哪个事件：
 
 ```
-旧 rect == 新 rect → 触发 GameWindowPolled（位置稳定心跳）
-旧 rect != 新 rect → 触发 GameWindowMoved（游戏窗口真实移动）
+条件：rect 与上一轮相同 且 ShouldAttachInside 与上一轮相同
+  → 触发 GameWindowPolled（位置稳定心跳）
+
+条件：rect 变化 或 ShouldAttachInside 变化（包括首帧 CurrentGameRect == null）
+  → 触发 GameWindowMoved（游戏窗口真实移动或贴附模式切换）
 ```
+
+`ShouldAttachInside` 变化时也触发 `GameWindowMoved`，保证贴附模式切换能即时修正面板位置，即使游戏窗口外接矩形未变（如主屏宽度变化、全屏边界跳变等）。
 
 两条路径都更新 `CurrentGameRect`。
+
+> **首帧行为**：应用启动后第一次轮询时 `CurrentGameRect` 为 null，视为"变化"，走 `GameWindowMoved` 路径，确保面板初始定位与现有行为完全一致。
+
+> **整数抖动**：`GetWindowRect` 返回的整数坐标在正常使用中是稳定的。若将来发现抖动问题，可在比较时加 ±1 的容差，当前设计不预设该容差。
 
 ### 2. `SidePanelWindow`（`src/ASPAssistant.App/Windows/SidePanelWindow.xaml.cs`）
 
@@ -126,12 +135,15 @@ _windowTracker.GameWindowPolled += rect =>
     {
         _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside,
             gameActuallyMoved: false);
-        // overlay 位置不受影响，无需改动
+        // Overlay 不需要心跳刷新——overlay 位置只取决于游戏客户区，
+        // 当 RECT 未变时 overlay 也无需重算，无需在此订阅。
     });
 };
 ```
 
 同时将现有 `GameWindowMoved` 处理器改为传 `gameActuallyMoved: true`。
+
+> **Overlay 更新频率变化**：现有实现在每次轮询（100ms）时更新 overlay。修改后 overlay 仅在 `GameWindowMoved` 时更新，不再订阅 `GameWindowPolled`。注意 `GameWindowMoved` 会在 RECT 变化**或** `ShouldAttachInside` 变化时触发，因此 overlay 仍会在这两种情形下刷新——仅排除"RECT 和贴附模式均未变"的稳定心跳。overlay 的 `UpdatePosition` 仅依赖 `GetClientRectScreen` 结果，幂等调用无副作用，此变化对功能无影响。
 
 ---
 
@@ -158,9 +170,10 @@ _windowTracker.GameWindowPolled += rect =>
 | 场景 | 行为 |
 |------|------|
 | 程序启动时 | 两个标志均为 false，行为与现有完全一致 |
-| 用户最小化窗口后恢复 | `LocationChanged`/`SizeChanged` 可能触发，但守卫抑制误判 |
-| 游戏窗口关闭再重新打开 | `GameWindowLost` → `GameWindowMoved`（真实移动），清除 `_isUserPositioned` |
+| 用户最小化或最大化窗口后恢复 | 系统从最小化或最大化恢复时都会触发 `LocationChanged` 和 `SizeChanged`，此时 `_isProgrammaticChange` 为 false，可能误设标志位。**缓解措施**：订阅 `StateChanged` 事件，在状态**从任意非 `Normal` 变为 `Normal`**（即 `_previousWindowState != Normal && WindowState == Normal`）时将 `_isRestoring` 置 true，并注册一次性 `LayoutUpdated` 处理器以清除它。此条件同时覆盖 Minimized→Normal 和 Maximized→Normal 两种恢复路径。 |
+| 游戏窗口关闭再重新打开 | `GameWindowLost` → 重新发现 → `GameWindowMoved`（真实变化），清除 `_isUserPositioned` |
 | 用户同时调整了位置和大小 | 两个标志独立管理，互不影响 |
+| `ShouldAttachInside` 翻转但 RECT 未变 | 走 `GameWindowMoved` 路径（见第一节设计），清除 `_isUserPositioned`，重新贴附到正确一侧 |
 
 ---
 
