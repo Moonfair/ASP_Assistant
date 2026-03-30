@@ -8,7 +8,6 @@ public class WindowTrackerService : IDisposable
 {
     private IntPtr _gameWindowHandle;
     private readonly Timer _pollTimer;
-    private readonly Func<int> _getScreenWidth;
 
     public event Action<RECT>? GameWindowMoved;
     public event Action? GameWindowLost;
@@ -21,9 +20,8 @@ public class WindowTrackerService : IDisposable
                                 && User32.IsWindow(_gameWindowHandle);
     public bool ShouldAttachInside { get; private set; }
 
-    public WindowTrackerService(Func<int>? getScreenWidth = null, int pollIntervalMs = 100)
+    public WindowTrackerService(int pollIntervalMs = 100)
     {
-        _getScreenWidth = getScreenWidth ?? (() => 1920);
         _pollTimer = new Timer(pollIntervalMs);
         _pollTimer.Elapsed += OnPollTick;
     }
@@ -69,9 +67,11 @@ public class WindowTrackerService : IDisposable
             return;
         }
 
-        var screenWidth = GetPrimaryScreenWidth();
-        var rightSpace = screenWidth - windowRect.Right;
-        var shouldAttachInside = rightSpace < 320 || IsFullscreen(windowRect, screenWidth);
+        // Use the monitor that contains the game window's right edge so that
+        // multi-monitor setups resolve correctly regardless of primary screen.
+        var monitorRect = User32.GetMonitorRect(windowRect.Right - 1, windowRect.Top);
+        var rightSpace = monitorRect.Right - windowRect.Right;
+        var shouldAttachInside = rightSpace < 320 || IsFullscreen(windowRect, monitorRect);
 
         var changed = IsGameWindowChanged(CurrentGameRect, ShouldAttachInside,
             windowRect, shouldAttachInside);
@@ -84,14 +84,9 @@ public class WindowTrackerService : IDisposable
             GameWindowPolled?.Invoke(windowRect);
     }
 
-    private static bool IsFullscreen(RECT rect, int screenWidth)
+    private static bool IsFullscreen(RECT rect, RECT monitorRect)
     {
-        return rect.Left <= 0 && rect.Width >= screenWidth - 10;
-    }
-
-    private int GetPrimaryScreenWidth()
-    {
-        return _getScreenWidth();
+        return rect.Left <= monitorRect.Left && rect.Width >= monitorRect.Width - 10;
     }
 
     public static bool IsGameWindowChanged(RECT? previous, bool previousAttachInside,

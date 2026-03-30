@@ -88,4 +88,38 @@ public static class User32
             Bottom = topLeft.Y + clientRect.Height
         };
     }
+
+    // Monitor APIs
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct MONITORINFO
+    {
+        public int    cbSize;
+        public RECT   rcMonitor;
+        public RECT   rcWork;
+        public uint   dwFlags;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    private const uint MonitorDefaultToNearest = 2;
+
+    /// <summary>
+    /// Returns the bounding rectangle (in physical pixels) of the monitor
+    /// that contains the given physical-pixel point, or the nearest monitor
+    /// if the point lies outside all monitors.
+    /// </summary>
+    public static RECT GetMonitorRect(int x, int y)
+    {
+        var pt      = new POINT { X = x, Y = y };
+        var hMon    = MonitorFromPoint(pt, MonitorDefaultToNearest);
+        var info    = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        GetMonitorInfo(hMon, ref info);
+        return info.rcMonitor;
+    }
 }

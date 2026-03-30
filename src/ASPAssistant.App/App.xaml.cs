@@ -100,8 +100,7 @@ public partial class App : Application
             () => trackingVm.TrackedOperators.Select(o => o.Name).ToList(),
             intervalMs: 200);
 
-        _windowTracker = new WindowTrackerService(
-            () => (int)SystemParameters.PrimaryScreenWidth);
+        _windowTracker = new WindowTrackerService();
 
         // Windows
         _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm);
