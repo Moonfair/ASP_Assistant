@@ -112,12 +112,20 @@ public partial class App : Application
         {
             Dispatcher.Invoke(() =>
             {
-                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside);
+                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: true);
 
                 var clientRect = Core.Interop.User32.GetClientRectScreen(
                     Core.Interop.User32.FindArknightsWindow());
                 if (clientRect.HasValue)
                     _overlay.UpdatePosition(clientRect.Value);
+            });
+        };
+
+        _windowTracker.GameWindowPolled += rect =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: false);
             });
         };
 

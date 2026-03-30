@@ -16,6 +16,13 @@ public partial class SidePanelWindow : Window
     private UpdateService? _updateService;
     private UpdateInfo? _pendingUpdate;
 
+    // 用户意图追踪
+    private bool _isUserPositioned;       // 用户手动移动过窗口
+    private bool _isUserSized;            // 用户手动调整过窗口高度
+    private bool _isProgrammaticChange;   // 程序正在设置位置/尺寸，抑制事件响应
+    private bool _isRestoring;            // 正在从最小化恢复，抑制事件响应
+    private WindowState _previousWindowState;
+
     public SidePanelWindow(
         OperatorBrowseViewModel operatorVm,
         EquipmentBrowseViewModel equipmentVm,
@@ -28,6 +35,10 @@ public partial class SidePanelWindow : Window
         GameStateVm = gameStateVm;
 
         InitializeComponent();
+
+        LocationChanged += OnLocationChanged;
+        SizeChanged     += OnSizeChanged;
+        StateChanged    += OnStateChanged;
 
         trackingVm.GameState = gameStateVm;
 
@@ -90,20 +101,59 @@ public partial class SidePanelWindow : Window
         dialog.ShowDialog();
     }
 
-    public void UpdatePosition(RECT gameRect, bool attachInside)
+    public void UpdatePosition(RECT gameRect, bool attachInside, bool gameActuallyMoved)
     {
-        if (attachInside)
+        _isProgrammaticChange = true;
+        try
         {
-            Left = gameRect.Right - Width;
-            Top = gameRect.Top;
-            Height = gameRect.Height;
+            if (gameActuallyMoved)
+                _isUserPositioned = false;
+
+            var targetLeft = attachInside ? gameRect.Right - Width : (double)gameRect.Right;
+            var targetTop  = (double)gameRect.Top;
+            var targetHeight = (double)gameRect.Height;
+
+            if (!_isUserPositioned)
+            {
+                Left = targetLeft;
+                Top  = targetTop;
+            }
+
+            if (!_isUserSized)
+                Height = targetHeight;
         }
-        else
+        finally
         {
-            Left = gameRect.Right;
-            Top = gameRect.Top;
-            Height = gameRect.Height;
+            _isProgrammaticChange = false;
         }
+    }
+
+    private void OnLocationChanged(object? sender, EventArgs e)
+    {
+        if (!_isProgrammaticChange && !_isRestoring)
+            _isUserPositioned = true;
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!_isProgrammaticChange && !_isRestoring && e.HeightChanged)
+            _isUserSized = true;
+    }
+
+    private void OnStateChanged(object? sender, EventArgs e)
+    {
+        if (_previousWindowState != WindowState.Normal && WindowState == WindowState.Normal)
+        {
+            _isRestoring = true;
+            LayoutUpdated += ClearRestoringFlag;
+        }
+        _previousWindowState = WindowState;
+    }
+
+    private void ClearRestoringFlag(object? sender, EventArgs e)
+    {
+        _isRestoring = false;
+        LayoutUpdated -= ClearRestoringFlag;
     }
 
     private void OnTitleBarDrag(object sender, MouseButtonEventArgs e)
