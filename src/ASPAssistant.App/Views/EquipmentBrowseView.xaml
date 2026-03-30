@@ -84,7 +84,7 @@
             </StackPanel>
         </StackPanel>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding FilteredEquipment}" Margin="8">
+            <ItemsControl x:Name="EquipmentListControl" ItemsSource="{Binding FilteredEquipment}" Margin="8">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <controls:EquipmentCard TrackingToggled="OnEquipmentTrackingToggled" />

@@ -13,6 +13,7 @@ namespace ASPAssistant.App.Views;
 public partial class OperatorBrowseView : UserControl
 {
     public event Action<string, TrackingType>? TrackingRequested;
+    public event Action<string>? UntrackingRequested;
     public Func<string, bool>? IsTrackedCheck { get; set; }
 
     // ── Scroll-driven filter collapse state ─────────────────────────────────
@@ -152,11 +153,43 @@ public partial class OperatorBrowseView : UserControl
         return null;
     }
 
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T t) yield return t;
+            foreach (var descendant in FindVisualChildren<T>(child))
+                yield return descendant;
+        }
+    }
+
     private void OnOperatorTrackingToggled(object sender, RoutedEventArgs e)
     {
         if (e.OriginalSource is OperatorCard card && card.DataContext is Operator op)
         {
-            TrackingRequested?.Invoke(op.Name, TrackingType.Operator);
+            // #region agent log
+            System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OperatorBrowseView.xaml.cs:OnOperatorTrackingToggled", message = "TrackingToggled fired", data = new { opName = op.Name, cardIsTracked = card.IsTracked, action = card.IsTracked ? "AddTracking" : "RemoveTracking" }, hypothesisId = "A", runId = "post-fix" }) + "\n");
+            // #endregion
+            if (card.IsTracked)
+                TrackingRequested?.Invoke(op.Name, TrackingType.Operator);
+            else
+                UntrackingRequested?.Invoke(op.Name);
+        }
+    }
+
+    public void RefreshTrackingStates()
+    {
+        if (IsTrackedCheck == null) return;
+        foreach (var card in FindVisualChildren<OperatorCard>(OperatorListControl))
+        {
+            if (card.DataContext is Operator op)
+            {
+                // #region agent log
+                System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OperatorBrowseView.xaml.cs:RefreshTrackingStates", message = "Refreshing card", data = new { opName = op.Name, newIsTracked = IsTrackedCheck(op.Name) }, hypothesisId = "B", runId = "post-fix" }) + "\n");
+                // #endregion
+                card.RefreshTrackedState(IsTrackedCheck(op.Name));
+            }
         }
     }
 

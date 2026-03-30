@@ -104,6 +104,12 @@ public partial class EquipmentCard : UserControl
         }
     }
 
+    public void RefreshTrackedState(bool isTracked)
+    {
+        IsTracked = isTracked;
+        UpdateTrackButton();
+    }
+
     private void UpdateTrackButton()
     {
         TrackButton.Content = IsTracked ? "★ 追踪中" : "☆ 追踪";

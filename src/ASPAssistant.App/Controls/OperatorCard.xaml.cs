@@ -84,6 +84,10 @@ public partial class OperatorCard : UserControl
     private void OnTrackClick(object sender, RoutedEventArgs e)
     {
         IsTracked = !IsTracked;
+        // #region agent log
+        var opName = (DataContext as ASPAssistant.Core.Models.Operator)?.Name ?? "?";
+        System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OperatorCard.xaml.cs:OnTrackClick", message = "Track button clicked, local IsTracked toggled", data = new { opName, newIsTracked = IsTracked }, hypothesisId = "A" }) + "\n");
+        // #endregion
         UpdateTrackButton();
         RaiseEvent(new RoutedEventArgs(TrackingToggledEvent, this));
     }
@@ -102,6 +106,12 @@ public partial class OperatorCard : UserControl
             bitmap.EndInit();
             IconImage.Source = bitmap;
         }
+    }
+
+    public void RefreshTrackedState(bool isTracked)
+    {
+        IsTracked = isTracked;
+        UpdateTrackButton();
     }
 
     private void UpdateTrackButton()

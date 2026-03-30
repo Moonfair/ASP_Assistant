@@ -23,6 +23,9 @@ public partial class TrackingViewModel : ObservableObject
 
     public void AddTracking(string name, TrackingType type)
     {
+        // #region agent log
+        System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "TrackingViewModel.cs:AddTracking", message = "AddTracking called", data = new { name, alreadyTracked = IsTracked(name) }, hypothesisId = "A" }) + "\n");
+        // #endregion
         if (IsTracked(name))
             return;
 
@@ -35,6 +38,9 @@ public partial class TrackingViewModel : ObservableObject
 
     public void RemoveTracking(string name)
     {
+        // #region agent log
+        System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "TrackingViewModel.cs:RemoveTracking", message = "RemoveTracking called", data = new { name }, hypothesisId = "B" }) + "\n");
+        // #endregion
         var opEntry = TrackedOperators.FirstOrDefault(e => e.Name == name);
         if (opEntry != null)
         {

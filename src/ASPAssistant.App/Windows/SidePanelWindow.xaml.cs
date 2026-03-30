@@ -39,8 +39,21 @@ public partial class SidePanelWindow : Window
         EquipmentView.IsTrackedCheck = trackingVm.IsTracked;
 
         OperatorView.TrackingRequested += (name, type) => trackingVm.AddTracking(name, type);
+        OperatorView.UntrackingRequested += name => trackingVm.RemoveTracking(name);
         EquipmentView.TrackingRequested += (name, type) => trackingVm.AddTracking(name, type);
+        EquipmentView.UntrackingRequested += name => trackingVm.RemoveTracking(name);
         TrackingView.RemoveTrackingRequested += name => trackingVm.RemoveTracking(name);
+
+        trackingVm.TrackedOperators.CollectionChanged += (_, _) =>
+        {
+            OperatorView.RefreshTrackingStates();
+            EquipmentView.RefreshTrackingStates();
+        };
+        trackingVm.TrackedEquipment.CollectionChanged += (_, _) =>
+        {
+            OperatorView.RefreshTrackingStates();
+            EquipmentView.RefreshTrackingStates();
+        };
     }
 
     public void StartUpdateCheck(UpdateService updateService)
