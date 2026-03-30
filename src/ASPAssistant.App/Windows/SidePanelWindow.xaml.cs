@@ -117,10 +117,9 @@ public partial class SidePanelWindow : Window
             var targetHeight = (double)gameRect.Height;
 
             if (!_isUserPositioned)
-            {
                 Left = targetLeft;
-                Top  = targetTop;
-            }
+
+            Top = targetTop;
 
             if (!_isUserSized)
                 Height = targetHeight;
