@@ -11,7 +11,7 @@ namespace ASPAssistant.App.Windows;
 
 public partial class OverlayWindow : Window
 {
-    private const double MarkerSize = 18;
+    private const double MarkerSize = 27;
 
     // Persistent marker elements keyed by ShopItem.Id.
     // Using Id (not Name) lets multiple cards with the same operator name each
@@ -134,7 +134,7 @@ public partial class OverlayWindow : Window
         {
             Text = "★",
             Foreground = Brushes.White,
-            FontSize = 10,
+            FontSize = 15,
             FontWeight = FontWeights.Bold,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
