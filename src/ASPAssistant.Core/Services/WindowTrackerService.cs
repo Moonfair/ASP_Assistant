@@ -13,6 +13,7 @@ public class WindowTrackerService : IDisposable
     public event Action<RECT>? GameWindowMoved;
     public event Action? GameWindowLost;
     public event Action<bool>? GameWindowFocusChanged;
+    public event Action<RECT>? GameWindowPolled;
 
     public RECT? CurrentGameRect { get; private set; }
     public bool IsGameFocused { get; private set; }
@@ -70,10 +71,17 @@ public class WindowTrackerService : IDisposable
 
         var screenWidth = GetPrimaryScreenWidth();
         var rightSpace = screenWidth - windowRect.Right;
-        ShouldAttachInside = rightSpace < 320 || IsFullscreen(windowRect, screenWidth);
+        var shouldAttachInside = rightSpace < 320 || IsFullscreen(windowRect, screenWidth);
 
+        var changed = IsGameWindowChanged(CurrentGameRect, ShouldAttachInside,
+            windowRect, shouldAttachInside);
+        ShouldAttachInside = shouldAttachInside;
         CurrentGameRect = windowRect;
-        GameWindowMoved?.Invoke(windowRect);
+
+        if (changed)
+            GameWindowMoved?.Invoke(windowRect);
+        else
+            GameWindowPolled?.Invoke(windowRect);
     }
 
     private static bool IsFullscreen(RECT rect, int screenWidth)
@@ -84,6 +92,18 @@ public class WindowTrackerService : IDisposable
     private int GetPrimaryScreenWidth()
     {
         return _getScreenWidth();
+    }
+
+    public static bool IsGameWindowChanged(RECT? previous, bool previousAttachInside,
+        RECT current, bool currentAttachInside)
+    {
+        if (previous is null) return true;
+        var p = previous.Value;
+        return p.Left != current.Left ||
+               p.Top != current.Top ||
+               p.Right != current.Right ||
+               p.Bottom != current.Bottom ||
+               previousAttachInside != currentAttachInside;
     }
 
     public void Dispose()
