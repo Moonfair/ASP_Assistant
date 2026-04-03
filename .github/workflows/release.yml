@@ -48,3 +48,17 @@ jobs:
         with:
           files: publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
           generate_release_notes: true
+
+      - name: Setup ossutil
+        uses: manyuanrong/setup-ossutil@v3.0
+        with:
+          endpoint: ${{ secrets.OSS_ENDPOINT }}
+          access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+
+      - name: Upload to Aliyun OSS
+        run: >
+          ossutil cp
+          publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
+          oss://${{ secrets.OSS_BUCKET }}/releases/ASPAssistant-${{ github.ref_name }}-win-x64.zip
+          --force
