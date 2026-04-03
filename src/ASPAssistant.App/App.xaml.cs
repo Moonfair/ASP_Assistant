@@ -65,14 +65,18 @@ public partial class App : Application
         // Load data
         var operators = await dataStore.LoadOperatorsAsync();
         var (equipment, manualJobChangeEquipments) = await dataStore.LoadEquipmentAsync();
+        var skinAvatarMap = await dataStore.LoadSkinAvatarMapAsync();
         var trackingEntries = await _settingsManager.LoadTrackingEntriesAsync();
 
         // ViewModels
+        var banVm = new BanViewModel();
+
         var operatorVm = new OperatorBrowseViewModel();
         operatorVm.LoadOperators(operators);
+        operatorVm.SetBanChecker(banVm.IsBanned);
 
         var covenantNames = operators
-            .SelectMany(o => new[] { o.CoreCovenant }.Concat(o.AdditionalCovenants))
+            .SelectMany(o => o.CoreCovenants.Concat(o.AdditionalCovenants))
             .Where(c => !string.IsNullOrEmpty(c))
             .Distinct()
             .ToList();
@@ -95,15 +99,34 @@ public partial class App : Application
         var captureService = new ScreenCaptureService();
         var cardDetector = new MaaCardDetector(dataDir);
         var ocrEngine = new MaaOcrEngine(dataDir);
+        var banIconMatcher = new MaaBanIconMatcher(dataDir);
         _ocrScanner = new OcrScannerService(
             captureService, garrisonMode.OcrStrategy, cardDetector, ocrEngine, gameState,
             () => trackingVm.TrackedOperators.Select(o => o.Name).ToList(),
-            intervalMs: 200);
+            getAllOperators: () =>
+            {
+                var covenantLookup = operators.ToDictionary(
+                    o => o.Name,
+                    o => ((IReadOnlyList<string>)o.CoreCovenants, (IReadOnlyList<string>)o.AdditionalCovenants));
+                return skinAvatarMap
+                    .GroupBy(kvp => kvp.Value)
+                    .Select(g =>
+                    {
+                        covenantLookup.TryGetValue(g.Key, out var cv);
+                        return (g.Key,
+                                cv.Item1 ?? (IReadOnlyList<string>)[],
+                                cv.Item2 ?? (IReadOnlyList<string>)[],
+                                (IReadOnlyList<string>)g.Select(kvp => $"skin_avatars/{kvp.Key}").ToList());
+                    })
+                    .ToList();
+            },
+            iconMatcher: banIconMatcher,
+            intervalMs: 1000);
 
         _windowTracker = new WindowTrackerService();
 
         // Windows
-        _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm);
+        _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm, banVm);
         _overlay = new OverlayWindow();
 
         // Wire window tracker → window positioning
@@ -153,6 +176,28 @@ public partial class App : Application
                 _overlay.UpdateShopItems(state.ShopItems);
             });
         };
+
+        // Wire ban detection: manual screenshot scan results → update operator ban state.
+        _ocrScanner.BansDetected += names =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                banVm.SetBans(names);
+            });
+        };
+
+        // Manual screenshot scan: button in the operator browse view triggers a one-off scan.
+        _sidePanel.ManualScanRequested += () => _ocrScanner!.EnqueueManualScan();
+
+        // Manual ban/unban from operator card button.
+        _sidePanel.BanToggleRequested += (name, banned) =>
+        {
+            banVm.ToggleBan(name);
+            _ocrScanner!.SetManualBan(name, banned);
+        };
+        _ocrScanner.ManualScanQueueChanged += count =>
+            Dispatcher.Invoke(() => _sidePanel.UpdateManualScanStatus(count));
+
 
         // Auto-save tracking changes
         trackingVm.TrackedOperators.CollectionChanged += async (_, _) =>

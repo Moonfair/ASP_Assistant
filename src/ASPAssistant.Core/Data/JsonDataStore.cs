@@ -39,6 +39,22 @@ public class JsonDataStore
         return (wrapper?.Equipment ?? [], wrapper?.ManualJobChangeEquipments ?? []);
     }
 
+    /// <summary>
+    /// Loads the skin avatar map produced by <c>fetch_spdatabase.py --download-skins</c>.
+    /// Returns a dictionary of { filename → operator name }, e.g.
+    /// { "char_1012_skadi2_boc_4.png" → "浊心斯卡蒂" }.
+    /// Returns an empty dictionary if the file does not exist.
+    /// </summary>
+    public async Task<Dictionary<string, string>> LoadSkinAvatarMapAsync()
+    {
+        var path = Path.Combine(_dataDirectory, "skin_avatar_map.json");
+        if (!File.Exists(path))
+            return [];
+
+        var json = await File.ReadAllTextAsync(path);
+        return JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions) ?? [];
+    }
+
     private class OperatorDataFile
     {
         public List<Operator> Operators { get; set; } = [];

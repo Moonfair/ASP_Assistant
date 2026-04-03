@@ -73,3 +73,10 @@ ehthumbs.db
 
 # Superpowers IDE
 .superpowers/
+
+# Cursor IDE
+.cursor/
+
+# Debug logs
+debug-*.log
+*.log

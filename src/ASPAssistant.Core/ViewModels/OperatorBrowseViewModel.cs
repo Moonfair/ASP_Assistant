@@ -5,9 +5,17 @@ using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.ViewModels;
 
+public enum AvailabilityFilter
+{
+    All,
+    Available,
+    Unavailable
+}
+
 public partial class OperatorBrowseViewModel : ObservableObject
 {
     private List<Operator> _allOperators = [];
+    private Func<string, bool>? _isBannedCheck;
 
     [ObservableProperty]
     private ObservableCollection<Operator> _filteredOperators = [];
@@ -17,6 +25,9 @@ public partial class OperatorBrowseViewModel : ObservableObject
 
     [ObservableProperty]
     private int? _selectedTierFilter;
+
+    [ObservableProperty]
+    private AvailabilityFilter _selectedAvailabilityFilter = AvailabilityFilter.All;
 
     private readonly HashSet<string> _selectedCoreCovenantFilters = [];
     private readonly HashSet<string> _selectedOtherCovenantFilters = [];
@@ -42,6 +53,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
         get
         {
             var groups = new List<List<string>>();
+            if (SelectedAvailabilityFilter != AvailabilityFilter.All)
+                groups.Add([SelectedAvailabilityFilter == AvailabilityFilter.Available ? "本局可用" : "本局不可用"]);
             if (SelectedTierFilter.HasValue)
                 groups.Add([TierToRoman(SelectedTierFilter.Value)]);
             var allCovenants = _selectedCoreCovenantFilters.Concat(_selectedOtherCovenantFilters).Order().ToList();
@@ -73,7 +86,7 @@ public partial class OperatorBrowseViewModel : ObservableObject
         AvailableTiers = [null, .. operators.Select(o => (int?)o.Tier).Distinct().OrderBy(t => t)];
 
         var coreSet = operators
-            .Select(o => o.CoreCovenant)
+            .SelectMany(o => o.CoreCovenants)
             .Where(c => !string.IsNullOrEmpty(c))
             .ToHashSet();
         AvailableCoreCovenants = ["", .. coreSet.Order()];
@@ -104,10 +117,23 @@ public partial class OperatorBrowseViewModel : ObservableObject
         ApplyFilters();
     }
 
+    public void SetBanChecker(Func<string, bool> checker)
+    {
+        _isBannedCheck = checker;
+        ApplyFilters();
+    }
+
+    /// <summary>
+    /// Called when the ban set changes externally (e.g. new bans detected or bans cleared).
+    /// Re-runs the filter so the operator list reflects the updated ban state.
+    /// </summary>
+    public void NotifyBansChanged() => ApplyFilters();
+
     partial void OnSearchTextChanged(string value) => ApplyFilters();
     partial void OnSelectedTierFilterChanged(int? value) => ApplyFilters();
     partial void OnSelectedTraitTypeFilterChanged(string? value) => ApplyFilters();
     partial void OnSelectedTriggerTimingFilterChanged(string? value) => ApplyFilters();
+    partial void OnSelectedAvailabilityFilterChanged(AvailabilityFilter value) => ApplyFilters();
 
     public void SetCoreCovenantFilters(IEnumerable<string> covenants)
     {
@@ -129,13 +155,20 @@ public partial class OperatorBrowseViewModel : ObservableObject
     {
         var filtered = _allOperators.AsEnumerable();
 
+        if (SelectedAvailabilityFilter != AvailabilityFilter.All && _isBannedCheck != null)
+        {
+            filtered = SelectedAvailabilityFilter == AvailabilityFilter.Unavailable
+                ? filtered.Where(o => _isBannedCheck(o.Name))
+                : filtered.Where(o => !_isBannedCheck(o.Name));
+        }
+
         if (SelectedTierFilter.HasValue)
             filtered = filtered.Where(o => o.Tier == SelectedTierFilter.Value);
 
         // Core and other covenant dimensions are independent (AND between dimensions,
         // OR within each dimension).
         if (_selectedCoreCovenantFilters.Count > 0)
-            filtered = filtered.Where(o => _selectedCoreCovenantFilters.Contains(o.CoreCovenant));
+            filtered = filtered.Where(o => o.CoreCovenants.Any(c => _selectedCoreCovenantFilters.Contains(c)));
 
         if (_selectedOtherCovenantFilters.Count > 0)
             filtered = filtered.Where(o =>

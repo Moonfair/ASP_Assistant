@@ -73,6 +73,51 @@
         </Setter>
     </Style>
 
+    <!-- Ban toggle button (red when banned, neutral when not) -->
+    <Style x:Key="BanToggleButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bg" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="banned">
+                            <Setter TargetName="bg" Property="Background" Value="#33DD2222" />
+                            <Setter TargetName="bg" Property="BorderBrush" Value="#FFDD2222" />
+                            <Setter Property="Foreground" Value="#FFDD2222" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="#22DD2222" />
+                            <Setter TargetName="bg" Property="BorderBrush" Value="#FFDD2222" />
+                            <Setter Property="Foreground" Value="#FFDD2222" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="Tag" Value="banned" />
+                                <Condition Property="IsMouseOver" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="bg" Property="Background" Value="#55DD2222" />
+                            <Setter TargetName="bg" Property="BorderBrush" Value="#FFDD2222" />
+                            <Setter Property="Foreground" Value="#FFDD2222" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Tracking button -->
     <Style x:Key="TrackingButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />

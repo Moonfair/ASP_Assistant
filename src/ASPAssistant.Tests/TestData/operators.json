@@ -3,7 +3,7 @@
     {
       "name": "隐现",
       "tier": 6,
-      "coreCovenant": "拉特兰",
+      "coreCovenants": ["拉特兰"],
       "additionalCovenants": ["迅捷"],
       "normal": {
         "traits": [
@@ -19,7 +19,7 @@
     {
       "name": "角峰",
       "tier": 4,
-      "coreCovenant": "谢拉格",
+      "coreCovenants": ["谢拉格"],
       "additionalCovenants": ["坚守"],
       "normal": {
         "traits": [
@@ -35,7 +35,7 @@
     {
       "name": "惊蛰",
       "tier": 6,
-      "coreCovenant": "炎",
+      "coreCovenants": ["炎"],
       "additionalCovenants": [],
       "normal": {
         "traits": [

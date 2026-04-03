@@ -118,6 +118,102 @@
                     </Style>
                 </StackPanel.Style>
 
+                <!-- Availability filter (ban status) — always at top -->
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock DockPanel.Dock="Left" Text="本局状态"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" />
+                    <Button DockPanel.Dock="Right" x:Name="ClearBansButton"
+                            Content="清除ban位" FontSize="11"
+                            Padding="8,2" Margin="6,0,0,0"
+                            HorizontalAlignment="Right"
+                            Click="OnClearBansClicked">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#33DD2222" />
+                                <Setter Property="Foreground" Value="#FFDD2222" />
+                                <Setter Property="BorderBrush" Value="#55DD2222" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="4"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#55DD2222" />
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter Property="Background" Value="#88DD2222" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button DockPanel.Dock="Right" x:Name="ManualScanButton"
+                            Content="截屏录入" FontSize="11"
+                            Padding="8,2" Margin="6,0,0,0"
+                            HorizontalAlignment="Right"
+                            Click="OnManualScanClicked">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#334FC3F7" />
+                                <Setter Property="Foreground" Value="#FF4FC3F7" />
+                                <Setter Property="BorderBrush" Value="#554FC3F7" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="4"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#554FC3F7" />
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter Property="Background" Value="#884FC3F7" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <TextBlock x:Name="ManualScanStatusText"
+                               DockPanel.Dock="Right"
+                               FontSize="11" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="4,0,0,0"
+                               Visibility="Collapsed" />
+                </DockPanel>
+                <ListBox x:Name="AvailabilityFilterList"
+                         Style="{StaticResource FilterChipListBox}"
+                         Margin="0,0,0,6"
+                         SelectionChanged="OnAvailabilityFilterChanged">
+                    <ListBoxItem Content="全部" />
+                    <ListBoxItem Content="本局可用" />
+                    <ListBoxItem Content="本局不可用" />
+                </ListBox>
+
                 <TextBlock Text="等阶" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,0,0,4" />
                 <ListBox x:Name="TierFilterList"
@@ -231,7 +327,8 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <controls:OperatorCard TrackingToggled="OnOperatorTrackingToggled" />
+                    <controls:OperatorCard TrackingToggled="OnOperatorTrackingToggled"
+                                          controls:OperatorCard.BanToggled="OnOperatorBanToggled" />
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>

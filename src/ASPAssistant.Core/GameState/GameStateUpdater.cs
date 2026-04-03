@@ -27,10 +27,10 @@ public static class GameStateUpdater
             if (!dbLookup.TryGetValue(name, out var op))
                 continue;
 
-            if (!string.IsNullOrEmpty(op.CoreCovenant))
+            foreach (var coreCov in op.CoreCovenants)
             {
-                counts.TryGetValue(op.CoreCovenant, out var existing);
-                counts[op.CoreCovenant] = existing + count;
+                counts.TryGetValue(coreCov, out var existing);
+                counts[coreCov] = existing + count;
             }
 
             foreach (var covenant in op.AdditionalCovenants)

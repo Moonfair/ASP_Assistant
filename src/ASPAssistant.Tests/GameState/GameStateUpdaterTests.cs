@@ -33,9 +33,9 @@ public class GameStateUpdaterTests
     {
         var operators = new List<Operator>
         {
-            new() { Name = "角峰", CoreCovenant = "谢拉格", AdditionalCovenants = ["坚守"] },
-            new() { Name = "深巡", CoreCovenant = "阿戈尔", AdditionalCovenants = [] },
-            new() { Name = "红豆", CoreCovenant = "", AdditionalCovenants = ["不屈"] }
+            new() { Name = "角峰", CoreCovenants = ["谢拉格"], AdditionalCovenants = ["坚守"] },
+            new() { Name = "深巡", CoreCovenants = ["阿戈尔"], AdditionalCovenants = [] },
+            new() { Name = "红豆", CoreCovenants = [], AdditionalCovenants = ["不屈"] }
         };
         var owned = new List<(string Name, int Count)>
         {

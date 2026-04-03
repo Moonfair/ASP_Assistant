@@ -12,6 +12,10 @@ public partial class SidePanelWindow : Window
     public EquipmentBrowseViewModel EquipmentBrowseVm { get; }
     public TrackingViewModel TrackingVm { get; }
     public GameStateViewModel GameStateVm { get; }
+    public BanViewModel BanVm { get; }
+
+    public event Action? ManualScanRequested;
+    public event Action<string, bool>? BanToggleRequested;
 
     private UpdateService? _updateService;
     private UpdateInfo? _pendingUpdate;
@@ -29,12 +33,14 @@ public partial class SidePanelWindow : Window
         OperatorBrowseViewModel operatorVm,
         EquipmentBrowseViewModel equipmentVm,
         TrackingViewModel trackingVm,
-        GameStateViewModel gameStateVm)
+        GameStateViewModel gameStateVm,
+        BanViewModel banVm)
     {
         OperatorBrowseVm = operatorVm;
         EquipmentBrowseVm = equipmentVm;
         TrackingVm = trackingVm;
         GameStateVm = gameStateVm;
+        BanVm = banVm;
 
         InitializeComponent();
 
@@ -51,11 +57,26 @@ public partial class SidePanelWindow : Window
         OperatorView.IsTrackedCheck = trackingVm.IsTracked;
         EquipmentView.IsTrackedCheck = trackingVm.IsTracked;
 
+        OperatorView.IsBannedCheck = banVm.IsBanned;
+
         OperatorView.TrackingRequested += (name, type) => trackingVm.AddTracking(name, type);
         OperatorView.UntrackingRequested += name => trackingVm.RemoveTracking(name);
         EquipmentView.TrackingRequested += (name, type) => trackingVm.AddTracking(name, type);
         EquipmentView.UntrackingRequested += name => trackingVm.RemoveTracking(name);
         TrackingView.RemoveTrackingRequested += name => trackingVm.RemoveTracking(name);
+
+        OperatorView.ClearBansRequested += () => banVm.ClearBans();
+        OperatorView.ManualScanRequested += () => ManualScanRequested?.Invoke();
+        OperatorView.BanToggleRequested += (name, banned) => BanToggleRequested?.Invoke(name, banned);
+
+        banVm.BansChanged += () =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                OperatorView.RefreshBannedStates();
+                operatorVm.NotifyBansChanged();
+            });
+        };
 
         trackingVm.TrackedOperators.CollectionChanged += (_, _) =>
         {
@@ -68,6 +89,9 @@ public partial class SidePanelWindow : Window
             EquipmentView.RefreshTrackingStates();
         };
     }
+
+    public void UpdateManualScanStatus(int pending)
+        => OperatorView.UpdateManualScanStatus(pending);
 
     public void StartUpdateCheck(UpdateService updateService)
     {

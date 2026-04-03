@@ -13,8 +13,6 @@ public class SettingsManager
         PropertyNameCaseInsensitive = true
     };
 
-    public int OcrScanIntervalSeconds { get; set; } = 3;
-
     public SettingsManager(string settingsDir)
     {
         _settingsDir = settingsDir;
@@ -37,4 +35,5 @@ public class SettingsManager
         var json = await File.ReadAllTextAsync(path);
         return JsonSerializer.Deserialize<List<TrackingEntry>>(json, JsonOptions) ?? [];
     }
+
 }
