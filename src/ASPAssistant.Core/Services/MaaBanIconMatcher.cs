@@ -4,6 +4,7 @@ using MaaFramework.Binding.Custom;
 
 namespace ASPAssistant.Core.Services;
 
+
 /// <summary>
 /// Detects banned operators in the pre-match ban screen by matching their skin avatar
 /// portrait templates against a screenshot using MaaFramework's FeatureMatch.
@@ -63,8 +64,14 @@ public sealed class MaaBanIconMatcher : IDisposable
         var controller = new MaaCustomController(_nullController);
         controller.LinkStart().Wait();
 
+        var resourcePath = Path.Combine(dataDir, "maa_resource");
+        AppLogger.Info("MaaBanIconMatcher",
+            $"Initialising — dataDir={dataDir}, resourcePath={resourcePath}, " +
+            $"detector={FeatureDetector}, count={OperatorFeatureCount}, ratio={OperatorRatio}, " +
+            $"roi=({BanRoiX:F3},{BanRoiY:F3},{BanRoiW:F3},{BanRoiH:F3})");
+
         var resource = new MaaResource();
-        resource.AppendBundle(Path.Combine(dataDir, "maa_resource")).Wait();
+        resource.AppendBundle(resourcePath).Wait();
 
         _tasker = new MaaTasker(controller, resource, DisposeOptions.All);
     }
@@ -123,8 +130,7 @@ public sealed class MaaBanIconMatcher : IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine(
-                $"[MaaBanIconMatcher] FindBestInSlot failed for '{candidate.Name}': {ex.Message}");
+            AppLogger.Error("MaaBanIconMatcher", $"FindBestInSlot failed for '{candidate.Name}'", ex);
         }
 
         return null;

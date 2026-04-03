@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using ASPAssistant.App.Windows;
+using ASPAssistant.Core;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Core.Services;
@@ -20,6 +21,7 @@ public partial class App : Application
     {
         DispatcherUnhandledException += (_, args) =>
         {
+            AppLogger.Error("App", "Unhandled UI exception", args.Exception);
             MessageBox.Show(
                 $"启动时发生错误，请将以下信息反馈给开发者：\n\n{args.Exception}",
                 "ASPAssistant 错误",
@@ -39,6 +41,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            AppLogger.Error("App", "Startup failed", ex);
             MessageBox.Show(
                 $"启动时发生错误，请将以下信息反馈给开发者：\n\n{ex}",
                 "ASPAssistant 错误",
@@ -50,7 +53,6 @@ public partial class App : Application
 
     private async Task StartupAsync(StartupEventArgs e)
     {
-
         // Paths
         var appDir = AppContext.BaseDirectory;
         var dataDir = Path.Combine(appDir, "data");
@@ -58,15 +60,27 @@ public partial class App : Application
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "ASPAssistant");
 
+        // Initialize file logger as early as possible.
+        AppLogger.Initialize(Path.Combine(settingsDir, "logs"));
+        AppLogger.Info("App", $"appDir={appDir}");
+
         // Data layer
         var dataStore = new JsonDataStore(dataDir);
         _settingsManager = new SettingsManager(settingsDir);
 
         // Load data
+        AppLogger.Info("App", "Loading operators...");
         var operators = await dataStore.LoadOperatorsAsync();
+        AppLogger.Info("App", $"Loaded {operators.Count} operators");
+
         var (equipment, manualJobChangeEquipments) = await dataStore.LoadEquipmentAsync();
+        AppLogger.Info("App", $"Loaded {equipment.Count} equipment items");
+
         var skinAvatarMap = await dataStore.LoadSkinAvatarMapAsync();
+        AppLogger.Info("App", $"Loaded {skinAvatarMap.Count} skin avatar entries");
+
         var trackingEntries = await _settingsManager.LoadTrackingEntriesAsync();
+        AppLogger.Info("App", $"Loaded {trackingEntries.Count} tracking entries");
 
         // ViewModels
         var banVm = new BanViewModel();
@@ -216,6 +230,7 @@ public partial class App : Application
         _overlay.Show();
         _windowTracker.Start();
         _ocrScanner.Start();
+        AppLogger.Info("App", "Startup complete");
 
         // Start background update check
         _sidePanel.StartUpdateCheck(new UpdateService());
@@ -223,6 +238,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        AppLogger.Info("App", "Shutting down");
         _ocrScanner?.Dispose();
         _windowTracker?.Dispose();
         base.OnExit(e);

@@ -73,6 +73,7 @@ public class OcrScannerService : IDisposable
         // By the time the first ban screen appears the pool will already be ready.
         if (iconMatcher != null)
         {
+            AppLogger.Info("OcrScanner", "Starting matcher pool initialisation...");
             _poolInitTask = Task.Run(() =>
             {
                 try
@@ -92,11 +93,11 @@ public class OcrScannerService : IDisposable
                         .ToArray();
                     // Pool = [primary, extra0..extra13] — primary is index 0
                     _matcherPool = [iconMatcher, .. extras];
+                    AppLogger.Info("OcrScanner", $"Matcher pool ready: {_matcherPool.Length} instances");
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[OcrScannerService] Matcher pool init failed: {ex.Message}");
+                    AppLogger.Error("OcrScanner", "Matcher pool init failed", ex);
                     _matcherPool = [iconMatcher];
                 }
             });
@@ -165,10 +166,11 @@ public class OcrScannerService : IDisposable
                 GameStateUpdated?.Invoke(_gameState);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Swallow unexpected errors (e.g. capture failure during window state change)
             // so the timer-driven async void method never propagates an unhandled exception.
+            AppLogger.Error("OcrScanner", "Scan tick failed", ex);
         }
         finally
         {
@@ -183,9 +185,14 @@ public class OcrScannerService : IDisposable
     public void EnqueueManualScan()
     {
         var screenshot = _captureService.CaptureScreen();
-        if (screenshot == null) return;
-        Interlocked.Increment(ref _pendingManualScans);
-        ManualScanQueueChanged?.Invoke(_pendingManualScans);
+        if (screenshot == null)
+        {
+            AppLogger.Warn("OcrScanner", "EnqueueManualScan: screenshot capture returned null");
+            return;
+        }
+        var pending = Interlocked.Increment(ref _pendingManualScans);
+        AppLogger.Info("OcrScanner", $"Manual scan enqueued (pending={pending}, png={screenshot.Length} bytes)");
+        ManualScanQueueChanged?.Invoke(pending);
         _manualScanChannel.Writer.TryWrite(screenshot);
     }
 
@@ -194,19 +201,22 @@ public class OcrScannerService : IDisposable
         var regions = _ocrStrategy.GetScanRegions();
         await foreach (var screenshot in _manualScanChannel.Reader.ReadAllAsync())
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 var (w, h) = GetPngDimensions(screenshot);
+                AppLogger.Info("OcrScanner", $"Manual scan started (img={w}x{h})");
                 await RunBanMatchCoreAsync(screenshot, regions, w, h);
+                AppLogger.Info("OcrScanner", $"Manual scan completed in {sw.ElapsedMilliseconds}ms");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[OcrScannerService] Manual scan failed: {ex.Message}");
+                AppLogger.Error("OcrScanner", "Manual scan failed", ex);
             }
             finally
             {
-                ManualScanQueueChanged?.Invoke(Interlocked.Decrement(ref _pendingManualScans));
+                var remaining = Interlocked.Decrement(ref _pendingManualScans);
+                ManualScanQueueChanged?.Invoke(remaining);
             }
         }
     }
@@ -248,13 +258,22 @@ public class OcrScannerService : IDisposable
             int fw = (int)(factionRegion.WidthPercent * imgWidth);
             int fh = (int)(factionRegion.HeightPercent * imgHeight);
             var factionOcr = await _ocrEngine.RecognizeRegionAsync(screenshot, fx, fy, fw, fh);
+            var ocrTexts = factionOcr.Select(r => r.Text).ToList();
+            AppLogger.Info("BanMatch", $"Faction OCR ({ocrTexts.Count} results): [{string.Join(", ", ocrTexts)}]");
             foreach (var result in factionOcr)
                 foreach (var covenant in allCovenants)
                     if (result.Text.Contains(covenant))
                         visibleFactions.Add(covenant);
+            AppLogger.Info("BanMatch", $"Visible factions: [{string.Join(", ", visibleFactions)}]");
+        }
+        else
+        {
+            AppLogger.Warn("BanMatch", "BanFactionPanel region not found, no faction pre-filter applied");
         }
 
         // Build candidate list, skipping already-identified bans and filtering by visible faction.
+        var totalOperators = allOperators.Count;
+        var alreadyBanned = allOperators.Count(x => _accumulatedBans.Contains(x.Name));
         var candidateSnapshot = allOperators
             .Where(x => !_accumulatedBans.Contains(x.Name))
             .Where(x => visibleFactions.Count == 0
@@ -262,11 +281,15 @@ public class OcrScannerService : IDisposable
                 || x.AdditionalCovenants.Any(c => visibleFactions.Contains(c)))
             .Select(x => (x.Name, x.TemplateNames))
             .ToList();
+        AppLogger.Info("BanMatch",
+            $"Candidates: {candidateSnapshot.Count} (total={totalOperators}, already-banned={alreadyBanned}, " +
+            $"templates={candidateSnapshot.Sum(c => c.TemplateNames.Count)})");
 
         // Use the pool when available; fall back to the primary matcher if still initialising.
         var pool = (_matcherPool is { Length: > 0 }) ? _matcherPool : new[] { _iconMatcher! };
 
         bool anyNewMatch = false;
+        var newlyDetected = new List<string>();
         var matchSw = System.Diagnostics.Stopwatch.StartNew();
         for (int batchStart = 0; batchStart < candidateSnapshot.Count; batchStart += pool.Length)
         {
@@ -290,13 +313,16 @@ public class OcrScannerService : IDisposable
                 if (hit && !_accumulatedBans.Contains(name))
                 {
                     _accumulatedBans.Add(name);
+                    newlyDetected.Add(name);
                     anyNewMatch = true;
                 }
             }
         }
         matchSw.Stop();
-        System.Diagnostics.Debug.WriteLine(
-            $"[BanMatch] {candidateSnapshot.Count} operators ({candidateSnapshot.Sum(c => c.TemplateNames.Count)} templates), pool={pool.Length}, elapsed={matchSw.ElapsedMilliseconds}ms");
+        AppLogger.Info("BanMatch",
+            $"Match done: elapsed={matchSw.ElapsedMilliseconds}ms, pool={pool.Length}, " +
+            $"new={newlyDetected.Count} [{string.Join(", ", newlyDetected)}], " +
+            $"accumulated={_accumulatedBans.Count} [{string.Join(", ", _accumulatedBans)}]");
 
         if (anyNewMatch)
             BansDetected?.Invoke(_accumulatedBans.ToList());
@@ -357,6 +383,7 @@ public class OcrScannerService : IDisposable
     {
         if (banned) _accumulatedBans.Add(name);
         else _accumulatedBans.Remove(name);
+        AppLogger.Info("OcrScanner", $"Manual ban: {name} -> {(banned ? "banned" : "unbanned")} (accumulated={_accumulatedBans.Count})");
     }
 
     public void Dispose()

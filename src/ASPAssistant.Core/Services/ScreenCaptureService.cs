@@ -17,22 +17,34 @@ public class ScreenCaptureService
     {
         var hwnd = User32.FindArknightsWindow();
         if (hwnd == IntPtr.Zero)
+        {
+            AppLogger.Warn("ScreenCapture", "Arknights window not found");
             return null;
+        }
 
         // Skip minimized windows: ClientToScreen returns (-32000,-32000) for them,
         // which causes CopyFromScreen to throw Win32Exception(6) ERROR_INVALID_HANDLE.
         if (User32.IsIconic(hwnd))
+        {
+            AppLogger.Warn("ScreenCapture", "Arknights window is minimized — skipping capture");
             return null;
+        }
 
         var screenRect = User32.GetClientRectScreen(hwnd);
         if (screenRect == null)
+        {
+            AppLogger.Warn("ScreenCapture", "GetClientRectScreen returned null");
             return null;
+        }
 
         var rect = screenRect.Value;
         int width = rect.Width;
         int height = rect.Height;
         if (width <= 0 || height <= 0)
+        {
+            AppLogger.Warn("ScreenCapture", $"Invalid client rect size: {width}x{height}");
             return null;
+        }
 
         try
         {
@@ -44,10 +56,11 @@ public class ScreenCaptureService
             bmp.Save(ms, ImageFormat.Png);
             return ms.ToArray();
         }
-        catch (System.ComponentModel.Win32Exception)
+        catch (System.ComponentModel.Win32Exception ex)
         {
             // Window state changed between the geometry query and the capture
             // (e.g. minimized mid-capture). Treat as no screenshot available.
+            AppLogger.Warn("ScreenCapture", $"Win32Exception during capture (code={ex.NativeErrorCode}): {ex.Message}");
             return null;
         }
     }

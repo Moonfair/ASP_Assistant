@@ -6,6 +6,7 @@
     <img src="https://img.shields.io/badge/platform-Windows-blue?style=flat-square"/>
     <img src="https://img.shields.io/badge/.NET-8.0-purple?style=flat-square"/>
     <img src="https://img.shields.io/badge/game-卫戍协议-orange?style=flat-square"/>
+    <img src="https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square"/>
   </p>
 </div>
 
@@ -129,5 +130,7 @@ src/
 ---
 
 ## 许可证
+
+本项目以 [Apache License 2.0](LICENSE) 开源，可自由使用、修改和分发，但须保留原始版权声明。
 
 本项目仅供个人学习和使用，与 Hypergryph / 鹰角网络无关。
