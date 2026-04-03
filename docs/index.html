@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASP Assistant — 明日方舟卫戍协议辅助工具</title>
+  <meta name="description" content="明日方舟卫戍协议实时辅助工具，自动追踪干员上架、ban 位识别、装备筛选" />
+  <style>
+    :root {
+      --bg:        #0b0f1a;
+      --surface:   #111827;
+      --border:    #1e2d45;
+      --accent:    #3d6ef5;
+      --accent2:   #6b9fff;
+      --text:      #e8edf5;
+      --muted:     #8899b4;
+      --radius:    12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 5vw;
+      height: 60px;
+      background: rgba(11,15,26,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: .95rem; }
+    .nav-brand svg { width: 28px; height: 28px; }
+    .nav-links { display: flex; gap: 28px; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none; font-size: .875rem;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 80px 5vw 60px;
+      background:
+        radial-gradient(ellipse 60% 40% at 50% 20%, rgba(61,110,245,.12) 0%, transparent 70%),
+        var(--bg);
+    }
+    .hero-logo { width: 96px; height: 96px; margin-bottom: 28px; filter: drop-shadow(0 0 24px rgba(61,110,245,.5)); }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; letter-spacing: -.02em; margin-bottom: 12px; }
+    .hero h1 span { color: var(--accent2); }
+    .hero p { font-size: clamp(.95rem, 2vw, 1.15rem); color: var(--muted); max-width: 540px; margin: 0 auto 36px; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 28px; border-radius: 8px;
+      font-size: .95rem; font-weight: 600; text-decoration: none;
+      transition: all .2s; cursor: pointer; border: none;
+    }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 4px 16px rgba(61,110,245,.35);
+    }
+    .btn-primary:hover { background: var(--accent2); box-shadow: 0 6px 24px rgba(61,110,245,.5); transform: translateY(-1px); }
+    .btn-outline {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent2); transform: translateY(-1px); }
+
+    .version-badge {
+      display: inline-block; margin-top: 20px;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: .78rem; color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .version-badge span { color: var(--accent2); font-weight: 600; }
+
+    /* ── SECTION COMMON ── */
+    section { padding: 80px 5vw; }
+    .section-label {
+      font-size: .75rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+    }
+    .section-title { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; margin-bottom: 12px; }
+    .section-sub { color: var(--muted); max-width: 520px; }
+    .center { text-align: center; }
+    .center .section-sub { margin: 0 auto; }
+
+    /* ── FEATURES ── */
+    .features { background: var(--surface); }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px; margin-top: 48px;
+    }
+    .feature-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color .2s, transform .2s;
+    }
+    .feature-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: rgba(61,110,245,.15);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px; font-size: 1.3rem;
+    }
+    .feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { font-size: .875rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── SCREENSHOT ── */
+    .screenshot-wrap {
+      margin-top: 48px; border-radius: var(--radius);
+      overflow: hidden; border: 1px solid var(--border);
+      box-shadow: 0 24px 80px rgba(0,0,0,.6);
+    }
+    .screenshot-wrap img { width: 100%; display: block; }
+
+    /* ── HOW ── */
+    .steps { display: flex; flex-direction: column; gap: 0; margin-top: 48px; max-width: 580px; }
+    .step { display: flex; gap: 20px; position: relative; padding-bottom: 32px; }
+    .step:last-child { padding-bottom: 0; }
+    .step-line {
+      position: absolute; left: 19px; top: 40px; bottom: 0;
+      width: 2px; background: var(--border);
+    }
+    .step:last-child .step-line { display: none; }
+    .step-num {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(61,110,245,.15); border: 1px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .875rem; font-weight: 700; color: var(--accent2); z-index: 1;
+    }
+    .step-body h3 { font-size: .95rem; font-weight: 600; margin-bottom: 4px; margin-top: 8px; }
+    .step-body p { font-size: .875rem; color: var(--muted); }
+
+    /* ── DOWNLOAD ── */
+    .download { background: var(--surface); }
+    .download-card {
+      margin-top: 40px;
+      background: linear-gradient(135deg, rgba(61,110,245,.12) 0%, rgba(107,159,255,.05) 100%);
+      border: 1px solid rgba(61,110,245,.3);
+      border-radius: var(--radius);
+      padding: 40px 36px;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px;
+    }
+    .download-info h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }
+    .download-info p { color: var(--muted); font-size: .875rem; }
+    .download-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .tag {
+      padding: 3px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600;
+      border: 1px solid var(--border); color: var(--muted);
+    }
+    #dl-size { /* populated by JS */ }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 32px 5vw;
+      border-top: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .footer-brand { display: flex; align-items: center; gap: 8px; font-size: .875rem; color: var(--muted); }
+    .footer-brand svg { width: 20px; height: 20px; }
+    footer a { color: var(--muted); text-decoration: none; font-size: .8rem; }
+    footer a:hover { color: var(--text); }
+    .footer-links { display: flex; gap: 20px; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      .download-card { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ng" x1="256" y1="80" x2="256" y2="430" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#6B9FFF"/><stop offset="1" stop-color="#1A3FCC"/>
+        </linearGradient>
+      </defs>
+      <path d="M74,430 L256,80 L438,430 Z" fill="url(#ng)"/>
+      <circle cx="256" cy="155" r="6" fill="white" fill-opacity="1.00"/>
+      <circle cx="234" cy="205" r="8" fill="white" fill-opacity="0.87"/>
+      <circle cx="278" cy="205" r="8" fill="white" fill-opacity="0.87"/>
+      <circle cx="212" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+      <circle cx="256" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+      <circle cx="300" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+    </svg>
+    ASP Assistant
+  </div>
+  <div class="nav-links">
+    <a href="#features">功能</a>
+    <a href="#screenshot">截图</a>
+    <a href="#howto">使用方法</a>
+    <a href="#download">下载</a>
+    <a href="https://github.com/Moonfair/ASP_Assistant" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <svg class="hero-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="hg" x1="256" y1="80" x2="256" y2="430" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#6B9FFF"/>
+        <stop offset="0.5" stop-color="#3D6EF5"/>
+        <stop offset="1" stop-color="#1A3FCC"/>
+      </linearGradient>
+      <linearGradient id="hs" x1="74" y1="430" x2="256" y2="80" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.00"/>
+        <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      </linearGradient>
+      <filter id="hf" x="-25%" y="-10%" width="150%" height="140%">
+        <feGaussianBlur stdDeviation="18" result="blur"/>
+        <feFlood flood-color="#1230BB" flood-opacity="0.45" result="color"/>
+        <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+        <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <path d="M74,430 L256,80 L438,430 Z" fill="#1230BB" fill-opacity="0.3" transform="translate(0,14)" filter="url(#hf)"/>
+    <path d="M74,430 L256,80 L438,430 Z" fill="url(#hg)"/>
+    <path d="M256,80 L74,430 L256,430 Z" fill="url(#hs)"/>
+    <circle cx="256" cy="155" r="6" fill="white" fill-opacity="1.00"/>
+    <circle cx="234" cy="205" r="8" fill="white" fill-opacity="0.87"/>
+    <circle cx="278" cy="205" r="8" fill="white" fill-opacity="0.87"/>
+    <circle cx="212" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+    <circle cx="256" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+    <circle cx="300" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+    <circle cx="190" cy="305" r="12" fill="white" fill-opacity="0.58"/>
+    <circle cx="234" cy="305" r="12" fill="white" fill-opacity="0.58"/>
+    <circle cx="278" cy="305" r="12" fill="white" fill-opacity="0.58"/>
+    <circle cx="322" cy="305" r="12" fill="white" fill-opacity="0.58"/>
+    <circle cx="168" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+    <circle cx="212" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+    <circle cx="256" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+    <circle cx="300" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+    <circle cx="344" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+    <circle cx="146" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+    <circle cx="190" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+    <circle cx="234" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+    <circle cx="278" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+    <circle cx="322" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+    <circle cx="366" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+    <rect x="213" y="452" width="86" height="5" rx="2.5" fill="#2D5AF0" fill-opacity="0.45"/>
+    <rect x="238" y="464" width="36" height="3" rx="1.5" fill="#2D5AF0" fill-opacity="0.22"/>
+  </svg>
+
+  <h1>ASP <span>Assistant</span></h1>
+  <p>明日方舟·卫戍协议 实时辅助工具<br/>自动追踪干员上架 · Ban 位截图识别 · 装备快速筛选</p>
+
+  <div class="hero-actions">
+    <a class="btn btn-primary" id="hero-dl" href="https://github.com/Moonfair/ASP_Assistant/releases/latest" target="_blank" rel="noopener">
+      ⬇ 下载最新版
+    </a>
+    <a class="btn btn-outline" href="https://github.com/Moonfair/ASP_Assistant" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+  <div class="version-badge">当前版本：<span id="hero-ver">加载中…</span></div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="center">
+    <div class="section-label">核心功能</div>
+    <h2 class="section-title">一站式卫戍协议辅助</h2>
+    <p class="section-sub">覆盖卫戍协议对局全流程，减少手动查表时间，专注策略决策</p>
+  </div>
+  <div class="features-grid">
+
+    <div class="feature-card">
+      <div class="feature-icon">🔍</div>
+      <h3>干员追踪 &amp; 上架提示</h3>
+      <p>实时识别当前补给站干员，匹配已追踪列表，到场即提醒，不错过每一个目标干员。</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">🚫</div>
+      <h3>Ban 位截图识别</h3>
+      <p>点击「截屏录入」按钮，自动对 ban 选界面截图，通过 MaaFramework FeatureMatch 匹配所有干员皮肤头像，快速识别被禁用的干员并标记。</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">✋</div>
+      <h3>手动 Ban 位标记</h3>
+      <p>每张干员卡片上提供独立的禁用切换按钮，可手动补充或纠正识别结果，与后台扫描状态实时同步。</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">⚔️</div>
+      <h3>阵营筛选加速</h3>
+      <p>识别前先 OCR 左侧阵营面板，仅对当前局可见阵营的干员执行图像匹配，大幅缩短识别耗时。</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">🛡️</div>
+      <h3>装备快速筛选</h3>
+      <p>内置完整装备数据库，支持按阵营、盟约、职业多维度过滤，快速定位当前局推荐装备。</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>盟约计数 &amp; 游戏状态</h3>
+      <p>自动统计场上/备战区干员的盟约激活数量，实时显示当前局游戏状态与阵营组合情况。</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- SCREENSHOT -->
+<section id="screenshot">
+  <div class="section-label">界面预览</div>
+  <h2 class="section-title">实际运行截图</h2>
+  <div class="screenshot-wrap">
+    <img src="screenshot.png" alt="ASP Assistant 运行截图" loading="lazy" />
+  </div>
+</section>
+
+<!-- HOW TO USE -->
+<section id="howto" style="background: var(--surface);">
+  <div class="section-label">快速上手</div>
+  <h2 class="section-title">三步开始使用</h2>
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-line"></div>
+      <div class="step-body">
+        <h3>下载并解压</h3>
+        <p>从 GitHub Releases 下载最新版 <code>ASPAssistant-vX.X.X-win-x64.zip</code>，解压到任意目录。</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-line"></div>
+      <div class="step-body">
+        <h3>启动游戏后运行工具</h3>
+        <p>先启动明日方舟客户端，进入卫戍协议，然后运行 <code>ASPAssistant.App.exe</code>。侧边面板会自动吸附到游戏窗口。</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-line"></div>
+      <div class="step-body">
+        <h3>追踪干员 / 识别 Ban 位</h3>
+        <p>在「干员」页签勾选要追踪的干员；进入 ban 选界面后点击「截屏录入」，工具自动识别被禁用的干员并标记。</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section class="download" id="download">
+  <div class="center">
+    <div class="section-label">立即下载</div>
+    <h2 class="section-title">获取最新版本</h2>
+    <p class="section-sub">自包含发布包，无需安装 .NET 运行时，解压即用</p>
+  </div>
+  <div class="download-card">
+    <div class="download-info">
+      <h3>ASPAssistant — Windows x64</h3>
+      <p>自包含 .NET 8 发布包，支持 Windows 10/11 64 位</p>
+      <div class="download-meta">
+        <span class="tag">Windows 10 / 11</span>
+        <span class="tag">x64</span>
+        <span class="tag">.NET 8 self-contained</span>
+        <span class="tag" id="dl-ver">…</span>
+        <span class="tag" id="dl-size"></span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
+      <a class="btn btn-primary" id="dl-btn"
+         href="https://github.com/Moonfair/ASP_Assistant/releases/latest"
+         target="_blank" rel="noopener">
+        ⬇ 下载 .zip
+      </a>
+      <a href="https://github.com/Moonfair/ASP_Assistant/releases" target="_blank" rel="noopener"
+         style="font-size:.8rem;color:var(--muted);text-decoration:none">
+        查看所有版本 →
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand">
+    <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fg" x1="256" y1="80" x2="256" y2="430" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#6B9FFF"/><stop offset="1" stop-color="#1A3FCC"/>
+        </linearGradient>
+      </defs>
+      <path d="M74,430 L256,80 L438,430 Z" fill="url(#fg)"/>
+    </svg>
+    ASP Assistant &nbsp;·&nbsp; Apache 2.0 License &nbsp;·&nbsp; 与 Hypergryph / 鹰角网络无关
+  </div>
+  <div class="footer-links">
+    <a href="https://github.com/Moonfair/ASP_Assistant" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/Moonfair/ASP_Assistant/issues" target="_blank" rel="noopener">反馈问题</a>
+    <a href="https://github.com/Moonfair/ASP_Assistant/releases" target="_blank" rel="noopener">Releases</a>
+  </div>
+</footer>
+
+<script>
+  // Fetch latest release from GitHub API and update version + download link.
+  (async () => {
+    try {
+      const res = await fetch('https://api.github.com/repos/Moonfair/ASP_Assistant/releases/latest');
+      if (!res.ok) return;
+      const data = await res.json();
+      const tag = data.tag_name ?? '';
+      const asset = (data.assets ?? []).find(a => a.name.endsWith('.zip'));
+
+      // Update version displays
+      document.getElementById('hero-ver').textContent = tag;
+      document.getElementById('dl-ver').textContent = tag;
+
+      if (asset) {
+        const url = asset.browser_download_url;
+        const sizeMb = (asset.size / 1024 / 1024).toFixed(1);
+        document.getElementById('dl-size').textContent = `${sizeMb} MB`;
+        document.getElementById('dl-btn').href = url;
+        document.getElementById('hero-dl').href = url;
+        document.getElementById('dl-btn').textContent = `⬇ 下载 ${asset.name}`;
+      }
+    } catch (_) {
+      document.getElementById('hero-ver').textContent = '查看 GitHub';
+    }
+  })();
+</script>
+</body>
+</html>
