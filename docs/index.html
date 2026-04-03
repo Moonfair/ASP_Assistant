@@ -428,7 +428,11 @@
 </footer>
 
 <script>
-  // Fetch latest release from GitHub API and update version + download link.
+  // OSS base URL is substituted by the release workflow via GitHub secrets.
+  // Format: https://{OSS_BUCKET}.{OSS_ENDPOINT}
+  const OSS_BASE = '__OSS_BASE_URL__';
+
+  // Fetch latest release from GitHub API for version info; use OSS for download.
   (async () => {
     try {
       const res = await fetch('https://api.github.com/repos/Moonfair/ASP_Assistant/releases/latest');
@@ -441,13 +445,16 @@
       document.getElementById('hero-ver').textContent = tag;
       document.getElementById('dl-ver').textContent = tag;
 
-      if (asset) {
-        const url = asset.browser_download_url;
-        const sizeMb = (asset.size / 1024 / 1024).toFixed(1);
-        document.getElementById('dl-size').textContent = `${sizeMb} MB`;
+      if (tag) {
+        const fileName = `ASPAssistant-${tag}-win-x64.zip`;
+        const url = `${OSS_BASE}/releases/${fileName}`;
         document.getElementById('dl-btn').href = url;
         document.getElementById('hero-dl').href = url;
-        document.getElementById('dl-btn').textContent = `⬇ 下载 ${asset.name}`;
+        document.getElementById('dl-btn').textContent = `⬇ 下载 ${fileName}`;
+        if (asset) {
+          const sizeMb = (asset.size / 1024 / 1024).toFixed(1);
+          document.getElementById('dl-size').textContent = `${sizeMb} MB`;
+        }
       }
     } catch (_) {
       document.getElementById('hero-ver').textContent = '查看 GitHub';

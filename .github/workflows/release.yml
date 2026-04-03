@@ -64,3 +64,17 @@ jobs:
           publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
           oss://${{ secrets.OSS_BUCKET }}/releases/ASPAssistant-${{ github.ref_name }}-win-x64.zip
           --force
+
+      - name: Update pages download link to OSS
+        shell: pwsh
+        run: |
+          $ossBase = "https://${{ secrets.OSS_BUCKET }}.${{ secrets.OSS_ENDPOINT }}"
+          git fetch origin main
+          git checkout main
+          (Get-Content docs/index.html -Raw) -replace '__OSS_BASE_URL__', $ossBase |
+            Set-Content docs/index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/index.html
+          git diff --cached --quiet || git commit -m "chore: update pages OSS download link for ${{ github.ref_name }}"
+          git push origin main
