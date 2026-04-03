@@ -6,27 +6,39 @@
         <converters:TierToRomanConverter x:Key="TierToRoman" />
     </UserControl.Resources>
 
-    <Border Style="{StaticResource ItemCardBorder}">
+    <Border x:Name="CardBorder" Style="{StaticResource ItemCardBorder}">
         <StackPanel>
             <!-- Header: icon left | right side stacks name+toggle above track button -->
             <DockPanel>
-                <!-- Icon (left, top-aligned) -->
-                <Border DockPanel.Dock="Left" Width="72" Height="72" Margin="0,0,8,0"
-                        CornerRadius="4" Background="#22FFFFFF" VerticalAlignment="Top"
-                        ClipToBounds="True">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="BorderThickness" Value="0" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsChecked, ElementName=EliteToggle}" Value="True">
-                                    <Setter Property="BorderThickness" Value="2" />
-                                    <Setter Property="BorderBrush" Value="#FFD700" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <Image x:Name="IconImage" Stretch="UniformToFill" />
-                </Border>
+                <!-- Icon (left, top-aligned) with ban badge overlay -->
+                <Grid DockPanel.Dock="Left" Width="72" Height="72" Margin="0,0,8,0"
+                      VerticalAlignment="Top">
+                    <Border CornerRadius="4" Background="#22FFFFFF" ClipToBounds="True">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=EliteToggle}" Value="True">
+                                        <Setter Property="BorderThickness" Value="2" />
+                                        <Setter Property="BorderBrush" Value="#FFD700" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Image x:Name="IconImage" Stretch="UniformToFill" />
+                    </Border>
+                    <!-- Ban overlay: dim layer -->
+                    <Border x:Name="BanDimOverlay" CornerRadius="4"
+                            Background="#88000000" Visibility="Collapsed" />
+                    <!-- Ban badge: "禁用" chip in bottom-right corner -->
+                    <Border x:Name="BanBadge" CornerRadius="4,0,4,0"
+                            Background="#CCDD2222" Padding="4,2"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Visibility="Collapsed">
+                        <TextBlock Text="禁用" FontSize="10" FontWeight="Bold"
+                                   Foreground="White" />
+                    </Border>
+                </Grid>
 
                 <!-- Right side -->
                 <StackPanel VerticalAlignment="Top">
@@ -60,26 +72,31 @@
                     <Button x:Name="TrackButton" HorizontalAlignment="Right"
                             Style="{StaticResource TrackingButton}"
                             Margin="0,6,0,0" Click="OnTrackClick" />
+
+                    <!-- Row 3: ban toggle button -->
+                    <Button x:Name="BanButton" HorizontalAlignment="Right"
+                            Style="{StaticResource BanToggleButton}"
+                            Margin="0,4,0,0" Click="OnBanClick" />
                 </StackPanel>
             </DockPanel>
 
             <!-- Covenants -->
             <WrapPanel Margin="0,6,0,0">
-                <Border CornerRadius="8" Background="#224FC3F7"
-                        Padding="6,1" Margin="0,0,4,0">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding CoreCovenant}" Value="">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock Text="{Binding CoreCovenant}"
-                               Foreground="{StaticResource AccentBrush}"
-                               FontSize="11" />
-                </Border>
+                <ItemsControl ItemsSource="{Binding CoreCovenants}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="8" Background="#224FC3F7"
+                                    Padding="6,1" Margin="0,0,4,0">
+                                <TextBlock Text="{Binding}"
+                                           Foreground="{StaticResource AccentBrush}"
+                                           FontSize="11" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <ItemsControl ItemsSource="{Binding AdditionalCovenants}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>

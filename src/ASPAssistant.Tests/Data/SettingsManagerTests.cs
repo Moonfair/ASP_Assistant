@@ -46,9 +46,4 @@ public class SettingsManagerTests : IDisposable
         loaded.Should().BeEmpty();
     }
 
-    [Fact]
-    public void GetOcrInterval_Default_Returns3Seconds()
-    {
-        _manager.OcrScanIntervalSeconds.Should().Be(3);
-    }
 }

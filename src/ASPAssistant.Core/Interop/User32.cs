@@ -66,6 +66,15 @@ public static class User32
     public const int WS_EX_LAYERED = 0x00080000;
     public const int WS_EX_TOOLWINDOW = 0x00000080;
 
+    [DllImport("user32.dll")]
+    public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetCursorPos(out POINT lpPoint);
+
+    public const uint WM_MOUSEWHEEL = 0x020A;
+
     public static IntPtr FindArknightsWindow()
     {
         return FindWindow(null, "明日方舟");

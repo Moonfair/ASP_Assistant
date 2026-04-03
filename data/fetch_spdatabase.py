@@ -19,6 +19,12 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
+try:
+    from PIL import Image as _PilImage
+    _PIL_AVAILABLE = True
+except ImportError:
+    _PIL_AVAILABLE = False
+
 # ── 常量 ────────────────────────────────────────────────────────────────────
 
 TORAPPU_ENDPOINT = "https://torappu.prts.wiki"
@@ -56,6 +62,10 @@ SP_CHAR_REDIRECT = {
 }
 
 BOND_BAN = {"绝技"}
+
+# 预备干员/协议特供棋子，不会出现在 ban 选角色界面
+BAN_SCREEN_EXCLUDE_PREFIXES = ("预备干员-",)
+BAN_SCREEN_EXCLUDE_SUFFIXES = ("(卫戍协议)",)
 
 # 手动指定为"转职装备"的装备名称（用于名称中不含盟约名称但属于转职装备的情况，如维多利亚系列）
 MANUAL_JOB_CHANGE_EQUIPMENTS: list[str] = ["维氏重锤","战栗维式重锤","坚固维式重锤","加速维式重锤","灼燃维式重锤"]
@@ -105,8 +115,8 @@ def get_prts_media_url(filename: str) -> str:
 
 def download_image(url: str, save_path: Path) -> bool:
     """下载图片到本地，已存在则跳过。返回是否新下载。"""
-    if save_path.exists():
-        return False
+    # if save_path.exists():
+    #     return False
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "SPDatabase-Scraper/1.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -131,9 +141,9 @@ def build_traits(chess_entry: dict, garrison_dict: dict) -> list[dict]:
     return []
 
 
-def classify_bonds(chess_entry: dict, bond_info_dict: dict) -> tuple[str | None, list[str]]:
-    """分类盟约为核心盟约和附加盟约"""
-    core_covenant = None
+def classify_bonds(chess_entry: dict, bond_info_dict: dict) -> tuple[list[str], list[str]]:
+    """分类盟约为核心盟约列表和附加盟约列表"""
+    core_covenants = []
     additional_covenants = []
 
     for bond_id in chess_entry.get("bondIds", []):
@@ -143,12 +153,12 @@ def classify_bonds(chess_entry: dict, bond_info_dict: dict) -> tuple[str | None,
         bond_name = bond["name"]
         bond_type = bond["bondType"]
 
-        if bond_type == "SEASON" and core_covenant is None:
-            core_covenant = bond_name
+        if bond_type == "SEASON":
+            core_covenants.append(bond_name)
         elif bond_type == "REGULAR" and bond_name not in BOND_BAN:
             additional_covenants.append(bond_name)
 
-    return core_covenant, additional_covenants
+    return core_covenants, additional_covenants
 
 
 def process_operators(
@@ -185,7 +195,7 @@ def process_operators(
             name = char_raw.get("name", char_id)
 
         # 盟约分类
-        core_covenant, additional_covenants = classify_bonds(chess, bond_info_dict)
+        core_covenants, additional_covenants = classify_bonds(chess, bond_info_dict)
 
         # 普通版本特质
         normal_traits = build_traits(chess, garrison_dict)
@@ -200,7 +210,7 @@ def process_operators(
             "iconPath": f"icons/operators/{name}.png",
             "_charId": char_id,
             "tier": tier,
-            "coreCovenant": core_covenant or "",
+            "coreCovenants": core_covenants,
             "additionalCovenants": additional_covenants,
             "normal": {
                 "traits": normal_traits,
@@ -266,6 +276,101 @@ def process_equipment(season_data: dict) -> list[dict]:
     return equipment_list
 
 
+# ── 图片后处理 ────────────────────────────────────────────────────────────────
+
+def apply_white_background(img: "_PilImage.Image") -> "_PilImage.Image":
+    """将透明背景合成为白色，返回完全不透明的 RGBA 图像。"""
+    img = img.convert("RGBA")
+    white_bg = _PilImage.new("RGBA", img.size, (255, 255, 255, 255))
+    return _PilImage.alpha_composite(white_bg, img)
+
+
+def apply_white_background_to_dir(skin_dir: Path) -> None:
+    """对 skin_dir 目录内所有 PNG 文件原地应用白色背景。"""
+    if not _PIL_AVAILABLE:
+        print("  [ERROR] 需要 Pillow 库：pip install Pillow")
+        return
+
+    pngs = list(skin_dir.glob("*.png"))
+    if not pngs:
+        print(f"  [WARN] 目录中无 PNG 文件: {skin_dir}")
+        return
+
+    for path in pngs:
+        img = _PilImage.open(path)
+        img = apply_white_background(img)
+        img.save(path)
+
+    print(f"  白色背景已应用: {len(pngs)} 张图片 ({skin_dir})")
+
+
+# ── 皮肤头像处理 ──────────────────────────────────────────────────────────────
+
+def process_skin_avatars(
+    operators: list[dict],
+    skin_table: dict,
+    data_dir: Path,
+) -> dict[str, str]:
+    """为干员池中的干员下载所有皮肤头像，返回 {filename: operator_name} 映射。
+
+    跳过 BAN_SCREEN_EXCLUDE 中的特殊干员（预备干员/卫戍协议棋子）。
+    """
+    char_skins: dict = skin_table.get("charSkins", {})
+
+    char_id_to_name: dict[str, str] = {}
+    for op in operators:
+        name = op["name"]
+        if any(name.startswith(p) for p in BAN_SCREEN_EXCLUDE_PREFIXES):
+            continue
+        if any(name.endswith(s) for s in BAN_SCREEN_EXCLUDE_SUFFIXES):
+            continue
+        char_id = op.get("_charId", "")
+        if char_id:
+            char_id_to_name[char_id] = name
+
+    skin_dir = data_dir / "icons" / "skin_avatars"
+    skin_dir.mkdir(parents=True, exist_ok=True)
+
+    avatar_map: dict[str, str] = {}
+    dl_new, dl_skip, dl_fail = 0, 0, 0
+
+    for skin_id, skin in char_skins.items():
+        char_id = skin.get("charId", "")
+        if char_id not in char_id_to_name:
+            continue
+
+        avatar_id = skin.get("avatarId", "")
+        if not avatar_id:
+            continue
+
+        op_name = char_id_to_name[char_id]
+        filename = f"{avatar_id}.png"
+        safe_filename = filename.replace("#", "_")
+
+        avatar_map[safe_filename] = op_name
+
+        url_avatar = urllib.parse.quote(avatar_id, safe="")
+        url = f"{TORAPPU_ENDPOINT}/assets/char_avatar/{url_avatar}.png"
+        save_path = skin_dir / safe_filename
+
+        result = download_image(url, save_path)
+        if result:
+            dl_new += 1
+            if _PIL_AVAILABLE:
+                img = _PilImage.open(save_path)
+                img = apply_white_background(img)
+                img.save(save_path)
+        elif save_path.exists():
+            dl_skip += 1
+        else:
+            dl_fail += 1
+
+    print(f"  皮肤头像: {dl_new} 新下载, {dl_skip} 已存在, {dl_fail} 失败")
+    print(f"  映射条目: {len(avatar_map)} (覆盖 {len(char_id_to_name)} 名干员)")
+
+    return avatar_map
+
+
 # ── 主流程 ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -278,7 +383,17 @@ def main():
         help="赛季编号 (默认: 1 = 最新赛季)",
     )
     parser.add_argument("--skip-icons", action="store_true", help="跳过图标下载")
+    parser.add_argument("--download-skins", action="store_true", help="下载皮肤头像并生成映射文件")
+    parser.add_argument("--apply-mask", action="store_true",
+                        help="对 skin_avatars/ 目录内所有现有 PNG 原地补白色背景（需要 Pillow）")
     args = parser.parse_args()
+
+    # --apply-mask 是独立操作，不需要拉取网络数据
+    if args.apply_mask:
+        data_dir = Path(__file__).parent
+        print("=== 皮肤头像后处理 ===")
+        apply_white_background_to_dir(data_dir / "icons" / "skin_avatars")
+        return
 
     season_no = args.season
     season_cfg = SP_SEASONS[season_no]
@@ -376,11 +491,25 @@ def main():
     else:
         print("跳过图标下载 (--skip-icons)")
 
+    # 7. 下载皮肤头像并生成映射
+    if args.download_skins:
+        print("\n获取皮肤数据 (skin_table.json)...")
+        skin_table = fetch_json(
+            f"{TORAPPU_ENDPOINT}/gamedata/latest/excel/skin_table.json"
+        )
+        print("下载皮肤头像...")
+        avatar_map = process_skin_avatars(operators, skin_table, data_dir)
+
+        avatar_map_path = data_dir / "skin_avatar_map.json"
+        with open(avatar_map_path, "w", encoding="utf-8") as f:
+            json.dump(avatar_map, f, ensure_ascii=False, indent=2)
+        print(f"  映射已保存: {avatar_map_path.name} ({avatar_map_path.stat().st_size / 1024:.1f} KB)")
+
     # 清理临时字段
     for op in operators:
         op.pop("_charId", None)
 
-    # 7. 输出 JSON
+    # 8. 输出 JSON
     operators_path = data_dir / "operators.json"
     equipment_path = data_dir / "equipment.json"
 

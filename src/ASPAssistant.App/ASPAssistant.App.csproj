@@ -30,6 +30,16 @@
     <Content Include="..\..\data\template\op_card.png" Link="data\maa_resource\image\op_card.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- PRTS operator portrait icons (kept as reference; used until ban_screen set is complete).
+         MaaBanIconMatcher previously looked them up at [bundle]/image/operators/{name}.png. -->
+    <Content Include="..\..\data\icons\operators\*.png" Link="data\maa_resource\image\operators\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Skin avatar portraits from PRTS skin_table; used as ban-matching templates.
+         MaaBanIconMatcher looks them up at [bundle]/image/skin_avatars/{avatarId}.png. -->
+    <Content Include="..\..\data\icons\skin_avatars\*.png" Link="data\maa_resource\image\skin_avatars\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!-- MaaFramework requires at least one valid JSON file inside pipeline/. -->
     <Content Include="..\..\data\maa_resource\pipeline\empty.json" Link="data\maa_resource\pipeline\empty.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

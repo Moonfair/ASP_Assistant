@@ -21,8 +21,23 @@ public partial class OperatorCard : UserControl
         remove => RemoveHandler(TrackingToggledEvent, value);
     }
 
+    public static readonly RoutedEvent BanToggledEvent =
+        EventManager.RegisterRoutedEvent(
+            "BanToggled", RoutingStrategy.Bubble,
+            typeof(RoutedEventHandler), typeof(OperatorCard));
+
+    public event RoutedEventHandler BanToggled
+    {
+        add => AddHandler(BanToggledEvent, value);
+        remove => RemoveHandler(BanToggledEvent, value);
+    }
+
     public Func<string, bool>? IsTrackedCheck { get; set; }
     public bool IsTracked { get; set; }
+
+    public Func<string, bool>? IsBannedCheck { get; set; }
+    public bool IsBanned { get; set; }
+
     private bool _showElite;
 
     public OperatorCard()
@@ -37,14 +52,23 @@ public partial class OperatorCard : UserControl
         // Inherit IsTrackedCheck from parent view if not explicitly set
         if (IsTrackedCheck == null)
             IsTrackedCheck = FindAncestor<OperatorBrowseView>()?.IsTrackedCheck;
-        if (DataContext is Operator op && IsTrackedCheck != null)
-            IsTracked = IsTrackedCheck(op.Name);
+        if (IsTrackedCheck != null && DataContext is Operator opT)
+            IsTracked = IsTrackedCheck(opT.Name);
+
+        // Inherit IsBannedCheck from parent view if not explicitly set
+        if (IsBannedCheck == null)
+            IsBannedCheck = FindAncestor<OperatorBrowseView>()?.IsBannedCheck;
+        if (IsBannedCheck != null && DataContext is Operator opB)
+            IsBanned = IsBannedCheck(opB.Name);
+
         if (DataContext is Operator op2)
         {
             LoadIcon(op2.IconPath);
         }
         UpdateVariantDisplay();
         UpdateTrackButton();
+        UpdateBanButton();
+        UpdateBannedDisplay();
     }
 
     private T? FindAncestor<T>() where T : DependencyObject
@@ -114,9 +138,39 @@ public partial class OperatorCard : UserControl
         UpdateTrackButton();
     }
 
+    public void RefreshBannedState(bool isBanned)
+    {
+        IsBanned = isBanned;
+        UpdateBanButton();
+        UpdateBannedDisplay();
+    }
+
+    private void OnBanClick(object sender, RoutedEventArgs e)
+    {
+        IsBanned = !IsBanned;
+        UpdateBanButton();
+        UpdateBannedDisplay();
+        RaiseEvent(new RoutedEventArgs(BanToggledEvent, this));
+    }
+
     private void UpdateTrackButton()
     {
         TrackButton.Content = IsTracked ? "★ 追踪中" : "☆ 追踪";
         TrackButton.Tag = IsTracked ? "tracked" : "";
+    }
+
+    private void UpdateBanButton()
+    {
+        BanButton.Content = IsBanned ? "✕ 禁用中" : "禁用";
+        BanButton.Tag = IsBanned ? "banned" : "";
+    }
+
+    private void UpdateBannedDisplay()
+    {
+        var banVis = IsBanned ? Visibility.Visible : Visibility.Collapsed;
+        BanDimOverlay.Visibility = banVis;
+        BanBadge.Visibility = banVis;
+        // Slightly reduce overall card opacity to visually deprioritise banned operators
+        Opacity = IsBanned ? 0.65 : 1.0;
     }
 }

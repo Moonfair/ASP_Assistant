@@ -9,6 +9,7 @@
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
         Topmost="True"
+        Icon="{StaticResource AspaLogo}"
         Background="{StaticResource PanelBackgroundBrush}">
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" GlassFrameThickness="0" />
@@ -24,8 +25,11 @@
                         <Button Content="✕" Click="OnClose"
                                 Style="{StaticResource CloseButton}" />
                     </StackPanel>
-                    <TextBlock Text="ASP Assistant" Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="{StaticResource AspaLogo}" Width="16" Height="16" Margin="10,0,0,0" />
+                        <TextBlock Text="ASP Assistant" Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </StackPanel>
                 </DockPanel>
             </Border>
 

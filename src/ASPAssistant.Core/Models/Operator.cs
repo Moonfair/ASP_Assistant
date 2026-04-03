@@ -25,8 +25,12 @@ public class Operator
     [JsonPropertyName("tier")]
     public int Tier { get; set; }
 
-    [JsonPropertyName("coreCovenant")]
-    public string CoreCovenant { get; set; } = "";
+    [JsonPropertyName("coreCovenants")]
+    public List<string> CoreCovenants { get; set; } = [];
+
+    /// <summary>Primary core covenant (first entry), empty string if none.</summary>
+    [JsonIgnore]
+    public string CoreCovenant => CoreCovenants.FirstOrDefault() ?? "";
 
     [JsonPropertyName("additionalCovenants")]
     public List<string> AdditionalCovenants { get; set; } = [];

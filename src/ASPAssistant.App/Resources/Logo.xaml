@@ -1,0 +1,123 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DrawingImage x:Key="AspaLogo">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+
+                <!-- 1. Shadow layer -->
+                <GeometryDrawing Brush="#4D1230BB">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M 74,444 L 256,94 L 438,444 Z"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- 2. Pyramid body (55-degree apex, no stroke) -->
+                <GeometryDrawing>
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                            <GradientStop Color="#FF6B9FFF" Offset="0.0"/>
+                            <GradientStop Color="#FF3D6EF5" Offset="0.5"/>
+                            <GradientStop Color="#FF1A3FCC" Offset="1.0"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M 74,430 L 256,80 L 438,430 Z"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- 3. Left-face highlight -->
+                <GeometryDrawing>
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,1" EndPoint="1,0">
+                            <GradientStop Color="#00FFFFFF" Offset="0.0"/>
+                            <GradientStop Color="#28FFFFFF" Offset="1.0"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M 256,80 L 74,430 L 256,430 Z"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Row 1 (y=155) x1 — r=6, opacity=1.00 (#FF) -->
+                <GeometryDrawing Brush="#FFFFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="256,155" RadiusX="6" RadiusY="6"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Row 2 (y=205) x2 — r=8, opacity=0.87 (#DE) -->
+                <GeometryDrawing Brush="#DEFFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <EllipseGeometry Center="234,205" RadiusX="8" RadiusY="8"/>
+                            <EllipseGeometry Center="278,205" RadiusX="8" RadiusY="8"/>
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Row 3 (y=255) x3 — r=10, opacity=0.73 (#BA) -->
+                <GeometryDrawing Brush="#BAFFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <EllipseGeometry Center="212,255" RadiusX="10" RadiusY="10"/>
+                            <EllipseGeometry Center="256,255" RadiusX="10" RadiusY="10"/>
+                            <EllipseGeometry Center="300,255" RadiusX="10" RadiusY="10"/>
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Row 4 (y=305) x4 — r=12, opacity=0.58 (#94) -->
+                <GeometryDrawing Brush="#94FFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <EllipseGeometry Center="190,305" RadiusX="12" RadiusY="12"/>
+                            <EllipseGeometry Center="234,305" RadiusX="12" RadiusY="12"/>
+                            <EllipseGeometry Center="278,305" RadiusX="12" RadiusY="12"/>
+                            <EllipseGeometry Center="322,305" RadiusX="12" RadiusY="12"/>
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Row 5 (y=355) x5 — r=14, opacity=0.42 (#6B) -->
+                <GeometryDrawing Brush="#6BFFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <EllipseGeometry Center="168,355" RadiusX="14" RadiusY="14"/>
+                            <EllipseGeometry Center="212,355" RadiusX="14" RadiusY="14"/>
+                            <EllipseGeometry Center="256,355" RadiusX="14" RadiusY="14"/>
+                            <EllipseGeometry Center="300,355" RadiusX="14" RadiusY="14"/>
+                            <EllipseGeometry Center="344,355" RadiusX="14" RadiusY="14"/>
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Row 6 (y=405) x6 — r=16, opacity=0.27 (#45) -->
+                <GeometryDrawing Brush="#45FFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <EllipseGeometry Center="146,405" RadiusX="16" RadiusY="16"/>
+                            <EllipseGeometry Center="190,405" RadiusX="16" RadiusY="16"/>
+                            <EllipseGeometry Center="234,405" RadiusX="16" RadiusY="16"/>
+                            <EllipseGeometry Center="278,405" RadiusX="16" RadiusY="16"/>
+                            <EllipseGeometry Center="322,405" RadiusX="16" RadiusY="16"/>
+                            <EllipseGeometry Center="366,405" RadiusX="16" RadiusY="16"/>
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- 9. 底部战术修饰条 -->
+                <GeometryDrawing Brush="#732D5AF0">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="213,452,86,5" RadiusX="2.5" RadiusY="2.5"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#382D5AF0">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="238,464,36,3" RadiusX="1.5" RadiusY="1.5"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+</ResourceDictionary>

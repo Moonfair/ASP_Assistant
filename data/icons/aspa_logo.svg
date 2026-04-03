@@ -1,0 +1,71 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bodyGrad" x1="256" y1="80" x2="256" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0"   stop-color="#6B9FFF"/>
+      <stop offset="0.5" stop-color="#3D6EF5"/>
+      <stop offset="1"   stop-color="#1A3FCC"/>
+    </linearGradient>
+    <linearGradient id="shineGrad" x1="74" y1="430" x2="256" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.00"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.16"/>
+    </linearGradient>
+    <filter id="shadow" x="-25%" y="-10%" width="150%" height="140%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feFlood flood-color="#1230BB" flood-opacity="0.45" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- shadow -->
+  <path d="M74,430 L256,80 L438,430 Z"
+        fill="#1230BB" fill-opacity="0.3"
+        transform="translate(0,14)"
+        filter="url(#shadow)"/>
+
+  <!-- pyramid body (55-degree apex, no stroke) -->
+  <path d="M74,430 L256,80 L438,430 Z" fill="url(#bodyGrad)"/>
+
+  <!-- left-face highlight -->
+  <path d="M256,80 L74,430 L256,430 Z" fill="url(#shineGrad)"/>
+
+  <!-- dot grid: 6 rows, 21 dots total, 50px row spacing
+       top->bottom: r 6->16 (+2/row), opacity 1.00->0.27 (-0.146/row) -->
+
+  <!-- Row 1 (y=155) x1   r=6  opacity=1.00 -->
+  <circle cx="256" cy="155" r="6"  fill="white" fill-opacity="1.00"/>
+
+  <!-- Row 2 (y=205) x2   r=8  opacity=0.87 -->
+  <circle cx="234" cy="205" r="8"  fill="white" fill-opacity="0.87"/>
+  <circle cx="278" cy="205" r="8"  fill="white" fill-opacity="0.87"/>
+
+  <!-- Row 3 (y=255) x3   r=10 opacity=0.73 -->
+  <circle cx="212" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+  <circle cx="256" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+  <circle cx="300" cy="255" r="10" fill="white" fill-opacity="0.73"/>
+
+  <!-- Row 4 (y=305) x4   r=12 opacity=0.58 -->
+  <circle cx="190" cy="305" r="12" fill="white" fill-opacity="0.58"/>
+  <circle cx="234" cy="305" r="12" fill="white" fill-opacity="0.58"/>
+  <circle cx="278" cy="305" r="12" fill="white" fill-opacity="0.58"/>
+  <circle cx="322" cy="305" r="12" fill="white" fill-opacity="0.58"/>
+
+  <!-- Row 5 (y=355) x5   r=14 opacity=0.42 -->
+  <circle cx="168" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+  <circle cx="212" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+  <circle cx="256" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+  <circle cx="300" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+  <circle cx="344" cy="355" r="14" fill="white" fill-opacity="0.42"/>
+
+  <!-- Row 6 (y=405) x6   r=16 opacity=0.27 -->
+  <circle cx="146" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+  <circle cx="190" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+  <circle cx="234" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+  <circle cx="278" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+  <circle cx="322" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+  <circle cx="366" cy="405" r="16" fill="white" fill-opacity="0.27"/>
+
+  <!-- bottom accent bars -->
+  <rect x="213" y="452" width="86" height="5" rx="2.5" fill="#2D5AF0" fill-opacity="0.45"/>
+  <rect x="238" y="464" width="36" height="3"  rx="1.5" fill="#2D5AF0" fill-opacity="0.22"/>
+</svg>

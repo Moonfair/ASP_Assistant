@@ -14,7 +14,12 @@ public partial class OperatorBrowseView : UserControl
 {
     public event Action<string, TrackingType>? TrackingRequested;
     public event Action<string>? UntrackingRequested;
+    public event Action<string, bool>? BanToggleRequested;
     public Func<string, bool>? IsTrackedCheck { get; set; }
+
+    public Func<string, bool>? IsBannedCheck { get; set; }
+    public event Action? ClearBansRequested;
+    public event Action? ManualScanRequested;
 
     // ── Scroll-driven filter collapse state ─────────────────────────────────
     private ScrollViewer? _resultsScrollViewer;
@@ -36,6 +41,7 @@ public partial class OperatorBrowseView : UserControl
         {
             // Pre-select "全部" (index 0) so the chip appears highlighted and
             // clicking it later always triggers SelectionChanged.
+            AvailabilityFilterList.SelectedIndex = 0;
             TierFilterList.SelectedIndex = 0;
             CoreCovenantFilterList.SelectedIndex = 0;
             OtherCovenantFilterList.SelectedIndex = 0;
@@ -164,6 +170,12 @@ public partial class OperatorBrowseView : UserControl
         }
     }
 
+    private void OnOperatorBanToggled(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource is OperatorCard card && card.DataContext is Operator op)
+            BanToggleRequested?.Invoke(op.Name, card.IsBanned);
+    }
+
     private void OnOperatorTrackingToggled(object sender, RoutedEventArgs e)
     {
         if (e.OriginalSource is OperatorCard card && card.DataContext is Operator op)
@@ -191,6 +203,43 @@ public partial class OperatorBrowseView : UserControl
                 card.RefreshTrackedState(IsTrackedCheck(op.Name));
             }
         }
+    }
+
+    public void RefreshBannedStates()
+    {
+        if (IsBannedCheck == null) return;
+        foreach (var card in FindVisualChildren<OperatorCard>(OperatorListControl))
+        {
+            if (card.DataContext is Operator op)
+                card.RefreshBannedState(IsBannedCheck(op.Name));
+        }
+    }
+
+    private void OnAvailabilityFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is not OperatorBrowseViewModel vm) return;
+        vm.SelectedAvailabilityFilter = AvailabilityFilterList.SelectedIndex switch
+        {
+            1 => Core.ViewModels.AvailabilityFilter.Available,
+            2 => Core.ViewModels.AvailabilityFilter.Unavailable,
+            _ => Core.ViewModels.AvailabilityFilter.All
+        };
+    }
+
+    private void OnClearBansClicked(object sender, RoutedEventArgs e)
+    {
+        ClearBansRequested?.Invoke();
+    }
+
+    private void OnManualScanClicked(object sender, RoutedEventArgs e)
+    {
+        ManualScanRequested?.Invoke();
+    }
+
+    public void UpdateManualScanStatus(int pending)
+    {
+        ManualScanStatusText.Text = $"{pending} 录入任务执行中";
+        ManualScanStatusText.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // Tier and Trait filters: single-select, shared null-item fix handler

@@ -13,7 +13,7 @@ public class OperatorTests
         {
             "name": "隐现",
             "tier": 6,
-            "coreCovenant": "拉特兰",
+            "coreCovenants": ["拉特兰"],
             "additionalCovenants": ["迅捷"],
             "normal": {
                 "traits": [
@@ -33,6 +33,7 @@ public class OperatorTests
         op.Should().NotBeNull();
         op!.Name.Should().Be("隐现");
         op.Tier.Should().Be(6);
+        op.CoreCovenants.Should().ContainSingle("拉特兰");
         op.CoreCovenant.Should().Be("拉特兰");
         op.AdditionalCovenants.Should().ContainSingle("迅捷");
         op.Normal.Traits[0].TraitType.Should().Be("作战能力");
@@ -47,7 +48,7 @@ public class OperatorTests
         {
             "name": "角峰",
             "tier": 4,
-            "coreCovenant": "谢拉格",
+            "coreCovenants": ["谢拉格"],
             "additionalCovenants": ["坚守"],
             "normal": {
                 "traits": [
@@ -65,7 +66,7 @@ public class OperatorTests
         var op = JsonSerializer.Deserialize<Operator>(json);
 
         op!.Name.Should().Be("角峰");
-        op.CoreCovenant.Should().Be("谢拉格");
+        op.CoreCovenants.Should().Contain("谢拉格");
         op.AdditionalCovenants.Should().Contain("坚守");
     }
 }
