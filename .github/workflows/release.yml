@@ -50,11 +50,13 @@ jobs:
           generate_release_notes: true
 
       - name: Setup ossutil
-        uses: manyuanrong/setup-ossutil@v3.0
-        with:
-          endpoint: ${{ secrets.OSS_ENDPOINT }}
-          access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
-          access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+        shell: pwsh
+        run: |
+          $ossutilDir = "$env:RUNNER_TEMP\ossutil"
+          New-Item -ItemType Directory -Force -Path $ossutilDir | Out-Null
+          Invoke-WebRequest -Uri "https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil64.exe" -OutFile "$ossutilDir\ossutil.exe"
+          echo "$ossutilDir" >> $env:GITHUB_PATH
+          & "$ossutilDir\ossutil.exe" config -e "${{ secrets.OSS_ENDPOINT }}" -i "${{ secrets.OSS_ACCESS_KEY_ID }}" -k "${{ secrets.OSS_ACCESS_KEY_SECRET }}"
 
       - name: Upload to Aliyun OSS
         run: >
