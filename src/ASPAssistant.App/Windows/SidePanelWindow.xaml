@@ -71,30 +71,53 @@
             <Border x:Name="FullscreenBanner" DockPanel.Dock="Top"
                     Background="#1AFFA000"
                     BorderBrush="#FFFFA000" BorderThickness="0,0,0,1"
-                    Visibility="Collapsed" Padding="10,5">
+                    Visibility="Collapsed" Padding="10,6">
                 <DockPanel>
                     <Button x:Name="FullscreenBannerClose" DockPanel.Dock="Right"
                             Click="OnDismissFullscreenBanner"
-                            Width="20" Height="20" Cursor="Hand"
+                            Width="20" Cursor="Hand"
                             BorderThickness="0" Background="Transparent" Foreground="#FFFFA000"
                             FontSize="12" FontWeight="Bold" Content="✕"
+                            VerticalAlignment="Top" Margin="4,0,0,0"
                             ToolTip="关闭提示" />
-                    <TextBlock Text="推荐在窗口模式下运行"
-                               Foreground="#FFFFC107" FontSize="11"
-                               VerticalAlignment="Center" />
+                    <StackPanel>
+                        <TextBlock Text="推荐在窗口模式下运行"
+                                   Foreground="#FFFFC107" FontSize="11" FontWeight="SemiBold" />
+                        <TextBlock Text="（全屏下如有遮挡可拖动右下角调节窗口）"
+                                   Foreground="#FFCC9900" FontSize="10"
+                                   TextWrapping="Wrap" Margin="0,2,0,0" />
+                    </StackPanel>
                 </DockPanel>
             </Border>
-            <TabControl Style="{StaticResource DarkTabControl}">
-                <TabItem Header="干员">
-                    <views:OperatorBrowseView x:Name="OperatorView" />
-                </TabItem>
-                <TabItem Header="装备">
-                    <views:EquipmentBrowseView x:Name="EquipmentView" />
-                </TabItem>
-                <TabItem Header="追踪">
-                    <views:TrackingView x:Name="TrackingView" />
-                </TabItem>
-            </TabControl>
+
+            <!-- Tab content + visible resize grip overlay -->
+            <Grid>
+                <TabControl Style="{StaticResource DarkTabControl}">
+                    <TabItem Header="干员">
+                        <views:OperatorBrowseView x:Name="OperatorView" />
+                    </TabItem>
+                    <TabItem Header="装备">
+                        <views:EquipmentBrowseView x:Name="EquipmentView" />
+                    </TabItem>
+                    <TabItem Header="追踪">
+                        <views:TrackingView x:Name="TrackingView" />
+                    </TabItem>
+                </TabControl>
+
+                <!-- Custom resize grip: three accent-coloured diagonal lines -->
+                <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        Width="20" Height="20" Cursor="SizeNWSE"
+                        Background="Transparent" ToolTip="拖动调整窗口大小">
+                    <Canvas Width="20" Height="20">
+                        <Line X1="6"  Y1="18" X2="18" Y2="6"
+                              Stroke="#993D6EF5" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Line X1="11" Y1="18" X2="18" Y2="11"
+                              Stroke="#BB3D6EF5" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Line X1="16" Y1="18" X2="18" Y2="16"
+                              Stroke="#FF6B9FFF" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    </Canvas>
+                </Border>
+            </Grid>
         </DockPanel>
     </Border>
 </Window>
