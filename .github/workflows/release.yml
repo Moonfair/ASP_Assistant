@@ -32,7 +32,6 @@ jobs:
           dotnet publish src/ASPAssistant.App/ASPAssistant.App.csproj `
             -c Release -r win-x64 --self-contained true `
             -p:Version=${{ env.VERSION }} `
-            -p:PublishSingleFile=true `
             -o publish/win-x64
 
       - name: Trim publish output
