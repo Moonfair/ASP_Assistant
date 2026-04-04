@@ -1,7 +1,7 @@
 <div align="center">
   <img src="data/icons/aspa_logo.svg" width="96" height="96" alt="ASPA Logo"/>
   <h1>ASP Assistant</h1>
-  <p>明日方舟·卫戍协议 实时辅助工具</p>
+  <p>明日方舟·卫戍协议 实时辅助工具<br/>由 <a href="https://github.com/MaaXYZ/MaaFramework">MaaFramework</a> 强力驱动！</p>
   <p>
     <img src="https://img.shields.io/badge/platform-Windows-blue?style=flat-square"/>
     <img src="https://img.shields.io/badge/.NET-8.0-purple?style=flat-square"/>
