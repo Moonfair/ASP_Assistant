@@ -33,8 +33,9 @@ public partial class SidePanelWindow : Window
     private bool _wasFullscreen;
     private bool _fullscreenBannerDismissed;
 
-    // 全屏时侧边栏高度占游戏窗口高度的比例（留出底部 HUD 区域）
-    private const double FullscreenHeightRatio = 0.87;
+    // 全屏时侧边栏的起始/结束位置（占游戏窗口高度的比例）
+    private const double FullscreenTopRatio    = 0.18;  // 从顶部留出 18%
+    private const double FullscreenBottomRatio = 0.87;  // 底部截止在 87% 处
 
     public SidePanelWindow(
         OperatorBrowseViewModel operatorVm,
@@ -150,11 +151,12 @@ public partial class SidePanelWindow : Window
             if (gameActuallyMoved)
                 _isUserPositioned = false;
 
-            // 全屏/窗口模式切换时重置用户手动尺寸标志，让高度自动适配新模式
+            // 全屏/窗口模式切换时重置用户手动标志，让位置和高度自动适配新模式
             if (isFullscreen != _wasFullscreen)
             {
-                _isUserSized = false;
-                _wasFullscreen = isFullscreen;
+                _isUserSized      = false;
+                _isUserPositioned = false;
+                _wasFullscreen    = isFullscreen;
                 UpdateFullscreenBanner(isFullscreen);
             }
 
@@ -162,9 +164,11 @@ public partial class SidePanelWindow : Window
             var targetLeft = attachInside
                 ? monitorRight - Width
                 : (double)gameRect.Right;
-            var targetTop    = (double)gameRect.Top;
+            var targetTop = isFullscreen
+                ? gameRect.Top + gameRect.Height * FullscreenTopRatio
+                : (double)gameRect.Top;
             var targetHeight = isFullscreen
-                ? gameRect.Height * FullscreenHeightRatio
+                ? gameRect.Height * (FullscreenBottomRatio - FullscreenTopRatio)
                 : (double)gameRect.Height;
 
             if (!_isUserPositioned)
