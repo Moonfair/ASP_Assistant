@@ -27,21 +27,19 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
       - name: Publish self-contained
-        run: >
-          dotnet publish src/ASPAssistant.App/ASPAssistant.App.csproj
-          -c Release
-          -r win-x64
-          --self-contained true
-          -p:Version=${{ env.VERSION }}
-          -o publish/win-x64
+        shell: pwsh
+        run: |
+          dotnet publish src/ASPAssistant.App/ASPAssistant.App.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:Version=${{ env.VERSION }} `
+            -o publish/win-x64
 
       - name: Zip release assets
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}"
-          Compress-Archive `
-            -Path publish/win-x64 `
-            -DestinationPath "publish/ASPAssistant-${version}-win-x64.zip"
+          $tag = "${{ github.ref_name }}"
+          Compress-Archive -Path publish/win-x64 `
+            -DestinationPath "publish/ASPAssistant-${tag}-win-x64.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -50,31 +48,32 @@ jobs:
           generate_release_notes: true
 
       - name: Setup ossutil
-        shell: pwsh
-        run: |
-          $ossutilDir = "$env:RUNNER_TEMP\ossutil"
-          New-Item -ItemType Directory -Force -Path $ossutilDir | Out-Null
-          Invoke-WebRequest -Uri "https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil64.exe" -OutFile "$ossutilDir\ossutil.exe"
-          echo "$ossutilDir" >> $env:GITHUB_PATH
-          & "$ossutilDir\ossutil.exe" config -e "${{ secrets.OSS_ENDPOINT }}" -i "${{ secrets.OSS_ACCESS_KEY_ID }}" -k "${{ secrets.OSS_ACCESS_KEY_SECRET }}"
+        uses: yizhoumo/setup-ossutil@v2
+        with:
+          ossutil-version: latest
+          endpoint: ${{ secrets.OSS_ENDPOINT }}
+          access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
 
       - name: Upload to Aliyun OSS
-        run: >
-          ossutil cp
-          publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
-          oss://${{ secrets.OSS_BUCKET }}/releases/ASPAssistant-${{ github.ref_name }}-win-x64.zip
-          --force
-
-      - name: Update pages download link to OSS
         shell: pwsh
         run: |
-          $ossBase = "https://${{ secrets.OSS_BUCKET }}.${{ secrets.OSS_ENDPOINT }}"
+          $tag = "${{ github.ref_name }}"
+          ossutil cp "publish/ASPAssistant-${tag}-win-x64.zip" `
+            "oss://${{ secrets.OSS_BUCKET }}/releases/ASPAssistant-${tag}-win-x64.zip" `
+            --force
+
+      - name: Update Pages OSS release info
+        shell: pwsh
+        run: |
+          $tag    = "${{ github.ref_name }}"
+          $ossUrl = "https://${{ secrets.OSS_BUCKET }}.${{ secrets.OSS_ENDPOINT }}/releases/ASPAssistant-${tag}-win-x64.zip"
+          $json   = [ordered]@{ version = $tag; url = $ossUrl } | ConvertTo-Json -Compress
           git fetch origin main
           git checkout main
-          (Get-Content docs/index.html -Raw) -replace '__OSS_BASE_URL__', $ossBase |
-            Set-Content docs/index.html
-          git config user.name "github-actions[bot]"
+          [System.IO.File]::WriteAllText("docs/oss-release.json", $json, [System.Text.Encoding]::UTF8)
+          git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html
-          git diff --cached --quiet || git commit -m "chore: update pages OSS download link for ${{ github.ref_name }}"
+          git add docs/oss-release.json
+          git diff --cached --quiet || git commit -m "chore: update OSS release info for ${tag}"
           git push origin main

@@ -428,36 +428,52 @@
 </footer>
 
 <script>
-  // OSS base URL is substituted by the release workflow via GitHub secrets.
-  // Format: https://{OSS_BUCKET}.{OSS_ENDPOINT}
-  const OSS_BASE = '__OSS_BASE_URL__';
-
-  // Fetch latest release from GitHub API for version info; use OSS for download.
+  // Prefer OSS download link (written to oss-release.json by CI on each release);
+  // fall back to GitHub Release asset URL.
   (async () => {
+    let tag = '', dlUrl = '', fileName = '';
+
+    // 1. Try OSS release info.
     try {
-      const res = await fetch('https://api.github.com/repos/Moonfair/ASP_Assistant/releases/latest');
-      if (!res.ok) return;
-      const data = await res.json();
-      const tag = data.tag_name ?? '';
-      const asset = (data.assets ?? []).find(a => a.name.endsWith('.zip'));
-
-      // Update version displays
-      document.getElementById('hero-ver').textContent = tag;
-      document.getElementById('dl-ver').textContent = tag;
-
-      if (tag) {
-        const fileName = `ASPAssistant-${tag}-win-x64.zip`;
-        const url = `${OSS_BASE}/releases/${fileName}`;
-        document.getElementById('dl-btn').href = url;
-        document.getElementById('hero-dl').href = url;
-        document.getElementById('dl-btn').textContent = `⬇ 下载 ${fileName}`;
-        if (asset) {
-          const sizeMb = (asset.size / 1024 / 1024).toFixed(1);
-          document.getElementById('dl-size').textContent = `${sizeMb} MB`;
+      const ossRes = await fetch('oss-release.json?_=' + Date.now());
+      if (ossRes.ok) {
+        const oss = await ossRes.json();
+        if (oss.version && oss.url) {
+          tag      = oss.version;
+          dlUrl    = oss.url;
+          fileName = dlUrl.split('/').pop();
         }
       }
-    } catch (_) {
+    } catch (_) {}
+
+    // 2. GitHub API for version and file size (also fills tag when OSS info absent).
+    try {
+      const ghRes = await fetch('https://api.github.com/repos/Moonfair/ASP_Assistant/releases/latest');
+      if (ghRes.ok) {
+        const gh = await ghRes.json();
+        if (!tag) tag = gh.tag_name ?? '';
+        const asset = (gh.assets ?? []).find(a => a.name.endsWith('.zip'));
+        if (asset) {
+          document.getElementById('dl-size').textContent =
+            (asset.size / 1024 / 1024).toFixed(1) + ' MB';
+          if (!dlUrl) {
+            dlUrl    = asset.browser_download_url;
+            fileName = asset.name;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (tag) {
+      document.getElementById('hero-ver').textContent = tag;
+      document.getElementById('dl-ver').textContent   = tag;
+    } else {
       document.getElementById('hero-ver').textContent = '查看 GitHub';
+    }
+    if (dlUrl) {
+      document.getElementById('dl-btn').href  = dlUrl;
+      document.getElementById('hero-dl').href = dlUrl;
+      document.getElementById('dl-btn').textContent = `⬇ 下载 ${fileName}`;
     }
   })();
 </script>
