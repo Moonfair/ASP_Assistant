@@ -26,8 +26,20 @@ public partial class App : Application
             var ex = args.ExceptionObject as Exception;
             AppLogger.Error("App", "Fatal unhandled exception",
                 ex ?? new Exception(args.ExceptionObject?.ToString()));
+
+            var isDllMissing = ex is DllNotFoundException
+                || (ex?.InnerException is DllNotFoundException)
+                || args.ExceptionObject?.ToString()?.Contains("DllNotFoundException") == true;
+
+            var message = isDllMissing
+                ? "缺少必要的运行库，程序无法启动。\n\n" +
+                  "请先安装 Microsoft Visual C++ Redistributable（x64），然后重新运行：\n" +
+                  "https://aka.ms/vs/17/release/vc_redist.x64.exe\n\n" +
+                  $"技术详情：\n{ex?.GetType().Name}: {ex?.Message}"
+                : $"程序启动时发生严重错误，请将以下信息反馈给开发者：\n\n{args.ExceptionObject}";
+
             MessageBox.Show(
-                $"程序启动时发生严重错误，请将以下信息反馈给开发者：\n\n{args.ExceptionObject}",
+                message,
                 "ASPAssistant 崩溃",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -64,21 +76,24 @@ public partial class App : Application
         {
             AppLogger.Error("App", "Startup failed", ex);
 
-            bool isDllMissing = ex is DllNotFoundException
-                || ex.InnerException is DllNotFoundException
-                || (ex is System.TypeInitializationException && ex.InnerException is DllNotFoundException);
+            // DllNotFoundException from MaaFramework almost always means the Visual C++
+            // Redistributable (vcruntime140_1.dll) is not installed on the user's machine.
+            var isDllMissing = ex is DllNotFoundException
+                || (ex.InnerException is DllNotFoundException)
+                || ex.ToString().Contains("DllNotFoundException");
 
             var message = isDllMissing
-                ? "程序所需的原生运行库加载失败（可能缺少 Visual C++ Redistributable）。\n\n" +
-                  "请先安装以下运行库后重试：\n" +
-                  "Visual C++ Redistributable 2022 x64\n" +
+                ? "缺少必要的运行库，程序无法启动。\n\n" +
+                  "请先安装 Microsoft Visual C++ Redistributable（x64），然后重新运行：\n" +
                   "https://aka.ms/vs/17/release/vc_redist.x64.exe\n\n" +
-                  "如安装后仍无法启动，请将 logs 目录下的日志文件反馈给开发者。\n\n" +
-                  $"错误详情：{ex.GetType().Name}: {ex.Message}"
-                : $"启动时发生错误，请将 logs 目录下的日志文件反馈给开发者：\n\n{ex}";
+                  $"技术详情：\n{ex.GetType().Name}: {ex.Message}"
+                : $"启动时发生错误，请将以下信息反馈给开发者：\n\n{ex}";
 
-            MessageBox.Show(message, "ASPAssistant 启动失败",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                message,
+                "ASPAssistant 错误",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
             Shutdown(1);
         }
     }
