@@ -50,7 +50,7 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          Compress-Archive -Path publish/win-x64 `
+          Compress-Archive -Path publish/win-x64/* `
             -DestinationPath "publish/ASPAssistant-${tag}-win-x64.zip"
 
       - name: Create GitHub Release
