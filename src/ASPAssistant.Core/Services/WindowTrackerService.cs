@@ -19,6 +19,7 @@ public class WindowTrackerService : IDisposable
     public bool IsGameFound => _gameWindowHandle != IntPtr.Zero
                                 && User32.IsWindow(_gameWindowHandle);
     public bool ShouldAttachInside { get; private set; }
+    public bool IsFullscreen { get; private set; }
 
     public WindowTrackerService(int pollIntervalMs = 100)
     {
@@ -71,11 +72,13 @@ public class WindowTrackerService : IDisposable
         // multi-monitor setups resolve correctly regardless of primary screen.
         var monitorRect = User32.GetMonitorRect(windowRect.Right - 1, windowRect.Top);
         var rightSpace = monitorRect.Right - windowRect.Right;
-        var shouldAttachInside = rightSpace < 320 || IsFullscreen(windowRect, monitorRect);
+        var isFullscreen = CheckIsFullscreen(windowRect, monitorRect);
+        var shouldAttachInside = rightSpace < 320 || isFullscreen;
 
-        var changed = IsGameWindowChanged(CurrentGameRect, ShouldAttachInside,
-            windowRect, shouldAttachInside);
+        var changed = IsGameWindowChanged(CurrentGameRect, ShouldAttachInside, IsFullscreen,
+            windowRect, shouldAttachInside, isFullscreen);
         ShouldAttachInside = shouldAttachInside;
+        IsFullscreen = isFullscreen;
         CurrentGameRect = windowRect;
 
         if (changed)
@@ -84,13 +87,13 @@ public class WindowTrackerService : IDisposable
             GameWindowPolled?.Invoke(windowRect);
     }
 
-    private static bool IsFullscreen(RECT rect, RECT monitorRect)
+    private static bool CheckIsFullscreen(RECT rect, RECT monitorRect)
     {
         return rect.Left <= monitorRect.Left && rect.Width >= monitorRect.Width - 10;
     }
 
-    public static bool IsGameWindowChanged(RECT? previous, bool previousAttachInside,
-        RECT current, bool currentAttachInside)
+    public static bool IsGameWindowChanged(RECT? previous, bool previousAttachInside, bool previousFullscreen,
+        RECT current, bool currentAttachInside, bool currentFullscreen)
     {
         if (previous is null) return true;
         var p = previous.Value;
@@ -98,7 +101,8 @@ public class WindowTrackerService : IDisposable
                p.Top != current.Top ||
                p.Right != current.Right ||
                p.Bottom != current.Bottom ||
-               previousAttachInside != currentAttachInside;
+               previousAttachInside != currentAttachInside ||
+               previousFullscreen != currentFullscreen;
     }
 
     public void Dispose()

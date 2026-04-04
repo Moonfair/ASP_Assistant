@@ -66,6 +66,24 @@
                                VerticalAlignment="Center" />
                 </DockPanel>
             </Border>
+
+            <!-- Fullscreen warning banner -->
+            <Border x:Name="FullscreenBanner" DockPanel.Dock="Top"
+                    Background="#1AFFA000"
+                    BorderBrush="#FFFFA000" BorderThickness="0,0,0,1"
+                    Visibility="Collapsed" Padding="10,5">
+                <DockPanel>
+                    <Button x:Name="FullscreenBannerClose" DockPanel.Dock="Right"
+                            Click="OnDismissFullscreenBanner"
+                            Width="20" Height="20" Cursor="Hand"
+                            BorderThickness="0" Background="Transparent" Foreground="#FFFFA000"
+                            FontSize="12" FontWeight="Bold" Content="✕"
+                            ToolTip="关闭提示" />
+                    <TextBlock Text="推荐在窗口模式下运行"
+                               Foreground="#FFFFC107" FontSize="11"
+                               VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
             <TabControl Style="{StaticResource DarkTabControl}">
                 <TabItem Header="干员">
                     <views:OperatorBrowseView x:Name="OperatorView" />

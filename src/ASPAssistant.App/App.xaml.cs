@@ -148,7 +148,8 @@ public partial class App : Application
         {
             Dispatcher.Invoke(() =>
             {
-                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: true);
+                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside,
+                    _windowTracker.IsFullscreen, gameActuallyMoved: true);
 
                 var clientRect = Core.Interop.User32.GetClientRectScreen(
                     Core.Interop.User32.FindArknightsWindow());
@@ -161,7 +162,8 @@ public partial class App : Application
         {
             Dispatcher.Invoke(() =>
             {
-                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: false);
+                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside,
+                    _windowTracker.IsFullscreen, gameActuallyMoved: false);
             });
         };
 

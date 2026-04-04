@@ -29,6 +29,13 @@ public partial class SidePanelWindow : Window
     // WPF 初始 Show() 会触发 SizeChanged/LocationChanged，在首次 UpdatePosition 前清除误设的标志
     private bool _layoutInitialized;
 
+    // 全屏状态追踪
+    private bool _wasFullscreen;
+    private bool _fullscreenBannerDismissed;
+
+    // 全屏时侧边栏高度占游戏窗口高度的比例（留出底部 HUD 区域）
+    private const double FullscreenHeightRatio = 0.87;
+
     public SidePanelWindow(
         OperatorBrowseViewModel operatorVm,
         EquipmentBrowseViewModel equipmentVm,
@@ -127,7 +134,7 @@ public partial class SidePanelWindow : Window
         dialog.ShowDialog();
     }
 
-    public void UpdatePosition(RECT gameRect, bool attachInside, bool gameActuallyMoved)
+    public void UpdatePosition(RECT gameRect, bool attachInside, bool isFullscreen, bool gameActuallyMoved)
     {
         _isProgrammaticChange = true;
         try
@@ -143,12 +150,22 @@ public partial class SidePanelWindow : Window
             if (gameActuallyMoved)
                 _isUserPositioned = false;
 
+            // 全屏/窗口模式切换时重置用户手动尺寸标志，让高度自动适配新模式
+            if (isFullscreen != _wasFullscreen)
+            {
+                _isUserSized = false;
+                _wasFullscreen = isFullscreen;
+                UpdateFullscreenBanner(isFullscreen);
+            }
+
             var monitorRight = Core.Interop.User32.GetMonitorRect(gameRect.Right - 1, gameRect.Top).Right;
             var targetLeft = attachInside
                 ? monitorRight - Width
                 : (double)gameRect.Right;
-            var targetTop  = (double)gameRect.Top;
-            var targetHeight = (double)gameRect.Height;
+            var targetTop    = (double)gameRect.Top;
+            var targetHeight = isFullscreen
+                ? gameRect.Height * FullscreenHeightRatio
+                : (double)gameRect.Height;
 
             if (!_isUserPositioned)
             {
@@ -163,6 +180,20 @@ public partial class SidePanelWindow : Window
         {
             _isProgrammaticChange = false;
         }
+    }
+
+    private void UpdateFullscreenBanner(bool isFullscreen)
+    {
+        if (isFullscreen && !_fullscreenBannerDismissed)
+            FullscreenBanner.Visibility = Visibility.Visible;
+        else
+            FullscreenBanner.Visibility = Visibility.Collapsed;
+    }
+
+    private void OnDismissFullscreenBanner(object sender, RoutedEventArgs e)
+    {
+        _fullscreenBannerDismissed = true;
+        FullscreenBanner.Visibility = Visibility.Collapsed;
     }
 
     private void OnLocationChanged(object? sender, EventArgs e)
