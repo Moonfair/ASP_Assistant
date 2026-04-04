@@ -4,9 +4,9 @@
              Background="{StaticResource PanelBackgroundBrush}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="8">
-            <TextBlock Text="当前盟约持有" FontSize="12" FontWeight="Bold"
+            <TextBlock Text="当前盟约持有" FontSize="12" FontWeight="Bold" Visibility="Collapsed"
                        Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
-            <Border Background="{StaticResource CardBackgroundBrush}"
+            <Border Background="{StaticResource CardBackgroundBrush}" Visibility="Collapsed"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                     CornerRadius="4" Padding="8" Margin="0,0,0,12">
                 <ItemsControl x:Name="CovenantCountsPanel">
@@ -54,9 +54,9 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Text="游戏状态（实时 OCR）" FontSize="12" FontWeight="Bold"
+            <TextBlock Text="游戏状态（实时 OCR）" FontSize="12" FontWeight="Bold" Visibility="Collapsed"
                        Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,4" />
-            <Border Background="{StaticResource CardBackgroundBrush}"
+            <Border Background="{StaticResource CardBackgroundBrush}" Visibility="Collapsed"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                     CornerRadius="4" Padding="8">
                 <StackPanel DataContext="{Binding GameState}">
