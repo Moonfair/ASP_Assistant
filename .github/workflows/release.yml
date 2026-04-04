@@ -46,6 +46,24 @@ jobs:
             Where-Object { $_.Name -ne "win-x64" } |
             ForEach-Object { Remove-Item $_.FullName -Recurse -Force }
 
+      - name: Bundle VC++ Runtime DLLs
+        shell: pwsh
+        run: |
+          $out = "publish/win-x64"
+          # These three DLLs are required by MaaFramework's native C++ code.
+          # Microsoft permits redistribution alongside applications per the VC++ EULA.
+          # The GitHub Actions windows-latest runner always has them in System32.
+          $dlls = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll")
+          foreach ($dll in $dlls) {
+            $src = "C:\Windows\System32\$dll"
+            if (Test-Path $src) {
+              Copy-Item $src "$out\$dll" -Force
+              Write-Host "Bundled $dll"
+            } else {
+              Write-Warning "$dll not found in System32 — skipping"
+            }
+          }
+
       - name: Zip release assets
         shell: pwsh
         run: |
