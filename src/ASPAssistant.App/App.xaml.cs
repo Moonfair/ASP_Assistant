@@ -19,6 +19,27 @@ public partial class App : Application
 
     public App()
     {
+        // Catches exceptions before the WPF Dispatcher is running (e.g. DllNotFoundException
+        // from MaaFramework native libs if VC++ Runtime is missing, or single-file extraction failures).
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            var ex = args.ExceptionObject as Exception;
+            AppLogger.Error("App", "Fatal unhandled exception",
+                ex ?? new Exception(args.ExceptionObject?.ToString()));
+            MessageBox.Show(
+                $"程序启动时发生严重错误，请将以下信息反馈给开发者：\n\n{args.ExceptionObject}",
+                "ASPAssistant 崩溃",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        };
+
+        // Prevents background Task exceptions from being silently swallowed.
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            AppLogger.Warn("App", $"Unobserved task exception: {args.Exception}");
+            args.SetObserved();
+        };
+
         DispatcherUnhandledException += (_, args) =>
         {
             AppLogger.Error("App", "Unhandled UI exception", args.Exception);
@@ -61,7 +82,7 @@ public partial class App : Application
             "ASPAssistant");
 
         // Initialize file logger as early as possible.
-        AppLogger.Initialize(Path.Combine(settingsDir, "logs"));
+        AppLogger.Initialize(Path.Combine(appDir, "logs"));
         AppLogger.Info("App", $"appDir={appDir}");
 
         // Data layer
