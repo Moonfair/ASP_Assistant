@@ -32,7 +32,19 @@ jobs:
           dotnet publish src/ASPAssistant.App/ASPAssistant.App.csproj `
             -c Release -r win-x64 --self-contained true `
             -p:Version=${{ env.VERSION }} `
+            -p:PublishSingleFile=true `
             -o publish/win-x64
+
+      - name: Trim publish output
+        shell: pwsh
+        run: |
+          $out = "publish/win-x64"
+          # Remove debug symbols
+          Remove-Item "$out\*.pdb" -ErrorAction SilentlyContinue
+          # Remove non-Windows runtimes bundled by MaaFramework NuGet
+          Get-ChildItem "$out\runtimes" -Directory |
+            Where-Object { $_.Name -ne "win-x64" } |
+            ForEach-Object { Remove-Item $_.FullName -Recurse -Force }
 
       - name: Zip release assets
         shell: pwsh
