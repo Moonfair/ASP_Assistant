@@ -34,8 +34,8 @@ public partial class SidePanelWindow : Window
     private bool _fullscreenBannerDismissed;
 
     // 全屏时侧边栏的起始/结束位置（占游戏窗口高度的比例）
-    private const double FullscreenTopRatio    = 0.18;  // 从顶部留出 18%
-    private const double FullscreenBottomRatio = 0.87;  // 底部截止在 87% 处
+    private const double FullscreenTopRatio    = 0.22;  // 从顶部留出 22%
+    private const double FullscreenBottomRatio = 0.68;  // 底部截止在 68% 处（留出底部 32%）
 
     public SidePanelWindow(
         OperatorBrowseViewModel operatorVm,
