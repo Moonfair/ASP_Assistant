@@ -63,11 +63,22 @@ public partial class App : Application
         catch (Exception ex)
         {
             AppLogger.Error("App", "Startup failed", ex);
-            MessageBox.Show(
-                $"启动时发生错误，请将以下信息反馈给开发者：\n\n{ex}",
-                "ASPAssistant 错误",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+
+            bool isDllMissing = ex is DllNotFoundException
+                || ex.InnerException is DllNotFoundException
+                || (ex is System.TypeInitializationException && ex.InnerException is DllNotFoundException);
+
+            var message = isDllMissing
+                ? "程序所需的原生运行库加载失败（可能缺少 Visual C++ Redistributable）。\n\n" +
+                  "请先安装以下运行库后重试：\n" +
+                  "Visual C++ Redistributable 2022 x64\n" +
+                  "https://aka.ms/vs/17/release/vc_redist.x64.exe\n\n" +
+                  "如安装后仍无法启动，请将 logs 目录下的日志文件反馈给开发者。\n\n" +
+                  $"错误详情：{ex.GetType().Name}: {ex.Message}"
+                : $"启动时发生错误，请将 logs 目录下的日志文件反馈给开发者：\n\n{ex}";
+
+            MessageBox.Show(message, "ASPAssistant 启动失败",
+                MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
     }
