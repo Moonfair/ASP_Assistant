@@ -36,4 +36,21 @@ public class SettingsManager
         return JsonSerializer.Deserialize<List<TrackingEntry>>(json, JsonOptions) ?? [];
     }
 
+    public async Task<string?> LoadSkippedVersionAsync()
+    {
+        var path = Path.Combine(_settingsDir, "skipped_version.txt");
+        if (!File.Exists(path))
+            return null;
+
+        var tag = await File.ReadAllTextAsync(path);
+        return tag.Trim();
+    }
+
+    public async Task SaveSkippedVersionAsync(string tag)
+    {
+        Directory.CreateDirectory(_settingsDir);
+        var path = Path.Combine(_settingsDir, "skipped_version.txt");
+        await File.WriteAllTextAsync(path, tag.Trim());
+    }
+
 }

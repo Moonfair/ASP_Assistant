@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
@@ -18,7 +19,10 @@ public partial class SidePanelWindow : Window
     public event Action<string, bool>? BanToggleRequested;
 
     private UpdateService? _updateService;
+    private SettingsManager? _settingsManager;
     private UpdateInfo? _pendingUpdate;
+    private Task? _downloadTask;
+    private bool _isDownloadReady;
 
     // 用户意图追踪
     private bool _isUserPositioned;       // 用户手动移动过窗口
@@ -101,9 +105,10 @@ public partial class SidePanelWindow : Window
     public void UpdateManualScanStatus(int pending)
         => OperatorView.UpdateManualScanStatus(pending);
 
-    public void StartUpdateCheck(UpdateService updateService)
+    public void StartUpdateCheck(UpdateService updateService, SettingsManager settingsManager)
     {
         _updateService = updateService;
+        _settingsManager = settingsManager;
         _ = CheckForUpdatesAsync();
     }
 
@@ -117,22 +122,103 @@ public partial class SidePanelWindow : Window
         var info = await _updateService.CheckForUpdateAsync();
         if (info is null) return;
 
+        // Skip if user previously asked to skip this version
+        if (_settingsManager is not null)
+        {
+            var skipped = await _settingsManager.LoadSkippedVersionAsync();
+            if (skipped == info.TagName) return;
+        }
+
         _pendingUpdate = info;
         Dispatcher.Invoke(() =>
         {
             UpdateBannerText.Text = $"发现新版本 {info.TagName}";
+            UpdateBannerProgress.Visibility = Visibility.Visible;
             UpdateBanner.Visibility = Visibility.Visible;
         });
+
+        _downloadTask = RunBackgroundDownloadAsync(info);
     }
 
-    private void OnShowUpdateDialog(object sender, RoutedEventArgs e)
+    private async Task RunBackgroundDownloadAsync(UpdateInfo info)
     {
-        if (_pendingUpdate is null || _updateService is null) return;
-        var dialog = new UpdateDialog(_updateService, _pendingUpdate)
+        if (_updateService is null) return;
+
+        var progress = new Progress<double>(value =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                UpdateBannerProgress.Value = value * 100;
+            });
+        });
+
+        try
+        {
+            await _updateService.DownloadAndApplyUpdateAsync(info, progress);
+
+            _isDownloadReady = true;
+            Dispatcher.Invoke(() =>
+            {
+                UpdateBannerProgress.Visibility = Visibility.Collapsed;
+                UpdateActionIcon.Text = "↻ ";
+                UpdateActionText.Text = "立即重启";
+            });
+        }
+        catch
+        {
+            Dispatcher.Invoke(() =>
+            {
+                UpdateBannerProgress.Visibility = Visibility.Collapsed;
+                UpdateBannerText.Text = $"下载失败，点击重试";
+                UpdateActionIcon.Text = "↺ ";
+                UpdateActionText.Text = "重试";
+            });
+            _isDownloadReady = false;
+        }
+    }
+
+    private void OnBannerAction(object sender, RoutedEventArgs e)
+    {
+        if (_isDownloadReady)
+        {
+            Application.Current.Shutdown();
+            return;
+        }
+
+        // Download failed state — retry
+        if (_downloadTask is { IsCompleted: true, IsFaulted: false } == false && _pendingUpdate is not null && _updateService is not null)
+        {
+            // If download task ended without success, allow retry
+            if (_downloadTask is { IsCompletedSuccessfully: false } || _downloadTask is null)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    UpdateBannerText.Text = $"发现新版本 {_pendingUpdate.TagName}";
+                    UpdateActionIcon.Text = "↑ ";
+                    UpdateActionText.Text = "查看更新";
+                    UpdateBannerProgress.Value = 0;
+                    UpdateBannerProgress.Visibility = Visibility.Visible;
+                });
+                _downloadTask = RunBackgroundDownloadAsync(_pendingUpdate);
+                return;
+            }
+        }
+
+        // Download in progress — open notes dialog
+        if (_pendingUpdate is null) return;
+        var dialog = new UpdateDialog(_pendingUpdate)
         {
             Owner = this
         };
         dialog.ShowDialog();
+    }
+
+    private async void OnSkipVersion(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is null) return;
+        if (_settingsManager is not null)
+            await _settingsManager.SaveSkippedVersionAsync(_pendingUpdate.TagName);
+        UpdateBanner.Visibility = Visibility.Collapsed;
     }
 
     public void UpdatePosition(RECT gameRect, bool attachInside, bool isFullscreen, bool gameActuallyMoved)

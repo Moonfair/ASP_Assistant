@@ -24,6 +24,8 @@ public class UpdateService
 
     private const string Owner = "Moonfair";
     private const string Repo = "ASP_Assistant";
+    private const string OssReleaseJsonUrl =
+        $"https://moonfair.github.io/ASP_Assistant/oss-release.json";
 
     public Version CurrentVersion =>
         Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0);
@@ -40,26 +42,46 @@ public class UpdateService
 
         try
         {
-            var url = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
-            var release = await _http.GetFromJsonAsync<GitHubRelease>(url, ct);
-            if (release is null) return null;
+            // Use oss-release.json (hosted on GitHub Pages) for version + OSS download URL
+            var ossInfo = await _http.GetFromJsonAsync<OssReleaseInfo>(OssReleaseJsonUrl, ct);
+            if (ossInfo is null || string.IsNullOrEmpty(ossInfo.Version) || string.IsNullOrEmpty(ossInfo.Url))
+                return null;
 
-            var latestVersion = ParseVersion(release.TagName);
+            var latestVersion = ParseVersion(ossInfo.Version);
             if (latestVersion <= CurrentVersion) return null;
 
-            var asset = release.Assets.FirstOrDefault(a => a.Name.Contains("win-x64") && a.Name.EndsWith(".zip"));
-            if (asset is null) return null;
+            // Best-effort: fetch release notes from GitHub API
+            var notes = await FetchReleaseNotesAsync(ossInfo.Version, ct);
+
+            var assetName = ossInfo.Url.Split('/').Last();
 
             return new UpdateInfo(
-                release.TagName,
+                ossInfo.Version,
                 latestVersion.ToString(),
-                release.Body ?? string.Empty,
-                asset.BrowserDownloadUrl,
-                asset.Name);
+                notes,
+                ossInfo.Url,
+                assetName);
         }
         catch
         {
             return null;
+        }
+    }
+
+    private async Task<string> FetchReleaseNotesAsync(string tag, CancellationToken ct)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(8));
+
+            var url = $"https://api.github.com/repos/{Owner}/{Repo}/releases/tags/{tag}";
+            var release = await _http.GetFromJsonAsync<GitHubRelease>(url, cts.Token);
+            return release?.Body ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 
@@ -156,12 +178,11 @@ public class UpdateService
         return Version.TryParse(v, out var result) ? result : new Version(0, 0, 0);
     }
 
+    private record OssReleaseInfo(
+        [property: JsonPropertyName("version")] string Version,
+        [property: JsonPropertyName("url")] string Url);
+
     private record GitHubRelease(
         [property: JsonPropertyName("tag_name")] string TagName,
-        [property: JsonPropertyName("body")] string? Body,
-        [property: JsonPropertyName("assets")] List<GitHubAsset> Assets);
-
-    private record GitHubAsset(
-        [property: JsonPropertyName("name")] string Name,
-        [property: JsonPropertyName("browser_download_url")] string BrowserDownloadUrl);
+        [property: JsonPropertyName("body")] string? Body);
 }

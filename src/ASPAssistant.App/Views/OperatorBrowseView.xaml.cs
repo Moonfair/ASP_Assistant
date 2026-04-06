@@ -180,9 +180,6 @@ public partial class OperatorBrowseView : UserControl
     {
         if (e.OriginalSource is OperatorCard card && card.DataContext is Operator op)
         {
-            // #region agent log
-            System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OperatorBrowseView.xaml.cs:OnOperatorTrackingToggled", message = "TrackingToggled fired", data = new { opName = op.Name, cardIsTracked = card.IsTracked, action = card.IsTracked ? "AddTracking" : "RemoveTracking" }, hypothesisId = "A", runId = "post-fix" }) + "\n");
-            // #endregion
             if (card.IsTracked)
                 TrackingRequested?.Invoke(op.Name, TrackingType.Operator);
             else
@@ -197,9 +194,6 @@ public partial class OperatorBrowseView : UserControl
         {
             if (card.DataContext is Operator op)
             {
-                // #region agent log
-                System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OperatorBrowseView.xaml.cs:RefreshTrackingStates", message = "Refreshing card", data = new { opName = op.Name, newIsTracked = IsTrackedCheck(op.Name) }, hypothesisId = "B", runId = "post-fix" }) + "\n");
-                // #endregion
                 card.RefreshTrackedState(IsTrackedCheck(op.Name));
             }
         }

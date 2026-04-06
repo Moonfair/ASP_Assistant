@@ -13,32 +13,6 @@
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0" />
     </WindowChrome.WindowChrome>
 
-    <Window.Resources>
-        <Style x:Key="DialogProgressBar" TargetType="ProgressBar">
-            <Setter Property="Height" Value="6" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="#FF4FC3F7" />
-            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ProgressBar">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="3"
-                                Height="{TemplateBinding Height}">
-                            <Border x:Name="PART_Indicator"
-                                    Background="{TemplateBinding Foreground}"
-                                    CornerRadius="3" HorizontalAlignment="Left" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsIndeterminate" Value="True">
-                                <Setter TargetName="PART_Indicator" Property="Width" Value="0" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
-
     <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
         <DockPanel>
             <!-- Title bar -->
@@ -87,47 +61,17 @@
                     </ScrollViewer>
                 </Border>
 
-                <!-- Progress area -->
-                <StackPanel x:Name="ProgressPanel" Visibility="Collapsed" Margin="0,0,0,14">
-                    <DockPanel Margin="0,0,0,5">
-                        <TextBlock x:Name="ProgressPercent" DockPanel.Dock="Right"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="11" Margin="6,0,0,0" />
-                        <TextBlock x:Name="StatusText"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="11" Text="正在下载更新..." />
-                    </DockPanel>
-                    <ProgressBar x:Name="DownloadProgress" Style="{StaticResource DialogProgressBar}"
-                                 Value="0" Maximum="100" />
-                </StackPanel>
+                <!-- Hint: download is running in background -->
+                <TextBlock x:Name="DownloadHintText"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="11" TextWrapping="Wrap"
+                           Margin="0,0,0,14"
+                           Text="正在后台下载更新，完成后横幅将显示重启按钮。" />
 
                 <!-- Buttons -->
-                <DockPanel>
-                    <Button x:Name="UpdateButton" DockPanel.Dock="Right" Content="立即更新"
-                            Click="OnUpdateClick" Width="90" Height="30"
-                            Background="#FF4FC3F7" Foreground="#FF1A1A2E"
-                            FontWeight="SemiBold" FontSize="12"
-                            BorderThickness="0" Cursor="Hand">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="bg" Background="{TemplateBinding Background}"
-                                        CornerRadius="6">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="bg" Property="Background" Value="#FF81D4FA" />
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter TargetName="bg" Property="Background" Value="#FF334155" />
-                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
-                    <Button x:Name="DeferButton" Content="稍后提醒" Click="OnDefer"
-                            Width="80" Height="30" Margin="0,0,8,0"
+                <DockPanel HorizontalAlignment="Right">
+                    <Button Content="关闭" Click="OnClose"
+                            Width="80" Height="30"
                             Background="Transparent"
                             Foreground="{StaticResource TextSecondaryBrush}"
                             FontSize="11" BorderThickness="0" Cursor="Hand">

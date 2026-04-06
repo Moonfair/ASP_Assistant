@@ -282,7 +282,7 @@ public partial class App : Application
         AppLogger.Info("App", "Startup complete");
 
         // Start background update check
-        _sidePanel.StartUpdateCheck(new UpdateService());
+        _sidePanel.StartUpdateCheck(new UpdateService(), _settingsManager!);
     }
 
     protected override void OnExit(ExitEventArgs e)

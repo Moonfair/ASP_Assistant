@@ -24,11 +24,6 @@ public class OcrScannerService : IDisposable
     // Accumulated ban set for manual screenshot scans.
     private readonly HashSet<string> _accumulatedBans = [];
 
-    // Pool of additional MaaBanIconMatcher instances for parallel per-slot SIFT.
-    // Initialised in the background so app startup is not delayed.
-    private MaaBanIconMatcher[]? _matcherPool;
-    private readonly Task? _poolInitTask;
-
     // Manual screenshot scan queue — button-triggered scans execute sequentially.
     private readonly Channel<byte[]> _manualScanChannel = Channel.CreateUnbounded<byte[]>();
     private int _pendingManualScans;
@@ -68,40 +63,6 @@ public class OcrScannerService : IDisposable
         _iconMatcher = iconMatcher;
         _scanTimer = new Timer(intervalMs);
         _scanTimer.Elapsed += OnScanTick;
-
-        // Initialise extra matcher instances in the background so the main thread is not blocked.
-        // By the time the first ban screen appears the pool will already be ready.
-        if (iconMatcher != null)
-        {
-            AppLogger.Info("OcrScanner", "Starting matcher pool initialisation...");
-            _poolInitTask = Task.Run(() =>
-            {
-                try
-                {
-                    const int ExtraInstances = 14; // primary + 14 extras = pool of 15
-                    var extras = Enumerable.Range(0, ExtraInstances)
-                        .Select(_ => new MaaBanIconMatcher(iconMatcher.DataDir)
-                        {
-                            OperatorFeatureCount = iconMatcher.OperatorFeatureCount,
-                            FeatureDetector      = iconMatcher.FeatureDetector,
-                            OperatorRatio        = iconMatcher.OperatorRatio,
-                            BanRoiX              = iconMatcher.BanRoiX,
-                            BanRoiY              = iconMatcher.BanRoiY,
-                            BanRoiW              = iconMatcher.BanRoiW,
-                            BanRoiH              = iconMatcher.BanRoiH,
-                        })
-                        .ToArray();
-                    // Pool = [primary, extra0..extra13] — primary is index 0
-                    _matcherPool = [iconMatcher, .. extras];
-                    AppLogger.Info("OcrScanner", $"Matcher pool ready: {_matcherPool.Length} instances");
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.Error("OcrScanner", "Matcher pool init failed", ex);
-                    _matcherPool = [iconMatcher];
-                }
-            });
-        }
 
         // Start the background consumer for button-triggered manual scans.
         _ = Task.Run(ProcessManualScansAsync);
@@ -285,42 +246,26 @@ public class OcrScannerService : IDisposable
             $"Candidates: {candidateSnapshot.Count} (total={totalOperators}, already-banned={alreadyBanned}, " +
             $"templates={candidateSnapshot.Sum(c => c.TemplateNames.Count)})");
 
-        // Use the pool when available; fall back to the primary matcher if still initialising.
-        var pool = (_matcherPool is { Length: > 0 }) ? _matcherPool : new[] { _iconMatcher! };
-
         bool anyNewMatch = false;
         var newlyDetected = new List<string>();
         var matchSw = System.Diagnostics.Stopwatch.StartNew();
-        for (int batchStart = 0; batchStart < candidateSnapshot.Count; batchStart += pool.Length)
+        foreach (var candidate in candidateSnapshot)
         {
-            var batch = candidateSnapshot.Skip(batchStart).Take(pool.Length).ToList();
+            var tuple = await _iconMatcher!.FindBestInSlotAsync(screenshot, candidate, imgWidth, imgHeight);
+            if (tuple == null)
+                continue;
 
-            var batchTasks = batch.Select((candidate, i) =>
+            var (name, hit, hitBox) = tuple.Value;
+            if (hit && !_accumulatedBans.Contains(name))
             {
-                var matcher = pool[i];
-                return matcher.FindBestInSlotAsync(screenshot, candidate, imgWidth, imgHeight);
-            }).ToList();
-
-            var batchResults = await Task.WhenAll(batchTasks);
-
-            foreach (var tuple in batchResults)
-            {
-                if (tuple == null)
-                    continue;
-
-                var (name, hit, hitBox) = tuple.Value;
-
-                if (hit && !_accumulatedBans.Contains(name))
-                {
-                    _accumulatedBans.Add(name);
-                    newlyDetected.Add(name);
-                    anyNewMatch = true;
-                }
+                _accumulatedBans.Add(name);
+                newlyDetected.Add(name);
+                anyNewMatch = true;
             }
         }
         matchSw.Stop();
         AppLogger.Info("BanMatch",
-            $"Match done: elapsed={matchSw.ElapsedMilliseconds}ms, pool={pool.Length}, " +
+            $"Match done: elapsed={matchSw.ElapsedMilliseconds}ms, " +
             $"new={newlyDetected.Count} [{string.Join(", ", newlyDetected)}], " +
             $"accumulated={_accumulatedBans.Count} [{string.Join(", ", _accumulatedBans)}]");
 
@@ -391,11 +336,5 @@ public class OcrScannerService : IDisposable
         _scanTimer.Stop();
         _scanTimer.Dispose();
         _manualScanChannel.Writer.TryComplete();
-        // Dispose the extra pool instances (index 1+). Index 0 is _iconMatcher, owned externally.
-        if (_matcherPool != null)
-        {
-            for (int i = 1; i < _matcherPool.Length; i++)
-                _matcherPool[i].Dispose();
-        }
     }
 }
