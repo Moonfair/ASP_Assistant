@@ -177,10 +177,9 @@ public partial class OverlayWindow : Window
         dimRect.Height = ActualHeight > 0 ? ActualHeight : 720;
 
         // Central message panel.
-        var text = new TextBlock
+        var mainText = new TextBlock
         {
-            // "???????????"
-            Text = "\u5411\u4e0b\u6eda\u52a8\u4ee5\u4fdd\u5b58\u7981\u7528\u5e72\u5458",
+            Text = "下滑后按 Ctrl+Shift+/ 截取ban位记录",
             Foreground = Brushes.White,
             FontSize = 22,
             FontWeight = FontWeights.SemiBold,
@@ -188,6 +187,18 @@ public partial class OverlayWindow : Window
             Effect = new System.Windows.Media.Effects.DropShadowEffect
             {
                 Color = Colors.Black, BlurRadius = 8, ShadowDepth = 2, Opacity = 0.8
+            }
+        };
+
+        var hintText = new TextBlock
+        {
+            Text = "(尽量保持完整的干员头像)",
+            Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
+            FontSize = 15,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Colors.Black, BlurRadius = 6, ShadowDepth = 1, Opacity = 0.7
             }
         };
 
@@ -221,7 +232,9 @@ public partial class OverlayWindow : Window
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        panel.Children.Add(text);
+        panel.Children.Add(mainText);
+        panel.Children.Add(new Border { Height = 4 });
+        panel.Children.Add(hintText);
         panel.Children.Add(new Border { Height = 12 });
         panel.Children.Add(arrow);
 

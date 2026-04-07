@@ -118,6 +118,21 @@ public static class User32
 
     private const uint MonitorDefaultToNearest = 2;
 
+    // Global hotkey APIs
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    public const uint MOD_CONTROL = 0x0002;
+    public const uint MOD_SHIFT   = 0x0004;
+    public const uint VK_OEM_2    = 0xBF;  // '/' key
+    public const int  WM_HOTKEY   = 0x0312;
+
     /// <summary>
     /// Returns the bounding rectangle (in physical pixels) of the monitor
     /// that contains the given physical-pixel point, or the nearest monitor

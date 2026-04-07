@@ -28,7 +28,26 @@ public class OcrScannerService : IDisposable
     private readonly Channel<byte[]> _manualScanChannel = Channel.CreateUnbounded<byte[]>();
     private int _pendingManualScans;
 
+    // Ban screen detection state machine.
+    private bool _banScreenActive;
+    private int _banScreenConsecutiveTicks;
+    private int _banScreenAbsentTicks;
+    private const int BanDetectThreshold = 2;
+    private const int BanLostThreshold   = 3;
+    private IReadOnlyList<string>? _cachedCovenantNames;
+
     public event Action<GameState.GameState>? GameStateUpdated;
+
+    /// <summary>
+    /// Raised when the periodic scan first detects that the game is on the ban selection screen.
+    /// Fires once per entry; resets after the screen is left.
+    /// </summary>
+    public event Action? BanScreenDetected;
+
+    /// <summary>
+    /// Raised when the ban selection screen is no longer detected.
+    /// </summary>
+    public event Action? BanScreenLost;
 
     /// <summary>
     /// Raised when manual screenshot matching finds newly banned operators.
@@ -95,6 +114,9 @@ public class OcrScannerService : IDisposable
                 return;
 
             var regions = _ocrStrategy.GetScanRegions();
+
+            // Ban screen detection runs every tick regardless of tracked operators.
+            await DetectBanScreenAsync(screenshot, regions, imgWidth, imgHeight);
 
             var shopRegion = regions.FirstOrDefault(r => r.Name == "Shop");
             if (shopRegion == null)
@@ -329,6 +351,75 @@ public class OcrScannerService : IDisposable
         if (banned) _accumulatedBans.Add(name);
         else _accumulatedBans.Remove(name);
         AppLogger.Info("OcrScanner", $"Manual ban: {name} -> {(banned ? "banned" : "unbanned")} (accumulated={_accumulatedBans.Count})");
+    }
+
+    /// <summary>
+    /// OCRs the BanFactionPanel region and updates the ban screen state machine.
+    /// Fires <see cref="BanScreenDetected"/> after <see cref="BanDetectThreshold"/> consecutive
+    /// positive frames, and <see cref="BanScreenLost"/> after <see cref="BanLostThreshold"/>
+    /// consecutive negative frames. This avoids flickering on transient OCR misses.
+    /// </summary>
+    private async Task DetectBanScreenAsync(
+        byte[] screenshot,
+        IReadOnlyList<OcrRegionDefinition> regions,
+        int imgWidth,
+        int imgHeight)
+    {
+        if (_getAllOperators == null)
+            return;
+
+        var factionRegion = regions.FirstOrDefault(r => r.Name == "BanFactionPanel");
+        if (factionRegion == null)
+            return;
+
+        int fx = (int)(factionRegion.XPercent * imgWidth);
+        int fy = (int)(factionRegion.YPercent * imgHeight);
+        int fw = (int)(factionRegion.WidthPercent * imgWidth);
+        int fh = (int)(factionRegion.HeightPercent * imgHeight);
+
+        var ocrResults = await _ocrEngine.RecognizeRegionAsync(screenshot, fx, fy, fw, fh);
+        var covenants  = GetCovenantNames();
+
+        bool detected = ocrResults.Any(r => covenants.Any(c => r.Text.Contains(c)));
+
+        if (detected)
+        {
+            _banScreenAbsentTicks = 0;
+            _banScreenConsecutiveTicks++;
+
+            if (!_banScreenActive && _banScreenConsecutiveTicks >= BanDetectThreshold)
+            {
+                _banScreenActive = true;
+                AppLogger.Info("BanScreen", "Ban selection screen detected");
+                BanScreenDetected?.Invoke();
+            }
+        }
+        else
+        {
+            _banScreenConsecutiveTicks = 0;
+            _banScreenAbsentTicks++;
+
+            if (_banScreenActive && _banScreenAbsentTicks >= BanLostThreshold)
+            {
+                _banScreenActive = false;
+                AppLogger.Info("BanScreen", "Ban selection screen lost");
+                BanScreenLost?.Invoke();
+            }
+        }
+    }
+
+    private IReadOnlyList<string> GetCovenantNames()
+    {
+        if (_cachedCovenantNames != null)
+            return _cachedCovenantNames;
+
+        _cachedCovenantNames = _getAllOperators!()
+            .SelectMany(o => o.CoreCovenants.Concat(o.AdditionalCovenants))
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct()
+            .ToList();
+
+        return _cachedCovenantNames;
     }
 
     public void Dispose()

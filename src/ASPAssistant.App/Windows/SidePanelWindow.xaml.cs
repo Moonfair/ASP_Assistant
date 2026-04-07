@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Services;
@@ -32,6 +33,10 @@ public partial class SidePanelWindow : Window
     private WindowState _previousWindowState;
     // WPF 初始 Show() 会触发 SizeChanged/LocationChanged，在首次 UpdatePosition 前清除误设的标志
     private bool _layoutInitialized;
+
+    // Global hotkey (Ctrl+Shift+/) for manual screenshot scan
+    private const int HotkeyIdManualScan = 0x4153; // 'AS' — arbitrary unique app-scoped ID
+    private HwndSource? _hwndSource;
 
     // 全屏状态追踪
     private bool _wasFullscreen;
@@ -100,6 +105,26 @@ public partial class SidePanelWindow : Window
             OperatorView.RefreshTrackingStates();
             EquipmentView.RefreshTrackingStates();
         };
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        var hwnd = new WindowInteropHelper(this).Handle;
+        _hwndSource = HwndSource.FromHwnd(hwnd);
+        _hwndSource.AddHook(WndProc);
+        User32.RegisterHotKey(hwnd, HotkeyIdManualScan,
+            User32.MOD_CONTROL | User32.MOD_SHIFT, User32.VK_OEM_2);
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == User32.WM_HOTKEY && wParam.ToInt32() == HotkeyIdManualScan)
+        {
+            ManualScanRequested?.Invoke();
+            handled = true;
+        }
+        return IntPtr.Zero;
     }
 
     public void UpdateManualScanStatus(int pending)
@@ -327,6 +352,7 @@ public partial class SidePanelWindow : Window
 
     private void OnClose(object sender, RoutedEventArgs e)
     {
+        User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, HotkeyIdManualScan);
         Application.Current.Shutdown();
     }
 }

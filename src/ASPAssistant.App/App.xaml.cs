@@ -249,6 +249,24 @@ public partial class App : Application
             });
         };
 
+        // Ban screen overlay guidance: show once per entry, hide on exit.
+        // _banInstructionShown prevents re-showing after the user dismisses by scrolling
+        // while still remaining on the ban screen.
+        bool banInstructionShown = false;
+        _ocrScanner.BanScreenDetected += () => Dispatcher.Invoke(() =>
+        {
+            if (!banInstructionShown)
+            {
+                _overlay!.ShowBanInstructionOverlay();
+                banInstructionShown = true;
+            }
+        });
+        _ocrScanner.BanScreenLost += () => Dispatcher.Invoke(() =>
+        {
+            _overlay!.HideBanInstructionOverlay();
+            banInstructionShown = false;
+        });
+
         // Manual screenshot scan: button in the operator browse view triggers a one-off scan.
         _sidePanel.ManualScanRequested += () => _ocrScanner!.EnqueueManualScan();
 
