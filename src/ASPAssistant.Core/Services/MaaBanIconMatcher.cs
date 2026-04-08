@@ -90,6 +90,13 @@ public sealed class MaaBanIconMatcher : IDisposable
         int imgHeight)
         => Task.Run(() => FindBestInSlot(screenshotPng, candidate, imgWidth, imgHeight));
 
+    /// <summary>
+    /// Maximum image width used for feature matching. If the loaded screenshot is wider
+    /// than this, it is downscaled via <see cref="MaaImageBuffer.TryResize"/> before
+    /// running recognition, reducing feature extraction cost proportionally.
+    /// </summary>
+    public int MaxMatchWidth { get; init; } = 1920;
+
     private (string Name, bool Hit, System.Drawing.Rectangle HitBox)? FindBestInSlot(
         byte[] screenshotPng, (string Name, IReadOnlyList<string> TemplateNames) candidate,
         int imgWidth, int imgHeight)
@@ -97,6 +104,18 @@ public sealed class MaaBanIconMatcher : IDisposable
         using var imgBuf = new MaaImageBuffer();
         if (!imgBuf.TrySetEncodedData(screenshotPng))
             return null;
+
+        // Downscale inside MAA if the captured image is still larger than MaxMatchWidth.
+        // This is a safety net that also fires when ScreenCaptureService pre-scaling is
+        // bypassed (e.g. future callers passing raw bytes at native resolution).
+        if (imgWidth > MaxMatchWidth)
+        {
+            float scale = (float)MaxMatchWidth / imgWidth;
+            int scaledH = (int)(imgHeight * scale);
+            imgBuf.TryResize(MaxMatchWidth, scaledH);
+            imgWidth  = MaxMatchWidth;
+            imgHeight = scaledH;
+        }
 
         int roiX = (int)(BanRoiX * imgWidth);
         int roiY = (int)(BanRoiY * imgHeight);

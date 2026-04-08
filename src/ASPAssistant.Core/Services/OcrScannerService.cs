@@ -34,7 +34,6 @@ public class OcrScannerService : IDisposable
     private int _banScreenAbsentTicks;
     private const int BanDetectThreshold = 2;
     private const int BanLostThreshold   = 3;
-    private IReadOnlyList<string>? _cachedCovenantNames;
 
     public event Action<GameState.GameState>? GameStateUpdated;
 
@@ -108,15 +107,20 @@ public class OcrScannerService : IDisposable
             if (!User32.GetClientRect(hwnd, out var clientRect))
                 return;
 
-            int imgWidth = clientRect.Width;
-            int imgHeight = clientRect.Height;
-            if (imgWidth <= 0 || imgHeight <= 0)
-                return;
+        int imgWidth = clientRect.Width;
+        int imgHeight = clientRect.Height;
+        if (imgWidth <= 0 || imgHeight <= 0)
+            return;
 
-            var regions = _ocrStrategy.GetScanRegions();
+        // #region agent log
+        var (pngW, pngH) = GetPngDimensions(screenshot);
+        try { System.IO.File.AppendAllText("debug-53fb35.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "53fb35", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OcrScannerService.cs:OnScanTick", message = "dimension check", data = new { clientW = imgWidth, clientH = imgHeight, pngW, pngH, mismatch = (imgWidth != pngW || imgHeight != pngH) }, hypothesisId = "A" }) + "\n"); } catch { }
+        // #endregion
 
-            // Ban screen detection runs every tick regardless of tracked operators.
-            await DetectBanScreenAsync(screenshot, regions, imgWidth, imgHeight);
+        var regions = _ocrStrategy.GetScanRegions();
+
+        // Ban screen detection runs every tick regardless of tracked operators.
+        await DetectBanScreenAsync(screenshot, regions, imgWidth, imgHeight);
 
             var shopRegion = regions.FirstOrDefault(r => r.Name == "Shop");
             if (shopRegion == null)
@@ -354,7 +358,7 @@ public class OcrScannerService : IDisposable
     }
 
     /// <summary>
-    /// OCRs the BanFactionPanel region and updates the ban screen state machine.
+    /// OCRs the BanConfirmText region and updates the ban screen state machine.
     /// Fires <see cref="BanScreenDetected"/> after <see cref="BanDetectThreshold"/> consecutive
     /// positive frames, and <see cref="BanScreenLost"/> after <see cref="BanLostThreshold"/>
     /// consecutive negative frames. This avoids flickering on transient OCR misses.
@@ -365,22 +369,23 @@ public class OcrScannerService : IDisposable
         int imgWidth,
         int imgHeight)
     {
-        if (_getAllOperators == null)
+        var confirmRegion = regions.FirstOrDefault(r => r.Name == "BanConfirmText");
+        if (confirmRegion == null)
             return;
 
-        var factionRegion = regions.FirstOrDefault(r => r.Name == "BanFactionPanel");
-        if (factionRegion == null)
-            return;
-
-        int fx = (int)(factionRegion.XPercent * imgWidth);
-        int fy = (int)(factionRegion.YPercent * imgHeight);
-        int fw = (int)(factionRegion.WidthPercent * imgWidth);
-        int fh = (int)(factionRegion.HeightPercent * imgHeight);
+        int fx = (int)(confirmRegion.XPercent   * imgWidth);
+        int fy = (int)(confirmRegion.YPercent   * imgHeight);
+        int fw = (int)(confirmRegion.WidthPercent  * imgWidth);
+        int fh = (int)(confirmRegion.HeightPercent * imgHeight);
 
         var ocrResults = await _ocrEngine.RecognizeRegionAsync(screenshot, fx, fy, fw, fh);
-        var covenants  = GetCovenantNames();
 
-        bool detected = ocrResults.Any(r => covenants.Any(c => r.Text.Contains(c)));
+        bool detected = ocrResults.Any(r => r.Text.Contains("确认本局信息"));
+
+        // #region agent log
+        var (pngW2, pngH2) = GetPngDimensions(screenshot);
+        try { System.IO.File.AppendAllText("debug-53fb35.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "53fb35", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OcrScannerService.cs:DetectBanScreenAsync", message = "ocr result", data = new { imgW = imgWidth, imgH = imgHeight, pngW = pngW2, pngH = pngH2, roi = new { fx, fy, fw, fh }, detected, consecutiveTicks = _banScreenConsecutiveTicks, absentTicks = _banScreenAbsentTicks, banScreenActive = _banScreenActive, allTexts = ocrResults.Select(r => r.Text).ToList() }, hypothesisId = "C" }) + "\n"); } catch { }
+        // #endregion
 
         if (detected)
         {
@@ -408,19 +413,6 @@ public class OcrScannerService : IDisposable
         }
     }
 
-    private IReadOnlyList<string> GetCovenantNames()
-    {
-        if (_cachedCovenantNames != null)
-            return _cachedCovenantNames;
-
-        _cachedCovenantNames = _getAllOperators!()
-            .SelectMany(o => o.CoreCovenants.Concat(o.AdditionalCovenants))
-            .Where(c => !string.IsNullOrEmpty(c))
-            .Distinct()
-            .ToList();
-
-        return _cachedCovenantNames;
-    }
 
     public void Dispose()
     {

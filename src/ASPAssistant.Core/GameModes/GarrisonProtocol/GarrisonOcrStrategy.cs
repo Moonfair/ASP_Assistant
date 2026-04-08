@@ -9,8 +9,8 @@ public class GarrisonOcrStrategy : IOcrStrategy
         new("Round", XPercent: 0.45, YPercent: 0.02, WidthPercent: 0.10, HeightPercent: 0.05),
         new("Field", XPercent: 0.10, YPercent: 0.72, WidthPercent: 0.80, HeightPercent: 0.15),
         new("Bench", XPercent: 0.10, YPercent: 0.88, WidthPercent: 0.80, HeightPercent: 0.10),
-        // Ban confirmation screen: left faction/covenant panel (faction name labels)
-        new("BanFactionPanel", XPercent: 0.050, YPercent: 0.218, WidthPercent: 0.180, HeightPercent: 0.726),
+        // Ban screen: scan the upper portion of the screen for the unique header text.
+        new("BanConfirmText", XPercent: 0.05, YPercent: 0.00, WidthPercent: 0.90, HeightPercent: 0.25),
     ];
 
     public IReadOnlyList<OcrRegionDefinition> GetScanRegions() => Regions;

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using ASPAssistant.Core.Interop;
 
@@ -6,6 +7,13 @@ namespace ASPAssistant.Core.Services;
 
 public class ScreenCaptureService
 {
+    /// <summary>
+    /// Maximum capture width in pixels. Screenshots wider than this are scaled down
+    /// proportionally before PNG encoding, reducing both encode time and all
+    /// downstream MAA decode/processing costs. Has no effect on windows narrower than this.
+    /// </summary>
+    public int MaxCaptureWidth { get; init; } = 1920;
+
     /// <summary>
     /// Captures the Arknights game window by reading pixels directly from the screen
     /// via BitBlt (Graphics.CopyFromScreen). This works with hardware-accelerated
@@ -38,23 +46,48 @@ public class ScreenCaptureService
         }
 
         var rect = screenRect.Value;
-        int width = rect.Width;
-        int height = rect.Height;
-        if (width <= 0 || height <= 0)
+        int captureWidth  = rect.Width;
+        int captureHeight = rect.Height;
+        if (captureWidth <= 0 || captureHeight <= 0)
         {
-            AppLogger.Warn("ScreenCapture", $"Invalid client rect size: {width}x{height}");
+            AppLogger.Warn("ScreenCapture", $"Invalid client rect size: {captureWidth}x{captureHeight}");
             return null;
         }
 
         try
         {
-            using var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-            using var g = Graphics.FromImage(bmp);
-            g.CopyFromScreen(rect.Left, rect.Top, 0, 0, new System.Drawing.Size(width, height));
+            // Capture at native resolution.
+            using var raw = new Bitmap(captureWidth, captureHeight, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(raw))
+                g.CopyFromScreen(rect.Left, rect.Top, 0, 0,
+                    new System.Drawing.Size(captureWidth, captureHeight));
 
-            using var ms = new MemoryStream();
-            bmp.Save(ms, ImageFormat.Png);
-            return ms.ToArray();
+            // Downscale if the window is wider than MaxCaptureWidth. This reduces PNG
+            // encode cost here and all MAA decode/processing costs in callers.
+            Bitmap output = raw;
+            bool scaled = captureWidth > MaxCaptureWidth;
+            if (scaled)
+            {
+                float scale = (float)MaxCaptureWidth / captureWidth;
+                int scaledW = MaxCaptureWidth;
+                int scaledH = (int)(captureHeight * scale);
+                var resized = new Bitmap(scaledW, scaledH, PixelFormat.Format32bppArgb);
+                using var gr = Graphics.FromImage(resized);
+                gr.InterpolationMode = InterpolationMode.Bilinear;
+                gr.DrawImage(raw, 0, 0, scaledW, scaledH);
+                output = resized;
+            }
+
+            try
+            {
+                using var ms = new MemoryStream();
+                output.Save(ms, ImageFormat.Png);
+                return ms.ToArray();
+            }
+            finally
+            {
+                if (scaled) output.Dispose();
+            }
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
