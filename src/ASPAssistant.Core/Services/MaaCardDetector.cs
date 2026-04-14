@@ -1,3 +1,7 @@
+using System.Collections.Concurrent;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Text.Json;
 using MaaFramework.Binding;
 using MaaFramework.Binding.Buffers;
@@ -15,13 +19,19 @@ namespace ASPAssistant.Core.Services;
 ///
 /// Template is loaded from the MaaFramework resource bundle at
 /// <c>{dataDir}/maa_resource/image/op_card.png</c>, copied there by the build.
+/// The template was captured at 1280×720; when the actual game runs at a
+/// different resolution the template is scaled proportionally before matching.
 /// </summary>
 public sealed class MaaCardDetector : ICardDetector, IDisposable
 {
+    /// <summary>Resolution at which <c>op_card.png</c> was captured.</summary>
+    private const int TemplateBaseWidth  = 1280;
+    private const int TemplateBaseHeight = 720;
+
     /// <summary>
     /// Minimum similarity score (0–1) for a card template match to be accepted.
     /// </summary>
-    public double Threshold { get; init; } = 0.15;
+    public double Threshold { get; init; } = 0.1;
 
     /// <summary>
     /// Maximum number of card instances to return per scan.
@@ -31,6 +41,10 @@ public sealed class MaaCardDetector : ICardDetector, IDisposable
 
     private readonly MaaTasker _tasker;
     private readonly NullController _nullController;
+    private readonly string _imageDir;
+
+    // Keyed by (imgWidth, imgHeight) → scaled template filename (no path).
+    private readonly ConcurrentDictionary<(int W, int H), string> _scaledTemplateCache = new();
 
     /// <param name="dataDir">
     /// The application's <c>data/</c> directory.  Must contain
@@ -45,6 +59,8 @@ public sealed class MaaCardDetector : ICardDetector, IDisposable
         controller.LinkStart().Wait();
 
         var maaResourceDir = Path.Combine(dataDir, "maa_resource");
+        _imageDir = Path.Combine(maaResourceDir, "image");
+
         var resource = new MaaResource();
         resource.AppendBundle(maaResourceDir).Wait();
 
@@ -53,13 +69,15 @@ public sealed class MaaCardDetector : ICardDetector, IDisposable
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<(int X, int Y, int W, int H)>> DetectCardsAsync(
-        byte[] pngBytes, int roiX, int roiY, int roiWidth, int roiHeight)
+        byte[] pngBytes, int roiX, int roiY, int roiWidth, int roiHeight,
+        int imgWidth, int imgHeight)
     {
-        return await Task.Run(() => DetectCards(pngBytes, roiX, roiY, roiWidth, roiHeight));
+        return await Task.Run(() => DetectCards(pngBytes, roiX, roiY, roiWidth, roiHeight, imgWidth, imgHeight));
     }
 
     private IReadOnlyList<(int X, int Y, int W, int H)> DetectCards(
-        byte[] pngBytes, int roiX, int roiY, int roiWidth, int roiHeight)
+        byte[] pngBytes, int roiX, int roiY, int roiWidth, int roiHeight,
+        int imgWidth, int imgHeight)
     {
         try
         {
@@ -67,9 +85,11 @@ public sealed class MaaCardDetector : ICardDetector, IDisposable
             if (!imgBuf.TrySetEncodedData(pngBytes))
                 return [];
 
+            var templateName = GetScaledTemplateName(imgWidth, imgHeight);
+
             // order_by "Horizontal" sorts results left-to-right, matching shop slot order.
             var threshold = Threshold.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var paramJson = $$"""{"roi":[{{roiX}},{{roiY}},{{roiWidth}},{{roiHeight}}],"template":"op_card.png","threshold":{{threshold}},"count":{{MaxCards}},"order_by":"Horizontal"}""";
+            var paramJson = $$"""{"roi":[{{roiX}},{{roiY}},{{roiWidth}},{{roiHeight}}],"template":"{{templateName}}","threshold":{{threshold}},"order_by":"Horizontal","green_mask":true,"method":10001}""";
 
             var job = _tasker.AppendRecognition("TemplateMatch", paramJson, imgBuf);
             if (job.Wait() != MaaJobStatus.Succeeded)
@@ -94,6 +114,48 @@ public sealed class MaaCardDetector : ICardDetector, IDisposable
         {
             return [];
         }
+    }
+
+    /// <summary>
+    /// Returns the filename (relative to the MAA image bundle) of a version of
+    /// <c>op_card.png</c> scaled to match <paramref name="imgWidth"/>×<paramref name="imgHeight"/>.
+    /// The scaled file is generated on first use and then cached on disk and in memory
+    /// so subsequent calls at the same resolution are free.
+    /// </summary>
+    private string GetScaledTemplateName(int imgWidth, int imgHeight)
+    {
+        if (imgWidth == TemplateBaseWidth && imgHeight == TemplateBaseHeight)
+            return "op_card.png";
+
+        return _scaledTemplateCache.GetOrAdd((imgWidth, imgHeight), key =>
+        {
+            double scaleX = key.W / (double)TemplateBaseWidth;
+            double scaleY = key.H / (double)TemplateBaseHeight;
+
+            var srcPath    = Path.Combine(_imageDir, "op_card.png");
+            var scaledName = $"op_card_{key.W}x{key.H}.png";
+            var dstPath    = Path.Combine(_imageDir, scaledName);
+
+            if (!File.Exists(dstPath))
+            {
+                using var src = new Bitmap(srcPath);
+                int newW = Math.Max(1, (int)Math.Round(src.Width  * scaleX));
+                int newH = Math.Max(1, (int)Math.Round(src.Height * scaleY));
+
+                using var scaled = new Bitmap(newW, newH, PixelFormat.Format32bppArgb);
+                using var g = Graphics.FromImage(scaled);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.SmoothingMode     = SmoothingMode.HighQuality;
+                g.PixelOffsetMode   = PixelOffsetMode.HighQuality;
+                g.DrawImage(src, 0, 0, newW, newH);
+                scaled.Save(dstPath, ImageFormat.Png);
+
+                AppLogger.Info("CardDetector",
+                    $"Scaled template saved: {scaledName} ({src.Width}x{src.Height} → {newW}x{newH}, scale={scaleX:F3}x{scaleY:F3})");
+            }
+
+            return scaledName;
+        });
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using ASPAssistant.Core;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 
@@ -24,6 +25,17 @@ public partial class OverlayWindow : Window
 
     // The full-screen instruction layer shown at the start of ban detection.
     private FrameworkElement? _banInstructionLayer;
+
+    // Debug card border overlays, keyed by ShopItem.Id.
+    private readonly Dictionary<string, FrameworkElement> _debugBorderPool = [];
+
+    /// <summary>
+    /// When <see langword="true"/>, <see cref="UpdateShopItems"/> draws a
+    /// semi-transparent border around every detected operator card boundary
+    /// (green = tracked, orange = detected but not tracked). Toggle at
+    /// runtime to aid alignment debugging without restarting the app.
+    /// </summary>
+    public bool ShowDebugCardBorders { get; set; } = false;
 
     public OverlayWindow()
     {
@@ -58,8 +70,16 @@ public partial class OverlayWindow : Window
             .Where(s => s.IsTracked)
             .ToDictionary(s => s.Id);
 
+        AppLogger.Info("Overlay",
+            $"UpdateShopItems: total={shopItems.Count} tracked={nowTracked.Count} " +
+            $"overlay={ActualWidth:F0}x{ActualHeight:F0} " +
+            $"items=[{string.Join(", ", shopItems.Select(i => $"{i.Name}(tracked={i.IsTracked},region=({i.OcrRegion.X:F3},{i.OcrRegion.Y:F3},{i.OcrRegion.Width:F3},{i.OcrRegion.Height:F3}))"))}]");
+
         // Fade out markers whose card slots are no longer present
-        foreach (var id in _markerPool.Keys.Except(nowTracked.Keys).ToList())
+        var toRemove = _markerPool.Keys.Except(nowTracked.Keys).ToList();
+        if (toRemove.Count > 0)
+            AppLogger.Info("Overlay", $"Fading out {toRemove.Count} marker(s): [{string.Join(", ", toRemove)}]");
+        foreach (var id in toRemove)
             FadeOutAndRemove(id);
 
         // Add new markers or reposition existing ones
@@ -71,6 +91,7 @@ public partial class OverlayWindow : Window
             {
                 Canvas.SetLeft(existing, mx);
                 Canvas.SetTop(existing, my);
+                AppLogger.Info("Overlay", $"Repositioned marker '{item.Id}' to ({mx:F1},{my:F1})");
             }
             else
             {
@@ -81,10 +102,99 @@ public partial class OverlayWindow : Window
                 OverlayCanvas.Children.Add(marker);
                 _markerPool[item.Id] = marker;
 
+                AppLogger.Info("Overlay", $"Added new marker '{item.Id}' at ({mx:F1},{my:F1})");
                 marker.BeginAnimation(OpacityProperty,
                     new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250)));
             }
         }
+
+        if (ShowDebugCardBorders)
+            UpdateDebugBorders(shopItems);
+    }
+
+    // ── Debug card borders ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Redraws debug border rectangles for every detected card.
+    /// Green border + name label = tracked; orange border = detected, not tracked.
+    /// Clears and re-creates on every call so positions always stay in sync.
+    /// </summary>
+    private void UpdateDebugBorders(IReadOnlyList<ShopItem> shopItems)
+    {
+        // Remove borders for cards no longer in the set.
+        var currentIds = shopItems.Select(i => i.Id).ToHashSet();
+        foreach (var id in _debugBorderPool.Keys.Except(currentIds).ToList())
+        {
+            OverlayCanvas.Children.Remove(_debugBorderPool[id]);
+            _debugBorderPool.Remove(id);
+        }
+
+        foreach (var item in shopItems)
+        {
+            double bx = item.OcrRegion.X      * ActualWidth;
+            double by = item.OcrRegion.Y      * ActualHeight;
+            double bw = item.OcrRegion.Width  * ActualWidth;
+            double bh = item.OcrRegion.Height * ActualHeight;
+
+            if (_debugBorderPool.TryGetValue(item.Id, out var existing))
+            {
+                Canvas.SetLeft(existing, bx);
+                Canvas.SetTop(existing, by);
+                if (existing is Grid g)
+                {
+                    g.Width  = bw;
+                    g.Height = bh;
+                    if (g.Children[0] is Border b)
+                        b.BorderBrush = item.IsTracked
+                            ? new SolidColorBrush(Color.FromArgb(0xCC, 0x4C, 0xAF, 0x50))
+                            : new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0x98, 0x00));
+                }
+            }
+            else
+            {
+                var border = CreateDebugBorder(item, bw, bh);
+                Canvas.SetLeft(border, bx);
+                Canvas.SetTop(border, by);
+                OverlayCanvas.Children.Add(border);
+                _debugBorderPool[item.Id] = border;
+            }
+        }
+    }
+
+    private static Grid CreateDebugBorder(ShopItem item, double w, double h)
+    {
+        var color = item.IsTracked
+            ? Color.FromArgb(0xCC, 0x4C, 0xAF, 0x50)   // green
+            : Color.FromArgb(0xCC, 0xFF, 0x98, 0x00);   // orange
+
+        var border = new Border
+        {
+            Width            = w,
+            Height           = h,
+            BorderBrush      = new SolidColorBrush(color),
+            BorderThickness  = new Thickness(2),
+            Background       = new SolidColorBrush(Color.FromArgb(0x20, color.R, color.G, color.B)),
+            IsHitTestVisible = false,
+        };
+
+        var label = new TextBlock
+        {
+            Text             = item.Name,
+            Foreground       = Brushes.White,
+            FontSize         = 11,
+            FontWeight       = FontWeights.SemiBold,
+            Margin           = new Thickness(3, 1, 3, 1),
+            IsHitTestVisible = false,
+            Effect           = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Colors.Black, BlurRadius = 4, ShadowDepth = 1, Opacity = 0.9
+            }
+        };
+
+        var grid = new Grid { Width = w, Height = h, IsHitTestVisible = false };
+        grid.Children.Add(border);
+        grid.Children.Add(label);
+        return grid;
     }
 
     private void FadeOutAndRemove(string id)

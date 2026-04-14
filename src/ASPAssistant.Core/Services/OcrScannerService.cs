@@ -1,7 +1,6 @@
 using System.Threading.Channels;
 using System.Timers;
 using ASPAssistant.Core.GameModes;
-using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 using Timer = System.Timers.Timer;
 
@@ -100,24 +99,15 @@ public class OcrScannerService : IDisposable
             if (screenshot == null)
                 return;
 
-            var hwnd = User32.FindArknightsWindow();
-            if (hwnd == IntPtr.Zero)
+            // Derive dimensions from the actual PNG bytes so that every downstream
+            // coordinate (ROI, card boxes, normalization) lives in the same pixel
+            // space as the image MAA will process. Using GetClientRect here was
+            // wrong when ScreenCaptureService downscales the capture to MaxCaptureWidth.
+            var (imgWidth, imgHeight) = GetPngDimensions(screenshot);
+            if (imgWidth <= 0 || imgHeight <= 0)
                 return;
 
-            if (!User32.GetClientRect(hwnd, out var clientRect))
-                return;
-
-        int imgWidth = clientRect.Width;
-        int imgHeight = clientRect.Height;
-        if (imgWidth <= 0 || imgHeight <= 0)
-            return;
-
-        // #region agent log
-        var (pngW, pngH) = GetPngDimensions(screenshot);
-        try { System.IO.File.AppendAllText("debug-53fb35.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "53fb35", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OcrScannerService.cs:OnScanTick", message = "dimension check", data = new { clientW = imgWidth, clientH = imgHeight, pngW, pngH, mismatch = (imgWidth != pngW || imgHeight != pngH) }, hypothesisId = "A" }) + "\n"); } catch { }
-        // #endregion
-
-        var regions = _ocrStrategy.GetScanRegions();
+            var regions = _ocrStrategy.GetScanRegions();
 
         // Ban screen detection runs every tick regardless of tracked operators.
         await DetectBanScreenAsync(screenshot, regions, imgWidth, imgHeight);
@@ -137,7 +127,10 @@ public class OcrScannerService : IDisposable
                 return;
 
             // Step 1: Detect all operator card boundaries in the shop region.
-            var cardBoxes = await _cardDetector.DetectCardsAsync(screenshot, rx, ry, rw, rh);
+            var cardBoxes = await _cardDetector.DetectCardsAsync(screenshot, rx, ry, rw, rh, imgWidth, imgHeight);
+
+            AppLogger.Info("ShopScan",
+                $"img={imgWidth}x{imgHeight} shopRoi=({rx},{ry},{rw},{rh}) cards={cardBoxes.Count} tracking=[{string.Join(", ", trackedNames)}]");
 
             if (cardBoxes.Count == 0)
                 return;
@@ -146,8 +139,15 @@ public class OcrScannerService : IDisposable
             var rawItems = await MatchTrackedOperatorsAsync(
                 screenshot, cardBoxes, trackedNames, imgWidth, imgHeight);
 
+            AppLogger.Info("ShopScan",
+                $"OCR matched {rawItems.Count}/{cardBoxes.Count} cards: [{string.Join(", ", rawItems.Select(i => $"{i.Name}@({i.OcrRegion.X:F3},{i.OcrRegion.Y:F3})"))}]");
+
             // Only raise GameStateUpdated when the stable operator set actually changes.
-            if (_stabilizer.TryUpdate(rawItems, out var stableItems))
+            bool stabilized = _stabilizer.TryUpdate(rawItems, out var stableItems);
+            AppLogger.Info("ShopScan",
+                $"Stabilizer: changed={stabilized} stable=[{string.Join(", ", stableItems.Select(i => $"{i.Name}(tracked={i.IsTracked})"))}]");
+
+            if (stabilized)
             {
                 _gameState.ShopItems = stableItems.ToList();
                 GameStateUpdated?.Invoke(_gameState);
@@ -259,6 +259,7 @@ public class OcrScannerService : IDisposable
         }
 
         // Build candidate list, skipping already-identified bans and filtering by visible faction.
+        var buildSw = System.Diagnostics.Stopwatch.StartNew();
         var totalOperators = allOperators.Count;
         var alreadyBanned = allOperators.Count(x => _accumulatedBans.Contains(x.Name));
         var candidateSnapshot = allOperators
@@ -268,16 +269,34 @@ public class OcrScannerService : IDisposable
                 || x.AdditionalCovenants.Any(c => visibleFactions.Contains(c)))
             .Select(x => (x.Name, x.TemplateNames))
             .ToList();
+        buildSw.Stop();
         AppLogger.Info("BanMatch",
-            $"Candidates: {candidateSnapshot.Count} (total={totalOperators}, already-banned={alreadyBanned}, " +
+            $"Candidates: {candidateSnapshot.Count} built in {buildSw.ElapsedMilliseconds}ms " +
+            $"(total={totalOperators}, already-banned={alreadyBanned}, " +
             $"templates={candidateSnapshot.Sum(c => c.TemplateNames.Count)})");
 
         bool anyNewMatch = false;
         var newlyDetected = new List<string>();
         var matchSw = System.Diagnostics.Stopwatch.StartNew();
+        var candidateSw = System.Diagnostics.Stopwatch.StartNew();
+        long minCandidateMs = long.MaxValue, maxCandidateMs = 0, sumCandidateMs = 0;
+        int candidateIndex = 0;
         foreach (var candidate in candidateSnapshot)
         {
+            candidateSw.Restart();
             var tuple = await _iconMatcher!.FindBestInSlotAsync(screenshot, candidate, imgWidth, imgHeight);
+            var candidateMs = candidateSw.ElapsedMilliseconds;
+            sumCandidateMs += candidateMs;
+            if (candidateMs < minCandidateMs) minCandidateMs = candidateMs;
+            if (candidateMs > maxCandidateMs) maxCandidateMs = candidateMs;
+            candidateIndex++;
+
+            // Log a progress heartbeat every 20 candidates so we can see scan is alive.
+            if (candidateIndex % 20 == 0)
+                AppLogger.Info("BanMatch",
+                    $"Progress: {candidateIndex}/{candidateSnapshot.Count} — " +
+                    $"elapsed={matchSw.ElapsedMilliseconds}ms avg={sumCandidateMs/candidateIndex}ms/op max={maxCandidateMs}ms/op");
+
             if (tuple == null)
                 continue;
 
@@ -290,8 +309,10 @@ public class OcrScannerService : IDisposable
             }
         }
         matchSw.Stop();
+        long avgMs = candidateSnapshot.Count > 0 ? sumCandidateMs / candidateSnapshot.Count : 0;
         AppLogger.Info("BanMatch",
-            $"Match done: elapsed={matchSw.ElapsedMilliseconds}ms, " +
+            $"Match done: elapsed={matchSw.ElapsedMilliseconds}ms " +
+            $"candidates={candidateSnapshot.Count} avg={avgMs}ms/op min={minCandidateMs}ms/op max={maxCandidateMs}ms/op — " +
             $"new={newlyDetected.Count} [{string.Join(", ", newlyDetected)}], " +
             $"accumulated={_accumulatedBans.Count} [{string.Join(", ", _accumulatedBans)}]");
 
@@ -308,39 +329,37 @@ public class OcrScannerService : IDisposable
     {
         var items = new List<ShopItem>();
 
-        foreach (var card in cardBoxes)
+        for (int i = 0; i < cardBoxes.Count; i++)
         {
-            // The operator name is displayed above the detected card boundary.
-            // Scan 80px above card top through the full card body to cover wherever it lands.
-            int nameX = card.X;
+            var card = cardBoxes[i];
+            int nameX = Math.Max(0, card.X - 80);
             int nameY = Math.Max(0, card.Y - 80);
-            int nameW = card.W;
+            int nameW = Math.Max(1, card.W + 80);
             int nameH = Math.Max(1, card.H + 80);
 
-            var ocrResults = await _ocrEngine.RecognizeRegionAsync(
-                screenshot, nameX, nameY, nameW, nameH);
+            // Let the OCR engine handle both glyph correction (via its replace table)
+            // and candidate filtering (via the text parameter) in one call.
+            string? matched = await _ocrEngine.FindCandidateInRegionAsync(
+                screenshot, nameX, nameY, nameW, nameH, trackedNames);
 
-            foreach (var name in trackedNames)
+            AppLogger.Info("ShopScan",
+                $"Card#{i} box=({card.X},{card.Y},{card.W},{card.H}) ocrRoi=({nameX},{nameY},{nameW},{nameH}) " +
+                $"→ {(matched != null ? $"matched '{matched}'" : "no match")}");
+
+            if (matched == null)
+                continue;
+
+            double nx = card.X / (double)imgWidth;
+            double ny = card.Y / (double)imgHeight;
+            double nw = card.W / (double)imgWidth;
+            double nh = card.H / (double)imgHeight;
+
+            items.Add(new ShopItem
             {
-                // Use Contains: the game renders names with decorators like "???? or "????.
-                if (!ocrResults.Any(r => r.Text.Contains(name, StringComparison.Ordinal)))
-                    continue;
-
-                double nx = card.X / (double)imgWidth;
-                double ny = card.Y / (double)imgHeight;
-                double nw = card.W / (double)imgWidth;
-                double nh = card.H / (double)imgHeight;
-
-                items.Add(new ShopItem
-                {
-                    // Use card X-pixel as a discriminator so two cards with
-                    // the same operator name get distinct IDs.
-                    Id = $"{name}@{card.X}",
-                    Name = name,
-                    OcrRegion = (nx, ny, nw, nh),
-                });
-                break;
-            }
+                Id = $"{matched}@{card.X}",
+                Name = matched,
+                OcrRegion = (nx, ny, nw, nh),
+            });
         }
 
         return items;
@@ -381,11 +400,6 @@ public class OcrScannerService : IDisposable
         var ocrResults = await _ocrEngine.RecognizeRegionAsync(screenshot, fx, fy, fw, fh);
 
         bool detected = ocrResults.Any(r => r.Text.Contains("确认本局信息"));
-
-        // #region agent log
-        var (pngW2, pngH2) = GetPngDimensions(screenshot);
-        try { System.IO.File.AppendAllText("debug-53fb35.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "53fb35", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OcrScannerService.cs:DetectBanScreenAsync", message = "ocr result", data = new { imgW = imgWidth, imgH = imgHeight, pngW = pngW2, pngH = pngH2, roi = new { fx, fy, fw, fh }, detected, consecutiveTicks = _banScreenConsecutiveTicks, absentTicks = _banScreenAbsentTicks, banScreenActive = _banScreenActive, allTexts = ocrResults.Select(r => r.Text).ToList() }, hypothesisId = "C" }) + "\n"); } catch { }
-        // #endregion
 
         if (detected)
         {

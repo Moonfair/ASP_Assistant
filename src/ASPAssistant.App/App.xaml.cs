@@ -182,13 +182,18 @@ public partial class App : Application
                     .ToList();
             },
             iconMatcher: banIconMatcher,
-            intervalMs: 1000);
+            intervalMs: 500);
 
         _windowTracker = new WindowTrackerService();
 
         // Windows
         _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm, banVm);
-        _overlay = new OverlayWindow();
+        _overlay = new OverlayWindow()
+        {
+#if DEBUG
+            ShowDebugCardBorders = false,
+#endif
+        };
 
         // Wire window tracker → window positioning
         _windowTracker.GameWindowMoved += rect =>

@@ -1,3 +1,6 @@
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Text.Json;
 using MaaFramework.Binding;
 using MaaFramework.Binding.Buffers;
@@ -18,6 +21,43 @@ namespace ASPAssistant.Core.Services;
 /// </summary>
 public sealed class MaaOcrEngine : IOcrEngine, IDisposable
 {
+    /// <summary>
+    /// Character-level replacements applied by the OCR engine before text
+    /// comparison. Each entry is a <c>(From, To)</c> pair; "From" is the
+    /// incorrect glyph the model tends to produce and "To" is the correct
+    /// character.
+    ///
+    /// Populate this table from logs: when a card is not matched and the
+    /// log shows e.g. <c>ocrResults=["榭拉格"]</c> instead of "谢拉格",
+    /// add <c>("榭", "谢")</c> here.
+    ///
+    /// M24aaFramework applies these replacements inside the engine, before
+    /// the <c>text</c> filter runs, so they also correct raw
+    /// <see cref="RecognizeRegionAsync"/> results.
+    /// </summary>
+    public List<(string From, string To)> GlyphReplacements { get; init; } =
+    [
+        // ── Add entries here as OCR errors are discovered from logs ──────
+        ("榭", "谢"),
+        // ("垫", "蛰"),
+    ];
+
+    /// <summary>
+    /// Upscale factor applied to the text crop before it is passed to the
+    /// PaddleOCR recognition model in <see cref="FindCandidateInRegionAsync"/>.
+    ///
+    /// PaddleOCR internally resizes its input to a fixed height (32 px).
+    /// When the source character strip is small (e.g. 20 px at 1280-wide
+    /// window), the internal resize discards fine stroke detail, causing
+    /// visually similar characters (e.g. "谢"↔"榭") to look identical to
+    /// the model.  Pre-upscaling with high-quality bicubic interpolation
+    /// preserves stroke details so the model can distinguish glyphs before
+    /// the final resize step.
+    ///
+    /// Recommended values: 2–3.  1 = disabled (no upscaling).
+    /// </summary>
+    public float GlyphUpscaleFactor { get; init; } = 2.0f;
+
     private readonly MaaTasker _tasker;
     private readonly NullController _nullController;
 
@@ -43,11 +83,85 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
     public async Task<IReadOnlyList<OcrTextResult>> RecognizeRegionAsync(
         byte[] pngBytes, int x, int y, int width, int height)
     {
-        return await Task.Run(() => RecognizeRegion(pngBytes, x, y, width, height));
+        return await Task.Run(() => RunOcr(pngBytes, x, y, width, height, textFilter: null));
     }
 
-    private IReadOnlyList<OcrTextResult> RecognizeRegion(
-        byte[] pngBytes, int x, int y, int width, int height)
+    /// <inheritdoc/>
+    public async Task<string?> FindCandidateInRegionAsync(
+        byte[] pngBytes, int x, int y, int width, int height,
+        IReadOnlyList<string> candidates)
+    {
+        if (candidates.Count == 0)
+            return null;
+
+        return await Task.Run(() =>
+        {
+            // Pre-upscale the text strip with bicubic interpolation so that
+            // PaddleOCR's internal resize (→32 px) operates on higher-fidelity
+            // glyph information. This helps the model distinguish visually
+            // similar characters that would otherwise look identical at small sizes.
+            byte[] ocrInput = pngBytes;
+            int ocrX = x, ocrY = y, ocrW = width, ocrH = height;
+
+            if (GlyphUpscaleFactor > 1.0f)
+            {
+                ocrInput = UpscaleCrop(pngBytes, x, y, width, height,
+                    GlyphUpscaleFactor, out int scaledW, out int scaledH);
+                // The upscaled image contains exactly the crop, so ROI = full image.
+                ocrX = 0; ocrY = 0; ocrW = scaledW; ocrH = scaledH;
+            }
+
+            var results = RunOcr(ocrInput, ocrX, ocrY, ocrW, ocrH, textFilter: candidates);
+
+            foreach (var candidate in candidates)
+                if (results.Any(r => r.Text.Contains(candidate, StringComparison.Ordinal)))
+                    return candidate;
+
+            return null;
+        });
+    }
+
+    /// <summary>
+    /// Extracts the rectangle <c>(x,y,w,h)</c> from a PNG, scales it by
+    /// <paramref name="factor"/> using bicubic interpolation, and returns the
+    /// result as a PNG byte array.  Bicubic preserves fine stroke transitions
+    /// better than bilinear for Chinese character glyphs.
+    /// </summary>
+    private static byte[] UpscaleCrop(
+        byte[] pngBytes, int x, int y, int w, int h, float factor,
+        out int scaledW, out int scaledH)
+    {
+        scaledW = Math.Max(1, (int)(w * factor));
+        scaledH = Math.Max(1, (int)(h * factor));
+
+        using var ms = new MemoryStream(pngBytes);
+        using var src = new Bitmap(ms);
+
+        var dst = new Bitmap(scaledW, scaledH, PixelFormat.Format32bppArgb);
+        try
+        {
+            using var g = Graphics.FromImage(dst);
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode   = PixelOffsetMode.HighQuality;
+            g.SmoothingMode     = SmoothingMode.HighQuality;
+            g.DrawImage(src,
+                destRect:   new Rectangle(0, 0, scaledW, scaledH),
+                srcX:       x, srcY: y, srcWidth: w, srcHeight: h,
+                srcUnit:    GraphicsUnit.Pixel);
+
+            using var outMs = new MemoryStream();
+            dst.Save(outMs, ImageFormat.Png);
+            return outMs.ToArray();
+        }
+        finally
+        {
+            dst.Dispose();
+        }
+    }
+
+    private IReadOnlyList<OcrTextResult> RunOcr(
+        byte[] pngBytes, int x, int y, int width, int height,
+        IReadOnlyList<string>? textFilter)
     {
         try
         {
@@ -55,7 +169,7 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
             if (!imgBuf.TrySetEncodedData(pngBytes))
                 return [];
 
-            var paramJson = $$"""{"roi":[{{x}},{{y}},{{width}},{{height}}]}""";
+            var paramJson = BuildOcrParamJson(x, y, width, height, textFilter);
 
             var job = _tasker.AppendRecognition("OCR", paramJson, imgBuf);
             var status = job.Wait();
@@ -76,6 +190,55 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
         {
             return [];
         }
+    }
+
+    /// <summary>
+    /// Builds the OCR recognition parameter JSON.
+    /// Includes <c>replace</c> when <see cref="GlyphReplacements"/> is non-empty,
+    /// and <c>text</c> when <paramref name="textFilter"/> is provided.
+    /// </summary>
+    private string BuildOcrParamJson(
+        int x, int y, int width, int height,
+        IReadOnlyList<string>? textFilter)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"{{\"roi\":[{x},{y},{width},{height}]");
+
+        if (textFilter is { Count: > 0 })
+        {
+            sb.Append(",\"text\":[");
+            for (int i = 0; i < textFilter.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('"');
+                sb.Append(System.Text.Json.JsonEncodedText.Encode(textFilter[i]));
+                sb.Append('"');
+            }
+            sb.Append(']');
+        }
+
+        if (GlyphReplacements.Count > 0)
+        {
+            sb.Append(",\"replace\":[");
+            for (int i = 0; i < GlyphReplacements.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                var (from, to) = GlyphReplacements[i];
+                sb.Append('[');
+                sb.Append('"');
+                sb.Append(System.Text.Json.JsonEncodedText.Encode(from));
+                sb.Append('"');
+                sb.Append(',');
+                sb.Append('"');
+                sb.Append(System.Text.Json.JsonEncodedText.Encode(to));
+                sb.Append('"');
+                sb.Append(']');
+            }
+            sb.Append(']');
+        }
+
+        sb.Append('}');
+        return sb.ToString();
     }
 
     /// <summary>

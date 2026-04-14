@@ -8,9 +8,11 @@ public static class GameStateUpdater
     {
         var trackedNames = new HashSet<string>(tracked.Select(t => t.Name));
         foreach (var item in shopItems)
-        {
             item.IsTracked = trackedNames.Contains(item.Name);
-        }
+
+        AppLogger.Info("ShopScan",
+            $"UpdateShopTracking: trackedNames=[{string.Join(", ", trackedNames)}] " +
+            $"shopItems=[{string.Join(", ", shopItems.Select(i => $"{i.Name}→tracked={i.IsTracked}"))}]");
     }
 
     public static Dictionary<string, int> ComputeCovenantCounts(

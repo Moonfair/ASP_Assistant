@@ -20,4 +20,21 @@ public interface IOcrEngine
     /// </summary>
     Task<IReadOnlyList<OcrTextResult>> RecognizeRegionAsync(
         byte[] pngBytes, int x, int y, int width, int height);
+
+    /// <summary>
+    /// Runs OCR on the sub-region and checks whether any of
+    /// <paramref name="candidates"/> appears in the result.
+    ///
+    /// The engine applies its glyph-replacement table before comparing, so
+    /// visually similar characters (e.g. "榭" → "谢") are corrected prior
+    /// to matching. This keeps all correction logic inside the OCR layer
+    /// instead of in post-processing.
+    /// </summary>
+    /// <returns>
+    /// The first candidate whose name was found in the OCR output, or
+    /// <see langword="null"/> if none matched.
+    /// </returns>
+    Task<string?> FindCandidateInRegionAsync(
+        byte[] pngBytes, int x, int y, int width, int height,
+        IReadOnlyList<string> candidates);
 }

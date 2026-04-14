@@ -10,6 +10,7 @@
     <!-- Custom entry point with OS version guard (Program.cs); overrides WPF auto-generated Main -->
     <StartupObject>ASPAssistant.App.Program</StartupObject>
     <ApplicationIcon>..\..\data\icons\aspa_logo.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Keep only Simplified Chinese satellite assemblies; removes cs/de/es/fr/… folders from output -->
     <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
   </PropertyGroup>

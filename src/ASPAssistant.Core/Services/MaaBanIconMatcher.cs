@@ -101,18 +101,26 @@ public sealed class MaaBanIconMatcher : IDisposable
         byte[] screenshotPng, (string Name, IReadOnlyList<string> TemplateNames) candidate,
         int imgWidth, int imgHeight)
     {
+        var totalSw = System.Diagnostics.Stopwatch.StartNew();
+
         using var imgBuf = new MaaImageBuffer();
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         if (!imgBuf.TrySetEncodedData(screenshotPng))
             return null;
+        var decodeMs = sw.ElapsedMilliseconds;
 
         // Downscale inside MAA if the captured image is still larger than MaxMatchWidth.
         // This is a safety net that also fires when ScreenCaptureService pre-scaling is
         // bypassed (e.g. future callers passing raw bytes at native resolution).
+        long resizeMs = 0;
         if (imgWidth > MaxMatchWidth)
         {
+            sw.Restart();
             float scale = (float)MaxMatchWidth / imgWidth;
             int scaledH = (int)(imgHeight * scale);
             imgBuf.TryResize(MaxMatchWidth, scaledH);
+            resizeMs = sw.ElapsedMilliseconds;
             imgWidth  = MaxMatchWidth;
             imgHeight = scaledH;
         }
@@ -128,12 +136,19 @@ public sealed class MaaBanIconMatcher : IDisposable
             $$"""{"roi":[{{roiX}},{{roiY}},{{roiW}},{{roiH}}],"template":{{templateArray}},"count":{{OperatorFeatureCount}},"ratio":{{ratio}},"detector":"{{FeatureDetector}}"}""";
         try
         {
+            sw.Restart();
             var job = _tasker.AppendRecognition("FeatureMatch", paramJson, imgBuf);
-            if (job.Wait() != MaaJobStatus.Succeeded)
+            var status = job.Wait();
+            var featureMs = sw.ElapsedMilliseconds;
+
+            if (status != MaaJobStatus.Succeeded)
             {
+                AppLogger.Warn("MaaBanIconMatcher",
+                    $"[{candidate.Name}] FeatureMatch job failed — decode={decodeMs}ms resize={resizeMs}ms feature={featureMs}ms total={totalSw.ElapsedMilliseconds}ms");
                 return null;
             }
 
+            sw.Restart();
             _tasker.GetTaskDetail(job.Id, out _, out long[]? nodeIds, out _);
             if (nodeIds is not { Length: > 0 })
                 return null;
@@ -143,6 +158,10 @@ public sealed class MaaBanIconMatcher : IDisposable
             using var hitBoxBuf = new MaaFramework.Binding.Buffers.MaaRectBuffer();
             _tasker.GetRecognitionDetail(recoId, out _, out _, out bool wasHit,
                 hitBoxBuf, out string detailJson, null, null);
+            var detailMs = sw.ElapsedMilliseconds;
+
+            AppLogger.Info("MaaBanIconMatcher",
+                $"[{candidate.Name}] decode={decodeMs}ms resize={resizeMs}ms feature={featureMs}ms detail={detailMs}ms total={totalSw.ElapsedMilliseconds}ms hit={wasHit}");
 
             return (candidate.Name, wasHit, new System.Drawing.Rectangle(
                 hitBoxBuf.X, hitBoxBuf.Y, hitBoxBuf.Width, hitBoxBuf.Height));
