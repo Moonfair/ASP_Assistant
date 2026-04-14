@@ -6,6 +6,7 @@ namespace ASPAssistant.App.Views;
 public partial class TrackingView : UserControl
 {
     public event Action<string>? RemoveTrackingRequested;
+    public event Action? ClearAllTrackingRequested;
 
     public TrackingView()
     {
@@ -18,5 +19,10 @@ public partial class TrackingView : UserControl
         {
             RemoveTrackingRequested?.Invoke(name);
         }
+    }
+
+    private void OnClearAllTracking(object sender, RoutedEventArgs e)
+    {
+        ClearAllTrackingRequested?.Invoke();
     }
 }

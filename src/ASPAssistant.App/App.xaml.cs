@@ -16,6 +16,7 @@ public partial class App : Application
     private SidePanelWindow? _sidePanel;
     private OverlayWindow? _overlay;
     private SettingsManager? _settingsManager;
+    private List<ASPAssistant.Core.Models.ShopItem> _lastShopItems = [];
 
     public App()
     {
@@ -235,6 +236,8 @@ public partial class App : Application
                 Core.GameState.GameStateUpdater.UpdateShopTracking(
                     state.ShopItems, trackingVm.AllEntries.ToList());
 
+                _lastShopItems = state.ShopItems;
+
                 state.CovenantCounts = Core.GameState.GameStateUpdater.ComputeCovenantCounts(
                     [.. state.FieldOperators, .. state.BenchOperators], operators);
 
@@ -285,14 +288,16 @@ public partial class App : Application
             Dispatcher.Invoke(() => _sidePanel.UpdateManualScanStatus(count));
 
 
-        // Auto-save tracking changes
+        // Auto-save tracking changes and refresh overlay markers immediately
         trackingVm.TrackedOperators.CollectionChanged += async (_, _) =>
         {
+            RefreshOverlayTracking(trackingVm);
             try { await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList()); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to save tracking: {ex.Message}"); }
         };
         trackingVm.TrackedEquipment.CollectionChanged += async (_, _) =>
         {
+            RefreshOverlayTracking(trackingVm);
             try { await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList()); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to save tracking: {ex.Message}"); }
         };
@@ -306,6 +311,14 @@ public partial class App : Application
 
         // Start background update check
         _sidePanel.StartUpdateCheck(new UpdateService(), _settingsManager!);
+    }
+
+    private void RefreshOverlayTracking(TrackingViewModel trackingVm)
+    {
+        if (_overlay is null || _lastShopItems.Count == 0) return;
+        Core.GameState.GameStateUpdater.UpdateShopTracking(
+            _lastShopItems, trackingVm.AllEntries.ToList());
+        Dispatcher.Invoke(() => _overlay.UpdateShopItems(_lastShopItems));
     }
 
     protected override void OnExit(ExitEventArgs e)

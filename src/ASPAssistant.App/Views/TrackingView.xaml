@@ -16,10 +16,48 @@
                 </ItemsControl>
             </Border>
 
-            <TextBlock FontSize="12" FontWeight="Bold"
-                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4">
-                <Run Text="追踪中的干员 (" /><Run Text="{Binding TrackedOperators.Count, Mode=OneWay}" /><Run Text=")" />
-            </TextBlock>
+            <DockPanel Margin="0,0,0,4">
+                <TextBlock DockPanel.Dock="Left" FontSize="12" FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource TextPrimaryBrush}">
+                    <Run Text="追踪中的干员 (" /><Run Text="{Binding TrackedOperators.Count, Mode=OneWay}" /><Run Text=")" />
+                </TextBlock>
+                <Button DockPanel.Dock="Right" Content="一键清除" FontSize="11"
+                        Padding="8,2" Margin="6,0,0,0"
+                        HorizontalAlignment="Right"
+                        Click="OnClearAllTracking">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#33DD2222" />
+                            <Setter Property="Foreground" Value="#FFDD2222" />
+                            <Setter Property="BorderBrush" Value="#55DD2222" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Setter Property="Cursor" Value="Hand" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="3"
+                                                Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#55DD2222" />
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter Property="Background" Value="#77DD2222" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </DockPanel>
             <ItemsControl ItemsSource="{Binding TrackedOperators}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>

@@ -81,6 +81,7 @@ public partial class SidePanelWindow : Window
         EquipmentView.TrackingRequested += (name, type) => trackingVm.AddTracking(name, type);
         EquipmentView.UntrackingRequested += name => trackingVm.RemoveTracking(name);
         TrackingView.RemoveTrackingRequested += name => trackingVm.RemoveTracking(name);
+        TrackingView.ClearAllTrackingRequested += () => trackingVm.ClearAllTracking();
 
         OperatorView.ClearBansRequested += () => banVm.ClearBans();
         OperatorView.ManualScanRequested += () => ManualScanRequested?.Invoke();

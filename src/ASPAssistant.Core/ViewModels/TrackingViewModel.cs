@@ -47,6 +47,12 @@ public partial class TrackingViewModel : ObservableObject
             TrackedEquipment.Remove(eqEntry);
     }
 
+    public void ClearAllTracking()
+    {
+        TrackedOperators.Clear();
+        TrackedEquipment.Clear();
+    }
+
     public bool IsTracked(string name)
     {
         return TrackedOperators.Any(e => e.Name == name)
