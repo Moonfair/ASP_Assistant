@@ -25,6 +25,7 @@ public partial class OverlayWindow : Window
 
     // The full-screen instruction layer shown at the start of ban detection.
     private FrameworkElement? _banInstructionLayer;
+    private FrameworkElement? _banInputBlockLayer;
 
     // Debug card border overlays, keyed by ShopItem.Id.
     private readonly Dictionary<string, FrameworkElement> _debugBorderPool = [];
@@ -380,7 +381,7 @@ public partial class OverlayWindow : Window
             new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)));
 
         // Remove click-through so we can receive the scroll wheel event.
-        SetClickThrough(false);
+        UpdateClickThroughMode();
         MouseWheel += OnBanScreenScrollDetected;
     }
 
@@ -391,10 +392,12 @@ public partial class OverlayWindow : Window
     public void HideBanInstructionOverlay()
     {
         MouseWheel -= OnBanScreenScrollDetected;
-        SetClickThrough(true);
 
         if (_banInstructionLayer == null)
+        {
+            UpdateClickThroughMode();
             return;
+        }
 
         var layer = _banInstructionLayer;
         _banInstructionLayer = null;
@@ -402,6 +405,7 @@ public partial class OverlayWindow : Window
         var anim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
         anim.Completed += (_, _) => OverlayCanvas.Children.Remove(layer);
         layer.BeginAnimation(OpacityProperty, anim);
+        UpdateClickThroughMode();
     }
 
     private void OnBanScreenScrollDetected(object sender, System.Windows.Input.MouseWheelEventArgs e)
@@ -417,6 +421,38 @@ public partial class OverlayWindow : Window
             var lParam = (IntPtr)(((cursorPos.Y & 0xFFFF) << 16) | (cursorPos.X & 0xFFFF));
             User32.SendMessage(gameHwnd, User32.WM_MOUSEWHEEL, wParam, lParam);
         }
+    }
+
+    /// <summary>
+    /// Shows a transparent full-screen blocker that intercepts mouse input on the game window.
+    /// </summary>
+    public void ShowBanInputBlockOverlay()
+    {
+        HideBanInputBlockOverlay();
+
+        var blocker = new Rectangle
+        {
+            Fill = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)),
+            IsHitTestVisible = true
+        };
+        Canvas.SetLeft(blocker, 0);
+        Canvas.SetTop(blocker, 0);
+        blocker.Width = ActualWidth > 0 ? ActualWidth : 1280;
+        blocker.Height = ActualHeight > 0 ? ActualHeight : 720;
+
+        OverlayCanvas.Children.Add(blocker);
+        _banInputBlockLayer = blocker;
+        UpdateClickThroughMode();
+    }
+
+    public void HideBanInputBlockOverlay()
+    {
+        if (_banInputBlockLayer != null)
+        {
+            OverlayCanvas.Children.Remove(_banInputBlockLayer);
+            _banInputBlockLayer = null;
+        }
+        UpdateClickThroughMode();
     }
 
     // ?? Ban avatar markers ????????????????????????????????????????????????????
@@ -523,5 +559,11 @@ public partial class OverlayWindow : Window
         else
             User32.SetWindowLong(hwnd, User32.GWL_EXSTYLE,
                 exStyle & ~User32.WS_EX_TRANSPARENT);
+    }
+
+    private void UpdateClickThroughMode()
+    {
+        bool shouldBlockInput = _banInstructionLayer != null || _banInputBlockLayer != null;
+        SetClickThrough(!shouldBlockInput);
     }
 }

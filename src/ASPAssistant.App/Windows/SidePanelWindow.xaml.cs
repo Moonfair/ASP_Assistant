@@ -15,6 +15,7 @@ public partial class SidePanelWindow : Window
     public TrackingViewModel TrackingVm { get; }
     public GameStateViewModel GameStateVm { get; }
     public BanViewModel BanVm { get; }
+    public EnemyViewModel EnemyVm { get; }
 
     public event Action? ManualScanRequested;
     public event Action<string, bool>? BanToggleRequested;
@@ -51,13 +52,15 @@ public partial class SidePanelWindow : Window
         EquipmentBrowseViewModel equipmentVm,
         TrackingViewModel trackingVm,
         GameStateViewModel gameStateVm,
-        BanViewModel banVm)
+        BanViewModel banVm,
+        EnemyViewModel enemyVm)
     {
         OperatorBrowseVm = operatorVm;
         EquipmentBrowseVm = equipmentVm;
         TrackingVm = trackingVm;
         GameStateVm = gameStateVm;
         BanVm = banVm;
+        EnemyVm = enemyVm;
 
         InitializeComponent();
 
@@ -70,6 +73,7 @@ public partial class SidePanelWindow : Window
         OperatorView.DataContext = operatorVm;
         EquipmentView.DataContext = equipmentVm;
         TrackingView.DataContext = trackingVm;
+        EnemyView.DataContext = enemyVm;
 
         OperatorView.IsTrackedCheck = trackingVm.IsTracked;
         EquipmentView.IsTrackedCheck = trackingVm.IsTracked;
@@ -130,6 +134,13 @@ public partial class SidePanelWindow : Window
 
     public void UpdateManualScanStatus(int pending)
         => OperatorView.UpdateManualScanStatus(pending);
+
+    public void SetBanProcessingMaskVisible(bool visible, string? message = null)
+    {
+        BanProcessingMask.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!string.IsNullOrWhiteSpace(message))
+            BanProcessingMaskText.Text = message;
+    }
 
     public void StartUpdateCheck(UpdateService updateService, SettingsManager settingsManager)
     {

@@ -18,6 +18,19 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
 
+    <!-- Clickable-control baseline: only interactive controls get hand cursor -->
+    <Style x:Key="ClickableButtonBase" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <Style x:Key="ClickableToggleButtonBase" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <Style x:Key="ClickableListBoxItemBase" TargetType="ListBoxItem">
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
     <!-- Card -->
     <Style x:Key="ItemCardBorder" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
@@ -37,13 +50,12 @@
     </Style>
 
     <!-- Variant toggle: individual segment button -->
-    <Style x:Key="VariantToggleButton" TargetType="ToggleButton">
+    <Style x:Key="VariantToggleButton" TargetType="ToggleButton" BasedOn="{StaticResource ClickableToggleButtonBase}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="8,3" />
         <Setter Property="FontSize" Value="11" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
@@ -74,14 +86,13 @@
     </Style>
 
     <!-- Ban toggle button (red when banned, neutral when not) -->
-    <Style x:Key="BanToggleButton" TargetType="Button">
+    <Style x:Key="BanToggleButton" TargetType="Button" BasedOn="{StaticResource ClickableButtonBase}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
         <Setter Property="Padding" Value="8,3" />
         <Setter Property="FontSize" Value="11" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -119,14 +130,13 @@
     </Style>
 
     <!-- Tracking button -->
-    <Style x:Key="TrackingButton" TargetType="Button">
+    <Style x:Key="TrackingButton" TargetType="Button" BasedOn="{StaticResource ClickableButtonBase}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
         <Setter Property="Padding" Value="8,3" />
         <Setter Property="FontSize" Value="11" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -164,7 +174,7 @@
     </Style>
 
     <!-- Filter chip (ListBoxItem) -->
-    <Style x:Key="FilterChipItem" TargetType="ListBoxItem">
+    <Style x:Key="FilterChipItem" TargetType="ListBoxItem" BasedOn="{StaticResource ClickableListBoxItemBase}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
@@ -172,7 +182,6 @@
         <Setter Property="Padding" Value="7,2" />
         <Setter Property="Margin" Value="0,0,4,4" />
         <Setter Property="FontSize" Value="11" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
@@ -282,7 +291,6 @@
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="0,8" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
@@ -292,6 +300,7 @@
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter x:Name="headerContent"
                                               ContentSource="Header"
+                                              Cursor="Hand"
                                               HorizontalAlignment="Center"
                                               VerticalAlignment="Center" />
                         </Border>
@@ -323,13 +332,12 @@
     </Style>
 
     <!-- Title bar button (minimize / close) -->
-    <Style x:Key="TitleBarButton" TargetType="Button">
+    <Style x:Key="TitleBarButton" TargetType="Button" BasedOn="{StaticResource ClickableButtonBase}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="8,4" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">

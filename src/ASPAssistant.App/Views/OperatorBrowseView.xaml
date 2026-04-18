@@ -30,9 +30,9 @@
             <DockPanel Grid.Row="0" LastChildFill="True">
                 <ToggleButton x:Name="FilterToggle" DockPanel.Dock="Left"
                               Foreground="{StaticResource TextSecondaryBrush}"
-                              FontSize="12" Padding="0,4,12,4" Cursor="Hand">
+                              FontSize="12" Padding="0,4,12,4">
                     <ToggleButton.Style>
-                        <Style TargetType="ToggleButton">
+                        <Style TargetType="ToggleButton" BasedOn="{StaticResource ClickableToggleButtonBase}">
                             <Setter Property="Content" Value="▶ 筛选" />
                             <Setter Property="Background" Value="Transparent" />
                             <Setter Property="BorderThickness" Value="0" />
@@ -130,12 +130,11 @@
                             HorizontalAlignment="Right"
                             Click="OnClearBansClicked">
                         <Button.Style>
-                            <Style TargetType="Button">
+                            <Style TargetType="Button" BasedOn="{StaticResource ClickableButtonBase}">
                                 <Setter Property="Background" Value="#33DD2222" />
                                 <Setter Property="Foreground" Value="#FFDD2222" />
                                 <Setter Property="BorderBrush" Value="#55DD2222" />
                                 <Setter Property="BorderThickness" Value="1" />
-                                <Setter Property="Cursor" Value="Hand" />
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="Button">
@@ -167,12 +166,11 @@
                             HorizontalAlignment="Right"
                             Click="OnManualScanClicked">
                         <Button.Style>
-                            <Style TargetType="Button">
+                            <Style TargetType="Button" BasedOn="{StaticResource ClickableButtonBase}">
                                 <Setter Property="Background" Value="#334FC3F7" />
                                 <Setter Property="Foreground" Value="#FF4FC3F7" />
                                 <Setter Property="BorderBrush" Value="#554FC3F7" />
                                 <Setter Property="BorderThickness" Value="1" />
-                                <Setter Property="Cursor" Value="Hand" />
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="Button">

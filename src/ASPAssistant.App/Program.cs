@@ -14,6 +14,7 @@ public static class Program
     [STAThread]
     public static void Main()
     {
+
         // .NET 8 WPF requires Windows 10 build 14393 (version 1607) or later.
         // Check BEFORE loading any WPF assembly so a failed load doesn't silently terminate the process.
         // OperatingSystem.IsWindowsVersionAtLeast reads from ntdll RtlGetVersion — reflects the real OS version.

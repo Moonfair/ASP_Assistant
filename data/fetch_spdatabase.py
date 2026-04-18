@@ -31,6 +31,16 @@ TORAPPU_ENDPOINT = "https://torappu.prts.wiki"
 ARCHIVE_ENDPOINT = "https://static.prts.wiki/app/spdatabase"
 MEDIA_ENDPOINT = "https://media.prts.wiki"
 
+# Boss data sources (ArknightsGameData / ArknightsGameResource on GitHub)
+ARKGAMEDATA_HANDBOOK_URL = (
+    "https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData"
+    "/master/zh_CN/gamedata/excel/enemy_handbook_table.json"
+)
+YUANYAN_ENEMY_BASE_URL = (
+    "https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource"
+    "/main/enemy"
+)
+
 PROFESSION_MAP = {
     "PIONEER": "先锋",
     "WARRIOR": "近卫",
@@ -371,6 +381,305 @@ def process_skin_avatars(
     return avatar_map
 
 
+# ── 特训敌人类型处理 ──────────────────────────────────────────────────────────
+
+# 类型代码 → 中文名（与游戏内 OCR 识别到的 "特训敌人·XXX" 后缀对应）
+ENEMY_TYPE_NAMES: dict[str, str] = {
+    "DOT":        "持续",
+    "ELEMENT":    "元素",
+    "FLY":        "飞行",
+    "INVISIBLE":  "隐匿",
+    "REFLECTION": "折射",
+    "SPECIAL":    "特异",
+    "TIMES":      "频次",
+}
+
+# 类型代码 → PRTS Wiki 图标文件名
+# URL 形如: https://media.prts.wiki/{md5[0]}/{md5[:2]}/特训敌人_飞行.png
+ENEMY_TYPE_ICON_FILES: dict[str, str] = {
+    "DOT":        "特训敌人_持续.png",
+    "ELEMENT":    "特训敌人_元素.png",
+    "FLY":        "特训敌人_飞行.png",
+    "INVISIBLE":  "特训敌人_隐匿.png",
+    "REFLECTION": "特训敌人_折射.png",
+    "SPECIAL":    "特训敌人_特异.png",
+    "TIMES":      "特训敌人_频次.png",
+}
+
+
+def process_enemy_types(season_data: dict, enemy_name_map: dict[str, str] | None = None) -> dict:
+    """
+    从赛季数据的 specialEnemyInfoDict 中提取特训敌人类型信息。
+
+    返回 dict keyed by typeCode，每条记录包含：
+      - typeCode / typeName
+      - firstHalfVariants: isInFirstHalf=True 的代表敌人列表（iconPath 已填充）
+      - secondHalfVariants: isInFirstHalf=False 的代表敌人列表
+    """
+    spec_dict: dict = season_data.get("specialEnemyInfoDict", {})
+    enemy_name_map = enemy_name_map or {}
+
+    types: dict[str, dict] = {}
+
+    def pick_enemy_name(enemy_id: str, e: dict) -> str:
+        mapped_name = enemy_name_map.get(enemy_id)
+        if mapped_name:
+            return mapped_name
+
+        # The upstream schema is not fully stable. Try common name fields first.
+        for key in ("enemyName", "name", "displayName", "enemyDisplayName"):
+            value = e.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+        # Some payloads may nest enemy metadata in a sub-object.
+        for node_key in ("enemyData", "enemy", "enemyInfo"):
+            node = e.get(node_key)
+            if not isinstance(node, dict):
+                continue
+            for key in ("enemyName", "name", "displayName"):
+                value = node.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+
+        return ""
+
+    for enemy_id, entry in spec_dict.items():
+        if not entry:
+            continue
+        type_code: str = entry.get("type", "")
+        if not type_code:
+            continue
+
+        type_name = ENEMY_TYPE_NAMES.get(type_code, type_code)
+        is_first_half: bool = bool(entry.get("isInFirstHalf", True))
+        weight: int = int(entry.get("randomWeight", 1))
+
+        if type_code not in types:
+            types[type_code] = {
+                "typeCode":     type_code,
+                "typeName":     type_name,
+                "typeIconPath": f"icons/enemy_types/{type_code}.png",
+                "firstHalfVariants":  [],
+                "secondHalfVariants": [],
+            }
+
+        variant = {
+            "specialEnemyId": enemy_id,
+            "enemyName":       pick_enemy_name(enemy_id, entry),
+            "iconPath":        f"icons/enemies/{enemy_id}.png",
+            "weight":          weight,
+        }
+
+        if is_first_half:
+            types[type_code]["firstHalfVariants"].append(variant)
+        else:
+            types[type_code]["secondHalfVariants"].append(variant)
+
+    # 按 weight 降序排列，最常见的放前面
+    for t in types.values():
+        t["firstHalfVariants"].sort(key=lambda v: -v["weight"])
+        t["secondHalfVariants"].sort(key=lambda v: -v["weight"])
+
+    return types
+
+
+def collect_enemy_ids_for_icons(enemy_types: dict) -> set[str]:
+    """收集所有需要下载头像的敌人 ID。"""
+    ids: set[str] = set()
+    for t in enemy_types.values():
+        for v in t["firstHalfVariants"] + t["secondHalfVariants"]:
+            ids.add(v["specialEnemyId"])
+    return ids
+
+
+def download_enemy_icons(enemy_ids: set[str], data_dir: Path) -> None:
+    """从 yuanyan3060/ArknightsGameResource 下载特训小怪头像。"""
+    icon_dir = data_dir / "icons" / "enemies"
+    icon_dir.mkdir(parents=True, exist_ok=True)
+
+    dl_new, dl_skip, dl_fail = 0, 0, 0
+    for enemy_id in sorted(enemy_ids):
+        save_path = icon_dir / f"{enemy_id}.png"
+        if save_path.exists():
+            dl_skip += 1
+            continue
+        url = f"{YUANYAN_ENEMY_BASE_URL}/{enemy_id}.png"
+        if download_image(url, save_path):
+            dl_new += 1
+        else:
+            dl_fail += 1
+
+    print(f"  特训小怪头像: {dl_new} 新下载, {dl_skip} 已存在, {dl_fail} 失败")
+
+
+def download_enemy_type_icons(data_dir: Path) -> None:
+    """从 PRTS Media Wiki 下载 7 种特训敌人类型图标。
+    保存为 data/icons/enemy_types/{typeCode}.png。
+    """
+    icon_dir = data_dir / "icons" / "enemy_types"
+    icon_dir.mkdir(parents=True, exist_ok=True)
+
+    dl_new, dl_skip, dl_fail = 0, 0, 0
+    for type_code, filename in ENEMY_TYPE_ICON_FILES.items():
+        save_path = icon_dir / f"{type_code}.png"
+        if save_path.exists():
+            dl_skip += 1
+            continue
+        url = get_prts_media_url(filename)
+        if download_image(url, save_path):
+            dl_new += 1
+        else:
+            dl_fail += 1
+
+    print(f"  类型图标: {dl_new} 新下载, {dl_skip} 已存在, {dl_fail} 失败")
+
+
+# ── Boss（卫戍协议「领袖」池）处理 ────────────────────────────────────────────
+
+# 与游戏内卫戍协议 / 盟约「领袖」表一致（同名多 phase 只保留主条目一条）
+GARRISON_PROTOCOL_BOSS_IDS: frozenset[str] = frozenset(
+    {
+        "enemy_9013_acstmk",  # 假想敌：胄
+        "enemy_9017_achunt",  # 假想敌：铳
+        "enemy_9021_acduml",  # 假想敌：管
+        "enemy_1521_dslily",  # 盐风主教昆图斯
+        "enemy_2016_csphtm",  # 卢西恩，“猩红血钻”
+        "enemy_9032_aclionk",  # 阿利斯泰尔，帝国余晖（盟约）
+        "enemy_9033_acdeer",  # “萨米的意志”（盟约）
+    }
+)
+
+# 与游戏内「领袖」表展示顺序一致（非 enemyIndex 字母序）
+GARRISON_BOSS_ORDER: tuple[str, ...] = (
+    "enemy_9013_acstmk",
+    "enemy_9017_achunt",
+    "enemy_9021_acduml",
+    "enemy_1521_dslily",
+    "enemy_2016_csphtm",
+    "enemy_9032_aclionk",
+    "enemy_9033_acdeer",
+)
+_GARRISON_ORDER_RANK: dict[str, int] = {eid: i for i, eid in enumerate(GARRISON_BOSS_ORDER)}
+
+# 在 handbook 名称之外补充 OCR 常见简称（enemyId -> 额外 aliases）
+BOSS_EXTRA_ALIASES: dict[str, list[str]] = {
+    "enemy_9032_aclionk": ["帝国余晖"],
+}
+
+
+def process_bosses(handbook_data: dict) -> list[dict]:
+    """
+    从 enemy_handbook_table.json 中提取卫戍协议「领袖」池：
+    enemyLevel == "BOSS" 且 enemyId 属于 GARRISON_PROTOCOL_BOSS_IDS。
+    """
+    enemy_data: dict = handbook_data.get("enemyData", {})
+    bosses = []
+
+    for enemy_id, entry in enemy_data.items():
+        if not entry:
+            continue
+        if enemy_id not in GARRISON_PROTOCOL_BOSS_IDS:
+            continue
+        if entry.get("enemyLevel") != "BOSS":
+            continue
+        name: str = (entry.get("name") or "").strip()
+        if not name:
+            continue
+
+        ability_list = [
+            a["text"]
+            for a in (entry.get("abilityList") or [])
+            if a.get("text")
+        ]
+        damage_types = entry.get("damageType") or []
+
+        row = {
+            "enemyId": enemy_id,
+            "enemyIndex": entry.get("enemyIndex") or "",
+            "name": name,
+            "aliases": [],
+            "description": entry.get("description"),
+            "attackType": entry.get("attackType"),
+            "damageTypes": damage_types,
+            "abilityList": ability_list,
+            "iconPath": f"icons/bosses/{enemy_id}.png",
+        }
+        extras = BOSS_EXTRA_ALIASES.get(enemy_id)
+        if extras:
+            for a in extras:
+                if a not in row["aliases"]:
+                    row["aliases"].append(a)
+        bosses.append(row)
+
+    bosses.sort(
+        key=lambda b: (_GARRISON_ORDER_RANK.get(b.get("enemyId") or "", 999), b.get("enemyId") or "")
+    )
+    return bosses
+
+
+def build_enemy_name_map(handbook_data: dict) -> dict[str, str]:
+    """从 enemy_handbook_table.json 构建 enemyId -> 中文名 映射。"""
+    enemy_data: dict = handbook_data.get("enemyData", {})
+    name_map: dict[str, str] = {}
+    for enemy_id, entry in enemy_data.items():
+        if not enemy_id or not entry:
+            continue
+        name = (entry.get("name") or "").strip()
+        if name:
+            name_map[enemy_id] = name
+    return name_map
+
+
+def merge_extra_bosses_from_disk(bosses: list[dict], bosses_path: Path) -> list[dict]:
+    """
+    保留 bosses.json 中已有、但本次 handbook 未返回的条目；
+    仅合并 enemyId 在 GARRISON_PROTOCOL_BOSS_IDS 内的行，避免塞回全图鉴 Boss。
+    """
+    if not bosses_path.exists():
+        return bosses
+    try:
+        with open(bosses_path, encoding="utf-8") as f:
+            old = json.load(f).get("bosses") or []
+    except Exception:
+        return bosses
+    new_ids = {b.get("enemyId") for b in bosses if b.get("enemyId")}
+    merged = list(bosses)
+    for b in old:
+        eid = b.get("enemyId")
+        if not eid or eid in new_ids:
+            continue
+        if eid not in GARRISON_PROTOCOL_BOSS_IDS:
+            continue
+        merged.append(b)
+        new_ids.add(eid)
+    merged.sort(
+        key=lambda b: (_GARRISON_ORDER_RANK.get(b.get("enemyId") or "", 999), b.get("enemyId") or "")
+    )
+    return merged
+
+
+def download_boss_icons(bosses: list[dict], data_dir: Path) -> None:
+    """从 yuanyan3060/ArknightsGameResource 下载 boss 头像。"""
+    icon_dir = data_dir / "icons" / "bosses"
+    icon_dir.mkdir(parents=True, exist_ok=True)
+
+    dl_new, dl_skip, dl_fail = 0, 0, 0
+    for boss in bosses:
+        enemy_id = boss["enemyId"]
+        save_path = icon_dir / f"{enemy_id}.png"
+        if save_path.exists():
+            dl_skip += 1
+            continue
+        url = f"{YUANYAN_ENEMY_BASE_URL}/{enemy_id}.png"
+        if download_image(url, save_path):
+            dl_new += 1
+        else:
+            dl_fail += 1
+
+    print(f"  Boss 头像: {dl_new} 新下载, {dl_skip} 已存在, {dl_fail} 失败")
+
+
 # ── 主流程 ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -383,6 +692,8 @@ def main():
         help="赛季编号 (默认: 1 = 最新赛季)",
     )
     parser.add_argument("--skip-icons", action="store_true", help="跳过图标下载")
+    parser.add_argument("--skip-bosses",   action="store_true", help="跳过 Boss 数据获取")
+    parser.add_argument("--skip-enemies", action="store_true", help="跳过特训敌人类型数据获取")
     parser.add_argument("--download-skins", action="store_true", help="下载皮肤头像并生成映射文件")
     parser.add_argument("--apply-mask", action="store_true",
                         help="对 skin_avatars/ 目录内所有现有 PNG 原地补白色背景（需要 Pillow）")
@@ -491,7 +802,52 @@ def main():
     else:
         print("跳过图标下载 (--skip-icons)")
 
-    # 7. 下载皮肤头像并生成映射
+    handbook_data: dict | None = None
+    if not args.skip_enemies or not args.skip_bosses:
+        print("\n获取敌人图鉴数据 (enemy_handbook_table.json)...")
+        handbook_data = fetch_json(ARKGAMEDATA_HANDBOOK_URL)
+
+    # 7. 处理特训敌人类型数据
+    if not args.skip_enemies:
+        print("\n处理特训敌人类型数据...")
+        enemy_name_map = build_enemy_name_map(handbook_data or {})
+        enemy_types = process_enemy_types(season_data, enemy_name_map)
+        enemy_ids_for_icons = collect_enemy_ids_for_icons(enemy_types)
+        print(f"  已加载中文敌人名: {len(enemy_name_map)}")
+        print(f"  类型数: {len(enemy_types)}, 敌人变体数: {sum(len(t['firstHalfVariants']) + len(t['secondHalfVariants']) for t in enemy_types.values())}")
+
+        if not args.skip_icons:
+            print("下载特训小怪头像...")
+            download_enemy_icons(enemy_ids_for_icons, data_dir)
+            print("下载特训敌人类型图标...")
+            download_enemy_type_icons(data_dir)
+
+        enemy_types_path = data_dir / "enemy_types.json"
+        with open(enemy_types_path, "w", encoding="utf-8") as f:
+            json.dump({"types": enemy_types}, f, ensure_ascii=False, indent=2)
+        print(f"  {enemy_types_path.resolve()} ({enemy_types_path.stat().st_size / 1024:.1f} KB)")
+    else:
+        print("\n跳过特训敌人类型数据获取 (--skip-enemies)")
+
+    # 8. 获取 Boss 数据
+    if not args.skip_bosses:
+        print("\n处理 Boss 数据...")
+        bosses = process_bosses(handbook_data or {})
+        bosses_path = data_dir / "bosses.json"
+        bosses = merge_extra_bosses_from_disk(bosses, bosses_path)
+        print(f"  Boss 数: {len(bosses)}")
+
+        if not args.skip_icons:
+            print("下载 Boss 头像...")
+            download_boss_icons(bosses, data_dir)
+
+        with open(bosses_path, "w", encoding="utf-8") as f:
+            json.dump({"bosses": bosses}, f, ensure_ascii=False, indent=2)
+        print(f"  {bosses_path.resolve()} ({bosses_path.stat().st_size / 1024:.1f} KB)")
+    else:
+        print("\n跳过 Boss 数据获取 (--skip-bosses)")
+
+    # 8. 下载皮肤头像并生成映射
     if args.download_skins:
         print("\n获取皮肤数据 (skin_table.json)...")
         skin_table = fetch_json(
@@ -509,7 +865,7 @@ def main():
     for op in operators:
         op.pop("_charId", None)
 
-    # 8. 输出 JSON
+    # 10. 输出 JSON
     operators_path = data_dir / "operators.json"
     equipment_path = data_dir / "equipment.json"
 

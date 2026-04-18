@@ -26,6 +26,24 @@
     <Content Include="..\..\data\icons\**\*.png" Link="data\icons\%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Enemy-type icons downloaded by fetch_spdatabase.py (7 type badges) -->
+    <Content Include="..\..\data\icons\enemy_types\*.png"
+             Link="data\icons\enemy_types\%(Filename)%(Extension)"
+             Condition="Exists('..\..\data\icons\enemy_types')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Special-enemy (小怪) portraits downloaded by fetch_spdatabase.py -->
+    <Content Include="..\..\data\icons\enemies\*.png"
+             Link="data\icons\enemies\%(Filename)%(Extension)"
+             Condition="Exists('..\..\data\icons\enemies')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Boss avatar portraits downloaded by fetch_spdatabase.py -->
+    <Content Include="..\..\data\icons\bosses\*.png"
+             Link="data\icons\bosses\%(Filename)%(Extension)"
+             Condition="Exists('..\..\data\icons\bosses')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!-- Card template images (op_card.png, etc.) copied to data/template/ for reference. -->
     <Content Include="..\..\data\template\*.png" Link="data\template\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -33,6 +51,14 @@
     <!-- MaaFramework TemplateMatch bundle: op_card.png is looked up at
          [bundle]/image/op_card.png when MaaCardDetector calls TemplateMatch. -->
     <Content Include="..\..\data\template\op_card.png" Link="data\maa_resource\image\op_card.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Ban-indicator badge template for BanIndicatorDetector (FeatureMatch).
+         Placed in data/template/ban_indicator.png; copied to maa_resource/image/ so
+         MaaFramework's resource bundle can index it. Only included when the file exists. -->
+    <Content Include="..\..\data\template\ban_indicator.png"
+             Link="data\maa_resource\image\ban_indicator.png"
+             Condition="Exists('..\..\data\template\ban_indicator.png')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <!-- PRTS operator portrait icons (kept as reference; used until ban_screen set is complete).

@@ -1,0 +1,361 @@
+<UserControl x:Class="ASPAssistant.App.Views.EnemyView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:ASPAssistant.App.Converters"
+             Background="{StaticResource PanelBackgroundBrush}">
+    <UserControl.Resources>
+        <converters:LocalPathToImageConverter x:Key="LocalPathToImage" />
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,2,0">
+        <StackPanel Margin="8,8,8,10">
+
+            <!-- Section: 首领 -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
+                <Border Width="3" Height="14" CornerRadius="1.5"
+                        Background="{StaticResource AccentBrush}" Margin="0,0,8,0"
+                        VerticalAlignment="Center" />
+                <TextBlock Text="首领" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+            </StackPanel>
+
+            <Border Style="{StaticResource ItemCardBorder}" Padding="0" Margin="0,0,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Boss portrait: always occupies space; placeholder when no asset -->
+                    <Border Grid.Column="0" Margin="10,10,0,10"
+                            Width="92" Height="92"
+                            CornerRadius="10"
+                            ClipToBounds="True"
+                            BorderBrush="#554FC3F7" BorderThickness="1"
+                            Background="#FF1A1A2E"
+                            VerticalAlignment="Top">
+                        <Grid>
+                            <TextBlock Text="首领"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#33FFFFFF"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BossAvatarImageAvailable}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Image Stretch="UniformToFill"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   Source="{Binding AvatarPath, Converter={StaticResource LocalPathToImage}}">
+                                <Image.Style>
+                                    <Style TargetType="Image">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BossAvatarImageAvailable}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Image.Style>
+                            </Image>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="12,10,10,10">
+                        <!-- Meta chips: SP index + damage type (each chip hides independently) -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Border Padding="6,2" Margin="0,0,6,0"
+                                    BorderBrush="{StaticResource AccentBrush}" BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource TraitTagBorder}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BossIndex}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding BossIndex}" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{StaticResource AccentBrush}" />
+                            </Border>
+                            <Border Padding="6,2"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource TraitTagBorder}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BossDamageSummary}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding BossDamageSummary}" FontSize="10"
+                                           Foreground="{StaticResource TextSecondaryBrush}" />
+                            </Border>
+                        </StackPanel>
+
+                        <TextBlock FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="{Binding BossName}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding BossName}" Value="">
+                                            <Setter Property="Text" Value="等待识别首领…" />
+                                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                            <Setter Property="FontStyle" Value="Italic" />
+                                            <Setter Property="FontWeight" Value="Normal" />
+                                            <Setter Property="FontSize" Value="13" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <TextBlock Text="{Binding BossDescription}"
+                                   FontSize="11" LineHeight="17"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding BossDescription}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 首领技能 -->
+            <StackPanel Margin="0,2,0,0">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding BossAbilities.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6" VerticalAlignment="Center">
+                    <Border Width="3" Height="14" CornerRadius="1.5"
+                            Background="{StaticResource AccentBrush}" Margin="0,0,8,0"
+                            VerticalAlignment="Center" />
+                    <TextBlock Text="首领技能" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                </StackPanel>
+
+                <Border Style="{StaticResource ItemCardBorder}" Padding="10,10" Margin="0,0,0,12">
+                    <ItemsControl ItemsSource="{Binding BossAbilities}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                                    <Ellipse DockPanel.Dock="Left" Width="5" Height="5"
+                                             Fill="{StaticResource AccentBrush}"
+                                             Margin="0,6,10,0" VerticalAlignment="Top" />
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Text="{Binding Path=.}"
+                                               FontSize="11" LineHeight="17"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextWrapping="Wrap" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </StackPanel>
+
+            <!-- 特训敌人 -->
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,6" VerticalAlignment="Center">
+                <Border Width="3" Height="14" CornerRadius="1.5"
+                        Background="{StaticResource AccentBrush}" Margin="0,0,8,0"
+                        VerticalAlignment="Center" />
+                <TextBlock Text="特训敌人" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+            </StackPanel>
+
+            <Border Padding="14,12" Margin="0,0,0,8">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource ItemCardBorder}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding EnemyTypes.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="识别到关卡信息后，将在此显示特训敌人种类与可能登场的小怪。"
+                           FontSize="11" FontStyle="Italic" TextWrapping="Wrap"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           LineHeight="16" />
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding EnemyTypeDetails}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource ItemCardBorder}" Padding="10,10" Margin="0,0,0,8">
+                            <!-- Type header -->
+                            <StackPanel>
+                                <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TypeCode}"
+                                                   FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   Opacity="0.85"
+                                                   VerticalAlignment="Center"
+                                                   Margin="8,0,0,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding TypeCode}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="36" Height="36" CornerRadius="8"
+                                                Background="#FF1A1A2E"
+                                                BorderBrush="{StaticResource BorderBrush}"
+                                                BorderThickness="1"
+                                                ClipToBounds="True" Margin="0,0,10,0">
+                                            <Image Source="{Binding TypeIconPath, Converter={StaticResource LocalPathToImage}}"
+                                                   Width="28" Height="28"
+                                                   Stretch="Uniform"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center">
+                                                <Image.Style>
+                                                    <Style TargetType="Image">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding TypeIconPath}" Value="">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Image.Style>
+                                            </Image>
+                                        </Border>
+                                        <TextBlock Text="{Binding TypeName}"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <!-- 前半段 -->
+                                <StackPanel Margin="0,0,0,2">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding FirstHalfVariants.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Border HorizontalAlignment="Left" Margin="0,0,0,6"
+                                            Background="#224FC3F7" CornerRadius="6"
+                                            Padding="8,3" BorderBrush="#554FC3F7" BorderThickness="1">
+                                        <TextBlock Text="前半段" FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AccentBrush}" />
+                                    </Border>
+                                    <ItemsControl ItemsSource="{Binding FirstHalfVariants}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="54" Height="54" CornerRadius="8"
+                                                        ClipToBounds="True" Margin="0,0,6,6"
+                                                        Background="#FF1A1A2E"
+                                                        BorderBrush="{StaticResource BorderBrush}"
+                                                        BorderThickness="1"
+                                                        ToolTipService.InitialShowDelay="120"
+                                                        ToolTip="{Binding TooltipName}">
+                                                    <Image Source="{Binding IconPath, Converter={StaticResource LocalPathToImage}}"
+                                                           Stretch="UniformToFill"
+                                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!-- 后半段 -->
+                                <StackPanel Margin="0,4,0,0">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SecondHalfVariants.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Border HorizontalAlignment="Left" Margin="0,0,0,6"
+                                            Background="#224FC3F7" CornerRadius="6"
+                                            Padding="8,3" BorderBrush="#554FC3F7" BorderThickness="1">
+                                        <TextBlock Text="后半段" FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource AccentBrush}" />
+                                    </Border>
+                                    <ItemsControl ItemsSource="{Binding SecondHalfVariants}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="54" Height="54" CornerRadius="8"
+                                                        ClipToBounds="True" Margin="0,0,6,6"
+                                                        Background="#FF1A1A2E"
+                                                        BorderBrush="{StaticResource BorderBrush}"
+                                                        BorderThickness="1"
+                                                        ToolTipService.InitialShowDelay="120"
+                                                        ToolTip="{Binding TooltipName}">
+                                                    <Image Source="{Binding IconPath, Converter={StaticResource LocalPathToImage}}"
+                                                           Stretch="UniformToFill"
+                                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

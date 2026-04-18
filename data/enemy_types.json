@@ -1,0 +1,469 @@
+{
+  "types": {
+    "FLY": {
+      "typeCode": "FLY",
+      "typeName": "飞行",
+      "typeIconPath": "icons/enemy_types/FLY.png",
+      "firstHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1041_lazerd",
+          "enemyName": "法术大师A1",
+          "iconPath": "icons/enemies/enemy_1041_lazerd.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1355_mrfly",
+          "enemyName": "护障",
+          "iconPath": "icons/enemies/enemy_1355_mrfly.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1017_defdrn",
+          "enemyName": "御4",
+          "iconPath": "icons/enemies/enemy_1017_defdrn.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_10084_hlegle",
+          "enemyName": "“萨科塔之眼”",
+          "iconPath": "icons/enemies/enemy_10084_hlegle.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1407_hummbd",
+          "enemyName": "远眺",
+          "iconPath": "icons/enemies/enemy_1407_hummbd.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1355_mrfly_2",
+          "enemyName": "护障·P",
+          "iconPath": "icons/enemies/enemy_1355_mrfly_2.png",
+          "weight": 8
+        }
+      ],
+      "secondHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1005_yokai_3",
+          "enemyName": "威龙",
+          "iconPath": "icons/enemies/enemy_1005_yokai_3.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1112_emppnt",
+          "enemyName": "帝国炮火先兆者",
+          "iconPath": "icons/enemies/enemy_1112_emppnt.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1041_lazerd_2",
+          "enemyName": "法术大师A2",
+          "iconPath": "icons/enemies/enemy_1041_lazerd_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_9009_acfort",
+          "enemyName": "假想敌：黑云",
+          "iconPath": "icons/enemies/enemy_9009_acfort.png",
+          "weight": 10
+        }
+      ]
+    },
+    "TIMES": {
+      "typeCode": "TIMES",
+      "typeName": "频次",
+      "typeIconPath": "icons/enemy_types/TIMES.png",
+      "firstHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1195_sfyin_2",
+          "enemyName": "明鉴",
+          "iconPath": "icons/enemies/enemy_1195_sfyin_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1288_duskls_2",
+          "enemyName": "深池逐火精锐战士",
+          "iconPath": "icons/enemies/enemy_1288_duskls_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1197_sfshu",
+          "enemyName": "俗心",
+          "iconPath": "icons/enemies/enemy_1197_sfshu.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1197_sfshu_2",
+          "enemyName": "雅气",
+          "iconPath": "icons/enemies/enemy_1197_sfshu_2.png",
+          "weight": 8
+        }
+      ],
+      "secondHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1292_duskld",
+          "enemyName": "深池逐火护卫",
+          "iconPath": "icons/enemies/enemy_1292_duskld.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1207_sfji",
+          "enemyName": "沉沙",
+          "iconPath": "icons/enemies/enemy_1207_sfji.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1199_sfjin",
+          "enemyName": "身观",
+          "iconPath": "icons/enemies/enemy_1199_sfjin.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_9010_acpupp",
+          "enemyName": "假想敌：再生",
+          "iconPath": "icons/enemies/enemy_9010_acpupp.png",
+          "weight": 10
+        }
+      ]
+    },
+    "ELEMENT": {
+      "typeCode": "ELEMENT",
+      "typeName": "元素",
+      "typeIconPath": "icons/enemy_types/ELEMENT.png",
+      "firstHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1161_tidmag",
+          "enemyName": "控潮术师",
+          "iconPath": "icons/enemies/enemy_1161_tidmag.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1305_mhslim_2",
+          "enemyName": "炽焰源石虫",
+          "iconPath": "icons/enemies/enemy_1305_mhslim_2.png",
+          "weight": 10
+        }
+      ],
+      "secondHalfVariants": [
+        {
+          "specialEnemyId": "enemy_2025_syufo",
+          "enemyName": "掠海漂移体",
+          "iconPath": "icons/enemies/enemy_2025_syufo.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1161_tidmag_2",
+          "enemyName": "领潮员",
+          "iconPath": "icons/enemies/enemy_1161_tidmag_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1439_dslntf",
+          "enemyName": "元核孽生者",
+          "iconPath": "icons/enemies/enemy_1439_dslntf.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1275_dwlock_2",
+          "enemyName": "萨卡兹王庭军精锐术师",
+          "iconPath": "icons/enemies/enemy_1275_dwlock_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_9007_acelem",
+          "enemyName": "假想敌：淤困",
+          "iconPath": "icons/enemies/enemy_9007_acelem.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_10067_ftsjc",
+          "enemyName": "灼藤",
+          "iconPath": "icons/enemies/enemy_10067_ftsjc.png",
+          "weight": 8
+        }
+      ]
+    },
+    "DOT": {
+      "typeCode": "DOT",
+      "typeName": "持续",
+      "typeIconPath": "icons/enemy_types/DOT.png",
+      "firstHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1234_dsubrl",
+          "enemyName": "深溟巢涌者",
+          "iconPath": "icons/enemies/enemy_1234_dsubrl.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1272_nhtank",
+          "enemyName": "萨卡兹枯朽战车",
+          "iconPath": "icons/enemies/enemy_1272_nhtank.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1270_nhstlk",
+          "enemyName": "逐腐兽",
+          "iconPath": "icons/enemies/enemy_1270_nhstlk.png",
+          "weight": 10
+        }
+      ],
+      "secondHalfVariants": [
+        {
+          "specialEnemyId": "enemy_9006_actoxi",
+          "enemyName": "假想敌：蚀裂",
+          "iconPath": "icons/enemies/enemy_9006_actoxi.png",
+          "weight": 15
+        },
+        {
+          "specialEnemyId": "enemy_1234_dsubrl_2",
+          "enemyName": "富营养的巢涌者",
+          "iconPath": "icons/enemies/enemy_1234_dsubrl_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_10122_uacann_2",
+          "enemyName": "集团军重型火炮",
+          "iconPath": "icons/enemies/enemy_10122_uacann_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1272_nhtank_2",
+          "enemyName": "尖端萨卡兹枯朽战车",
+          "iconPath": "icons/enemies/enemy_1272_nhtank_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1270_nhstlk_2",
+          "enemyName": "疯狂的逐腐兽",
+          "iconPath": "icons/enemies/enemy_1270_nhstlk_2.png",
+          "weight": 8
+        }
+      ]
+    },
+    "INVISIBLE": {
+      "typeCode": "INVISIBLE",
+      "typeName": "隐匿",
+      "typeIconPath": "icons/enemy_types/INVISIBLE.png",
+      "firstHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1299_ymkilr",
+          "enemyName": "山海众头目",
+          "iconPath": "icons/enemies/enemy_1299_ymkilr.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_10034_cnvsax",
+          "enemyName": "节日爵士乐手",
+          "iconPath": "icons/enemies/enemy_10034_cnvsax.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_10042_prtrop_2",
+          "enemyName": "扶桥老手",
+          "iconPath": "icons/enemies/enemy_10042_prtrop_2.png",
+          "weight": 10
+        }
+      ],
+      "secondHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1389_winbab_2",
+          "enemyName": "访问团强攻冠军",
+          "iconPath": "icons/enemies/enemy_1389_winbab_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1299_ymkilr_2",
+          "enemyName": "山海众秘使",
+          "iconPath": "icons/enemies/enemy_1299_ymkilr_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1404_msnip",
+          "enemyName": "重弩突袭者",
+          "iconPath": "icons/enemies/enemy_1404_msnip.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_9008_acbunn",
+          "enemyName": "假想敌：骨刺",
+          "iconPath": "icons/enemies/enemy_9008_acbunn.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1283_sgkill",
+          "enemyName": "家族灭迹人",
+          "iconPath": "icons/enemies/enemy_1283_sgkill.png",
+          "weight": 8
+        }
+      ]
+    },
+    "REFLECTION": {
+      "typeCode": "REFLECTION",
+      "typeName": "折射",
+      "typeIconPath": "icons/enemy_types/REFLECTION.png",
+      "firstHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1174_duholy",
+          "enemyName": "深池伙友卫队",
+          "iconPath": "icons/enemies/enemy_1174_duholy.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1168_dumage",
+          "enemyName": "深池暗影术师",
+          "iconPath": "icons/enemies/enemy_1168_dumage.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1170_dushld",
+          "enemyName": "深池重甲卫士",
+          "iconPath": "icons/enemies/enemy_1170_dushld.png",
+          "weight": 10
+        }
+      ],
+      "secondHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1174_duholy_2",
+          "enemyName": "深池伙友卫队精英",
+          "iconPath": "icons/enemies/enemy_1174_duholy_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1170_dushld_2",
+          "enemyName": "深池重甲卫士队长",
+          "iconPath": "icons/enemies/enemy_1170_dushld_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1172_dugago",
+          "enemyName": "守墓石像",
+          "iconPath": "icons/enemies/enemy_1172_dugago.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_9011_acrefr",
+          "enemyName": "假想敌：镜膜",
+          "iconPath": "icons/enemies/enemy_9011_acrefr.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1175_dushdo_2",
+          "enemyName": "深池伙友影刃精英",
+          "iconPath": "icons/enemies/enemy_1175_dushdo_2.png",
+          "weight": 8
+        }
+      ]
+    },
+    "SPECIAL": {
+      "typeCode": "SPECIAL",
+      "typeName": "特异",
+      "typeIconPath": "icons/enemy_types/SPECIAL.png",
+      "firstHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1010_demon_2",
+          "enemyName": "萨卡兹大剑组长",
+          "iconPath": "icons/enemies/enemy_1010_demon_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1045_hammer",
+          "enemyName": "粉碎攻坚手",
+          "iconPath": "icons/enemies/enemy_1045_hammer.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1118_lidbox_2",
+          "enemyName": "拳师囚犯",
+          "iconPath": "icons/enemies/enemy_1118_lidbox_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1325_cbgpro_2",
+          "enemyName": "高级军用猎狗",
+          "iconPath": "icons/enemies/enemy_1325_cbgpro_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1121_lifbos",
+          "enemyName": "重犯",
+          "iconPath": "icons/enemies/enemy_1121_lifbos.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1328_cbjedi",
+          "enemyName": "弧光锋卫",
+          "iconPath": "icons/enemies/enemy_1328_cbjedi.png",
+          "weight": 10
+        }
+      ],
+      "secondHalfVariants": [
+        {
+          "specialEnemyId": "enemy_1006_shield_3",
+          "enemyName": "重装五十夫长",
+          "iconPath": "icons/enemies/enemy_1006_shield_3.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1329_cbshld",
+          "enemyName": "弧光镜卫",
+          "iconPath": "icons/enemies/enemy_1329_cbshld.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1045_hammer_2",
+          "enemyName": "粉碎攻坚组长",
+          "iconPath": "icons/enemies/enemy_1045_hammer_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1387_winshd",
+          "enemyName": "访问团持盾者",
+          "iconPath": "icons/enemies/enemy_1387_winshd.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1121_lifbos_2",
+          "enemyName": "传奇重犯",
+          "iconPath": "icons/enemies/enemy_1121_lifbos_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1320_wdrrl_2",
+          "enemyName": "萨卡兹悖谬暴虐兵长",
+          "iconPath": "icons/enemies/enemy_1320_wdrrl_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_10124_uashld_2",
+          "enemyName": "集团军中坚盾卫",
+          "iconPath": "icons/enemies/enemy_10124_uashld_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1254_lypa_2",
+          "enemyName": "测试用动力装甲",
+          "iconPath": "icons/enemies/enemy_1254_lypa_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1425_lrcmra_2",
+          "enemyName": "渎罪奇美拉",
+          "iconPath": "icons/enemies/enemy_1425_lrcmra_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1329_cbshld_2",
+          "enemyName": "弧光镜卫长",
+          "iconPath": "icons/enemies/enemy_1329_cbshld_2.png",
+          "weight": 10
+        },
+        {
+          "specialEnemyId": "enemy_1072_dlancer",
+          "enemyName": "萨卡兹穿刺手",
+          "iconPath": "icons/enemies/enemy_1072_dlancer.png",
+          "weight": 10
+        }
+      ]
+    }
+  }
+}

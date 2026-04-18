@@ -16,9 +16,9 @@
         <StackPanel DockPanel.Dock="Top" Margin="8,0,8,4">
             <ToggleButton x:Name="FilterToggle"
                           Foreground="{StaticResource TextSecondaryBrush}"
-                          FontSize="12" Padding="0,4,12,4" Cursor="Hand">
+                          FontSize="12" Padding="0,4,12,4">
                 <ToggleButton.Style>
-                    <Style TargetType="ToggleButton">
+                    <Style TargetType="ToggleButton" BasedOn="{StaticResource ClickableToggleButtonBase}">
                         <Setter Property="Content" Value="▶ 筛选" />
                         <Setter Property="Background" Value="Transparent" />
                         <Setter Property="BorderThickness" Value="0" />

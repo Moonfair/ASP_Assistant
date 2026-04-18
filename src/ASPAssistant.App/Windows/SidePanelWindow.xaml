@@ -9,6 +9,7 @@
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
         Topmost="True"
+        Cursor="Arrow"
         Icon="{StaticResource AspaLogo}"
         Background="{StaticResource PanelBackgroundBrush}">
     <WindowChrome.WindowChrome>
@@ -133,6 +134,9 @@
                     <TabItem Header="追踪">
                         <views:TrackingView x:Name="TrackingView" />
                     </TabItem>
+                    <TabItem Header="敌人">
+                        <views:EnemyView x:Name="EnemyView" />
+                    </TabItem>
                 </TabControl>
 
                 <!-- Custom resize grip: three accent-coloured diagonal lines -->
@@ -148,6 +152,27 @@
                               Stroke="#FF6B9FFF" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
                 </Border>
+
+                <Grid x:Name="BanProcessingMask"
+                      Visibility="Collapsed"
+                      Background="#CC000000"
+                      IsHitTestVisible="True">
+                    <Border HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Background="#E61E1E1E"
+                            BorderBrush="#4D6B9FFF"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="16,12">
+                        <TextBlock x:Name="BanProcessingMaskText"
+                                   Text="ban位识别中，请勿操作鼠标"
+                                   Foreground="White"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"/>
+                    </Border>
+                </Grid>
             </Grid>
         </DockPanel>
     </Border>
