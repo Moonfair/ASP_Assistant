@@ -30,11 +30,11 @@
     </application>
   </compatibility>
 
-  <!-- Require administrator elevation is NOT requested; run as invoker -->
+  <!-- Request administrator elevation on launch (shows UAC prompt). -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges>
-        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>
