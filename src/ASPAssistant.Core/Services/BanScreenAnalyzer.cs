@@ -105,6 +105,12 @@ public sealed class BanScreenAnalyzer
     /// </summary>
     public event Action<IReadOnlyList<string>>? AutoBanListComputed;
 
+    /// <summary>
+    /// Raised when a full-screen game-window announcement should be shown/hidden.
+    /// </summary>
+    public event Action<string>? ShowGameOverlayMessageRequested;
+    public event Action? HideGameOverlayMessageRequested;
+
     // Re-entry guard: only one analysis can run at a time.
     private int _running;
 
@@ -150,6 +156,7 @@ public sealed class BanScreenAnalyzer
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             AppLogger.Info("BanAnalyzer", "Starting ban-screen analysis");
+            await ShowTimedGameOverlayMessageAsync("ban位识别即将开始，请勿操作鼠标", 2000);
 
             // ── Screenshot #1: enemy parse + locate Core anchor ─────────────────
             AppConsole.WriteLine("[BanAnalyzer] 截图 #1...");
@@ -218,6 +225,8 @@ public sealed class BanScreenAnalyzer
             AutoBanListComputed?.Invoke(autoBans);
             LogResults(result, sw.ElapsedMilliseconds);
             AnalysisCompleted?.Invoke(result);
+
+            await ShowTimedGameOverlayMessageAsync("识别成功！ASP Assistant 祝您卫戍愉快！", 2000);
         }
         catch (Exception ex)
         {
@@ -228,6 +237,13 @@ public sealed class BanScreenAnalyzer
             AnalysisBusyChanged?.Invoke(false);
             Interlocked.Exchange(ref _running, 0);
         }
+    }
+
+    private async Task ShowTimedGameOverlayMessageAsync(string message, int durationMs)
+    {
+        ShowGameOverlayMessageRequested?.Invoke(message);
+        await Task.Delay(durationMs);
+        HideGameOverlayMessageRequested?.Invoke();
     }
 
     private async Task<(System.Drawing.Point? Anchor, byte[] Screenshot, int ImgWidth, int ImgHeight)>

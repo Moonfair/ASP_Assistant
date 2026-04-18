@@ -299,6 +299,7 @@ public partial class App : Application
         {
             Dispatcher.Invoke(() =>
             {
+                _ocrScanner?.SetBanScreenDetectionPaused(busy);
                 _sidePanel?.SetBanProcessingMaskVisible(
                     busy,
                     "ban位识别中，请勿操作鼠标");
@@ -310,6 +311,15 @@ public partial class App : Application
         _banScreenAnalyzer.AutoBanListComputed += names =>
         {
             Dispatcher.Invoke(() => banVm.SetBans(names));
+        };
+
+        _banScreenAnalyzer.ShowGameOverlayMessageRequested += message =>
+        {
+            Dispatcher.Invoke(() => _overlay?.ShowBanTimedMessageOverlay(message));
+        };
+        _banScreenAnalyzer.HideGameOverlayMessageRequested += () =>
+        {
+            Dispatcher.Invoke(() => _overlay?.HideBanTimedMessageOverlay());
         };
 
         // Ban screen: clear stale enemy info, then kick off analysis.

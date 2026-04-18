@@ -26,6 +26,7 @@ public partial class OverlayWindow : Window
     // The full-screen instruction layer shown at the start of ban detection.
     private FrameworkElement? _banInstructionLayer;
     private FrameworkElement? _banInputBlockLayer;
+    private FrameworkElement? _banTimedMessageLayer;
 
     // Debug card border overlays, keyed by ShopItem.Id.
     private readonly Dictionary<string, FrameworkElement> _debugBorderPool = [];
@@ -455,6 +456,61 @@ public partial class OverlayWindow : Window
         UpdateClickThroughMode();
     }
 
+    public void ShowBanTimedMessageOverlay(string message)
+    {
+        HideBanTimedMessageOverlay();
+
+        var container = new Grid
+        {
+            Width = ActualWidth > 0 ? ActualWidth : 1280,
+            Height = ActualHeight > 0 ? ActualHeight : 720,
+            IsHitTestVisible = true
+        };
+
+        var dim = new Rectangle
+        {
+            Fill = new SolidColorBrush(Color.FromArgb(0xE6, 0x00, 0x00, 0x00)),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+
+        var text = new TextBlock
+        {
+            Text = message,
+            Foreground = Brushes.White,
+            FontSize = 40,
+            FontWeight = FontWeights.Bold,
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(48),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Colors.Black,
+                BlurRadius = 12,
+                ShadowDepth = 2,
+                Opacity = 0.85
+            }
+        };
+
+        container.Children.Add(dim);
+        container.Children.Add(text);
+        OverlayCanvas.Children.Add(container);
+        _banTimedMessageLayer = container;
+        UpdateClickThroughMode();
+    }
+
+    public void HideBanTimedMessageOverlay()
+    {
+        if (_banTimedMessageLayer != null)
+        {
+            OverlayCanvas.Children.Remove(_banTimedMessageLayer);
+            _banTimedMessageLayer = null;
+        }
+        UpdateClickThroughMode();
+    }
+
     // ?? Ban avatar markers ????????????????????????????????????????????????????
 
     /// <summary>
@@ -563,7 +619,9 @@ public partial class OverlayWindow : Window
 
     private void UpdateClickThroughMode()
     {
-        bool shouldBlockInput = _banInstructionLayer != null || _banInputBlockLayer != null;
+        bool shouldBlockInput = _banInstructionLayer != null
+            || _banInputBlockLayer != null
+            || _banTimedMessageLayer != null;
         SetClickThrough(!shouldBlockInput);
     }
 }

@@ -31,6 +31,7 @@ public class OcrScannerService : IDisposable
     private bool _banScreenActive;
     private int _banScreenConsecutiveTicks;
     private int _banScreenAbsentTicks;
+    private volatile bool _pauseBanScreenDetection;
     private const int BanDetectThreshold = 2;
     private const int BanLostThreshold   = 3;
 
@@ -87,6 +88,17 @@ public class OcrScannerService : IDisposable
 
     public void Start() => _scanTimer.Start();
 
+    /// <summary>
+    /// Temporarily pauses ban-screen state-machine OCR checks. This is used while
+    /// app-controlled fullscreen overlays are shown, so those overlays do not
+    /// accidentally trigger BanScreenLost/BanScreenDetected flapping.
+    /// </summary>
+    public void SetBanScreenDetectionPaused(bool paused)
+    {
+        _pauseBanScreenDetection = paused;
+        AppLogger.Info("BanScreen", $"Ban screen detection paused={paused}");
+    }
+
     private async void OnScanTick(object? sender, ElapsedEventArgs e)
     {
         // Skip if a previous scan is still running.
@@ -109,8 +121,10 @@ public class OcrScannerService : IDisposable
 
             var regions = _ocrStrategy.GetScanRegions();
 
-        // Ban screen detection runs every tick regardless of tracked operators.
-        await DetectBanScreenAsync(screenshot, regions, imgWidth, imgHeight);
+            // Ban screen detection runs every tick unless explicitly paused
+            // (e.g. when app-owned overlays cover the game window).
+            if (!_pauseBanScreenDetection)
+                await DetectBanScreenAsync(screenshot, regions, imgWidth, imgHeight);
 
             var shopRegion = regions.FirstOrDefault(r => r.Name == "Shop");
             if (shopRegion == null)
