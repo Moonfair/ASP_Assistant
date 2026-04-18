@@ -24,6 +24,7 @@ public record BanScreenResult(
 public sealed class BanScreenAnalyzer
 {
     private const int SectionTopPaddingPx = 200;
+    private const int AnchorRetryNudgeClicks = -1;
 
     private readonly ScreenCaptureService _capture;
     private readonly IOcrEngine _ocr;
@@ -163,7 +164,11 @@ public sealed class BanScreenAnalyzer
             AppConsole.WriteLine($"[BanAnalyzer] 截图 #1 完成 ({w1}×{h1})");
 
             var enemyTask = RecognizeEnemyAsync(shot1, w1, h1);
-            var coreAnchor = await FindSectionAnchorByGroupAsync(shot1, w1, h1, "Core");
+            var coreAnchorResult = await FindAnchorWithDownwardRetryAsync("Core", shot1, w1, h1);
+            shot1 = coreAnchorResult.Screenshot;
+            w1 = coreAnchorResult.ImgWidth;
+            h1 = coreAnchorResult.ImgHeight;
+            var coreAnchor = coreAnchorResult.Anchor;
             await ScrollSectionTopToScreenTopAsync("Core", coreAnchor, h1);
 
             // ── Screenshot #2: core ban parse + locate Additional anchor ───────
@@ -178,7 +183,11 @@ public sealed class BanScreenAnalyzer
             var (w2, h2) = GetPngDimensions(shot2);
             AppConsole.WriteLine($"[BanAnalyzer] 截图 #2 完成 ({w2}×{h2})");
 
-            var additionalAnchor = await FindSectionAnchorByGroupAsync(shot2, w2, h2, "Additional");
+            var additionalAnchorResult = await FindAnchorWithDownwardRetryAsync("Additional", shot2, w2, h2);
+            shot2 = additionalAnchorResult.Screenshot;
+            w2 = additionalAnchorResult.ImgWidth;
+            h2 = additionalAnchorResult.ImgHeight;
+            var additionalAnchor = additionalAnchorResult.Anchor;
             await ScrollSectionTopToScreenTopAsync("Additional", additionalAnchor, h2);
 
             // ── Screenshot #3: additional ban parse ─────────────────────────────
@@ -219,6 +228,39 @@ public sealed class BanScreenAnalyzer
             AnalysisBusyChanged?.Invoke(false);
             Interlocked.Exchange(ref _running, 0);
         }
+    }
+
+    private async Task<(System.Drawing.Point? Anchor, byte[] Screenshot, int ImgWidth, int ImgHeight)>
+        FindAnchorWithDownwardRetryAsync(string group, byte[] screenshot, int imgWidth, int imgHeight)
+    {
+        var anchor = await FindSectionAnchorByGroupAsync(screenshot, imgWidth, imgHeight, group);
+        if (anchor != null)
+            return (anchor, screenshot, imgWidth, imgHeight);
+
+        var hwnd = User32.FindArknightsWindow();
+        if (hwnd == IntPtr.Zero)
+        {
+            AppLogger.Warn("BanAnalyzer",
+                $"{group}: anchor not found and game window unavailable, skip retry nudge");
+            return (null, screenshot, imgWidth, imgHeight);
+        }
+
+        int dy = AnchorRetryNudgeClicks * 120;
+        AppConsole.WriteLine($"[BanAnalyzer] 未识别到 {group}，先下滑一次重试 (dy={dy})...");
+        bool ok = _maaScroll.TryScrollAtWindowCenter(hwnd, dy);
+        AppLogger.Info("BanAnalyzer", $"{group}: retry nudge scroll dy={dy} success={ok}");
+        await Task.Delay(ScrollSettleMs);
+
+        var retryShot = _capture.CaptureScreen();
+        if (retryShot == null)
+        {
+            AppLogger.Warn("BanAnalyzer", $"{group}: retry screenshot failed after nudge");
+            return (null, screenshot, imgWidth, imgHeight);
+        }
+
+        var (retryW, retryH) = GetPngDimensions(retryShot);
+        var retryAnchor = await FindSectionAnchorByGroupAsync(retryShot, retryW, retryH, group);
+        return (retryAnchor, retryShot, retryW, retryH);
     }
 
     // ── Enemy recognition ─────────────────────────────────────────────────────
