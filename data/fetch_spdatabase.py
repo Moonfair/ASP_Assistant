@@ -77,8 +77,15 @@ BOND_BAN = {"绝技"}
 BAN_SCREEN_EXCLUDE_PREFIXES = ("预备干员-",)
 BAN_SCREEN_EXCLUDE_SUFFIXES = ("(卫戍协议)",)
 
-# 手动指定为"转职装备"的装备名称（用于名称中不含盟约名称但属于转职装备的情况，如维多利亚系列）
-MANUAL_JOB_CHANGE_EQUIPMENTS: list[str] = ["维氏重锤","战栗维式重锤","坚固维式重锤","加速维式重锤","灼燃维式重锤"]
+# 手动指定为"转职装备"的装备名称及其对应盟约（用于名称中不含盟约名称但属于转职装备的情况，如维多利亚系列）
+MANUAL_JOB_CHANGE_EQUIPMENT_COVENANTS: dict[str, str] = {
+    "维氏重锤":      "维多利亚",
+    "战栗维式重锤":  "维多利亚",
+    "坚固维式重锤":  "维多利亚",
+    "加速维式重锤":  "维多利亚",
+    "灼燃维式重锤":  "维多利亚",
+}
+MANUAL_JOB_CHANGE_EQUIPMENTS: list[str] = list(MANUAL_JOB_CHANGE_EQUIPMENT_COVENANTS.keys())
 
 # 赛季配置
 SP_SEASONS = {
@@ -284,6 +291,84 @@ def process_equipment(season_data: dict) -> list[dict]:
         equipment_list.append(equip)
 
     return equipment_list
+
+
+# ── 盟约（激活阈值 + 转职装备映射）────────────────────────────────────────────
+
+def process_covenants(
+    season_bond_dict: dict,
+    global_bond_dict: dict,
+) -> list[dict]:
+    """
+    输出每个盟约的：name、bondType（SEASON/REGULAR）、activateCount。
+    数据源：
+      - 激活阈值来自当前赛季的 bondInfoDict（含 activeCount/activeParamList 等字段）
+      - bondType 通过 bondId 跨表查 global bondInfoDict（autoChessData.bondInfoDict）
+    阈值缺失时写入 null，便于在 covenants.user.json 中手动补齐。
+    """
+    covenants: list[dict] = []
+
+    for bond_id, season_bond in season_bond_dict.items():
+        name = (season_bond.get("name") or "").strip()
+        if not name or name in BOND_BAN:
+            continue
+
+        active_count: Optional[int] = None
+        if isinstance(season_bond.get("activeCount"), int):
+            active_count = season_bond["activeCount"]
+        elif season_bond.get("activeParamList"):
+            try:
+                active_count = int(season_bond["activeParamList"][0])
+            except (ValueError, TypeError, IndexError):
+                active_count = None
+
+        if active_count is None:
+            print(f"  [WARN] 盟约 {name} ({bond_id}) 无法解析 activeCount，"
+                  f"请在 covenants.user.json 中手动补齐")
+
+        global_bond = global_bond_dict.get(bond_id) or {}
+        bond_type = global_bond.get("bondType") or "REGULAR"
+
+        covenants.append({
+            "name":          name,
+            "bondType":      bond_type,
+            "activateCount": active_count,
+        })
+
+    # 以 SEASON 在前、REGULAR 在后；同类内按 name 排序，保证 diff 稳定
+    covenants.sort(key=lambda c: (0 if c["bondType"] == "SEASON" else 1, c["name"]))
+    return covenants
+
+
+def build_job_change_equipment_map(
+    equipment_list: list[dict],
+    core_covenant_names: list[str],
+) -> dict[str, str]:
+    """
+    构建 转职装备 → 核心盟约 映射。
+    规则：
+      - 装备名包含某核心盟约名 → 该盟约（如「拉特兰之握」→「拉特兰」）
+      - 否则若在 MANUAL_JOB_CHANGE_EQUIPMENT_COVENANTS 中 → 手动指定的盟约
+    其它装备（普通/专属）不产出条目。
+    """
+    result: dict[str, str] = {}
+    # 长盟约名优先匹配（避免「迅捷之刃」误匹配）；core_covenant_names 通常是中文短词，
+    # 但为安全起见仍按长度倒序
+    sorted_covenants = sorted(set(core_covenant_names), key=len, reverse=True)
+
+    for eq in equipment_list:
+        name = eq.get("name", "")
+        matched: Optional[str] = None
+        for c in sorted_covenants:
+            if c and c in name:
+                matched = c
+                break
+        if matched is None and name in MANUAL_JOB_CHANGE_EQUIPMENT_COVENANTS:
+            matched = MANUAL_JOB_CHANGE_EQUIPMENT_COVENANTS[name]
+        if matched is not None:
+            result[name] = matched
+
+    return result
 
 
 # ── 图片后处理 ────────────────────────────────────────────────────────────────
@@ -757,6 +842,47 @@ def main():
     print("处理装备数据...")
     equipment = process_equipment(season_data)
     print(f"  装备数: {len(equipment)}")
+
+    # 5b. 处理盟约（激活阈值 + 转职装备映射）
+    print("处理盟约数据...")
+    season_bond_dict = season_data.get("bondInfoDict", {})
+    covenants_data = process_covenants(season_bond_dict, bond_info_dict)
+    core_covenant_names = [c["name"] for c in covenants_data if c["bondType"] == "SEASON"]
+    job_change_map = build_job_change_equipment_map(equipment, core_covenant_names)
+    print(f"  盟约数: {len(covenants_data)} (核心 SEASON: {len(core_covenant_names)})")
+    print(f"  转职装备 → 盟约映射: {len(job_change_map)}")
+
+    covenants_path = data_dir / "covenants.json"
+    with open(covenants_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "covenants": covenants_data,
+                "jobChangeEquipmentToCovenant": job_change_map,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+    print(f"  {covenants_path.resolve()} ({covenants_path.stat().st_size / 1024:.1f} KB)")
+
+    # 若用户未创建过 covenants.user.json，则生成模板（仅含未解析阈值的盟约）
+    user_template_path = data_dir / "covenants.user.json"
+    missing = [c for c in covenants_data if c["activateCount"] is None]
+    if missing and not user_template_path.exists():
+        with open(user_template_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "_comment": "手动覆盖 covenants.json 中无法自动解析的字段；本文件应用启动时会与 covenants.json 合并（user 优先）。",
+                    "covenants": [
+                        {"name": c["name"], "activateCount": None}
+                        for c in missing
+                    ],
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+        print(f"  已生成手动覆盖模板：{user_template_path.name}")
 
     # 6. 下载图标
     if not args.skip_icons:

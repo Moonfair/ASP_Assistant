@@ -1,0 +1,127 @@
+{
+  "covenants": [
+    {
+      "name": "卡西米尔",
+      "bondType": "SEASON",
+      "activateCount": 3
+    },
+    {
+      "name": "叙拉古",
+      "bondType": "SEASON",
+      "activateCount": 3
+    },
+    {
+      "name": "拉特兰",
+      "bondType": "SEASON",
+      "activateCount": 3
+    },
+    {
+      "name": "炎",
+      "bondType": "SEASON",
+      "activateCount": 3
+    },
+    {
+      "name": "维多利亚",
+      "bondType": "SEASON",
+      "activateCount": 3
+    },
+    {
+      "name": "萨尔贡",
+      "bondType": "SEASON",
+      "activateCount": 3
+    },
+    {
+      "name": "谢拉格",
+      "bondType": "SEASON",
+      "activateCount": 3
+    },
+    {
+      "name": "阿戈尔",
+      "bondType": "SEASON",
+      "activateCount": 3
+    },
+    {
+      "name": "不屈",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "助力",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "协防干员",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "坚守",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "奇迹",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "奥术",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "投资人",
+      "bondType": "REGULAR",
+      "activateCount": 3
+    },
+    {
+      "name": "灵巧",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "独行",
+      "bondType": "REGULAR",
+      "activateCount": 1
+    },
+    {
+      "name": "突袭",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "精准",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "调和",
+      "bondType": "REGULAR",
+      "activateCount": 1
+    },
+    {
+      "name": "迅捷",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    },
+    {
+      "name": "远见",
+      "bondType": "REGULAR",
+      "activateCount": 2
+    }
+  ],
+  "jobChangeEquipmentToCovenant": {
+    "战栗维式重锤": "维多利亚",
+    "萨尔贡浓茶": "萨尔贡",
+    "叙拉古正装": "叙拉古",
+    "炎国短刀": "炎",
+    "阿戈尔重刃": "阿戈尔",
+    "坚固维式重锤": "维多利亚",
+    "加速维式重锤": "维多利亚",
+    "卡西米尔竞技旗": "卡西米尔",
+    "拉特兰桥夹": "拉特兰",
+    "灼燃维式重锤": "维多利亚",
+    "谢拉格不融冰": "谢拉格"
+  }
+}

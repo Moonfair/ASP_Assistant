@@ -1,8 +1,13 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
+using ASPAssistant.App.Views;
+using ASPAssistant.Core;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Interop;
+using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
 
@@ -16,9 +21,15 @@ public partial class SidePanelWindow : Window
     public GameStateViewModel GameStateVm { get; }
     public BanViewModel BanVm { get; }
     public EnemyViewModel EnemyVm { get; }
+    public LineupViewModel LineupVm { get; }
 
     public event Action? ManualScanRequested;
     public event Action<string, bool>? BanToggleRequested;
+
+    private readonly LineupShareService _lineupShareService;
+    private readonly IReadOnlyList<Operator> _allOperators;
+    private readonly IReadOnlyList<Equipment> _allEquipment;
+    private readonly DispatcherTimer _toastHideTimer;
 
     private UpdateService? _updateService;
     private SettingsManager? _settingsManager;
@@ -53,7 +64,11 @@ public partial class SidePanelWindow : Window
         TrackingViewModel trackingVm,
         GameStateViewModel gameStateVm,
         BanViewModel banVm,
-        EnemyViewModel enemyVm)
+        EnemyViewModel enemyVm,
+        LineupViewModel lineupVm,
+        LineupShareService lineupShareService,
+        IReadOnlyList<Operator> allOperators,
+        IReadOnlyList<Equipment> allEquipment)
     {
         OperatorBrowseVm = operatorVm;
         EquipmentBrowseVm = equipmentVm;
@@ -61,8 +76,18 @@ public partial class SidePanelWindow : Window
         GameStateVm = gameStateVm;
         BanVm = banVm;
         EnemyVm = enemyVm;
+        LineupVm = lineupVm;
+        _lineupShareService = lineupShareService;
+        _allOperators = allOperators;
+        _allEquipment = allEquipment;
 
         InitializeComponent();
+
+        _toastHideTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2.5),
+        };
+        _toastHideTimer.Tick += (_, _) => HideToast();
 
         LocationChanged += OnLocationChanged;
         SizeChanged     += OnSizeChanged;
@@ -74,6 +99,8 @@ public partial class SidePanelWindow : Window
         EquipmentView.DataContext = equipmentVm;
         TrackingView.DataContext = trackingVm;
         EnemyView.DataContext = enemyVm;
+        LineupView.DataContext = lineupVm;
+        WireLineupView();
 
         OperatorView.IsTrackedCheck = trackingVm.IsTracked;
         EquipmentView.IsTrackedCheck = trackingVm.IsTracked;
@@ -366,5 +393,163 @@ public partial class SidePanelWindow : Window
     {
         User32.UnregisterHotKey(new WindowInteropHelper(this).Handle, HotkeyIdManualScan);
         Application.Current.Shutdown();
+    }
+
+    // ── Lineup feature wiring ──────────────────────────────────────────────
+
+    private void WireLineupView()
+    {
+        LineupView.NewLineupRequested += () => OpenEditor(null);
+        LineupView.EditLineupRequested += lineup => OpenEditor(lineup);
+        LineupView.DeleteLineupRequested += async lineup =>
+        {
+            var ok = MessageBox.Show(
+                this,
+                $"确定删除阵容“{lineup.Name}”？此操作不可撤销。",
+                "删除阵容",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning);
+            if (ok != MessageBoxResult.OK) return;
+            try
+            {
+                await LineupVm.DeleteAsync(lineup);
+                LineupView.RefreshAllBadges();
+                ShowToast($"已删除阵容“{lineup.Name}”");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"删除失败：{ex.Message}");
+            }
+        };
+
+        LineupView.ShareLineupRequested += async lineup =>
+        {
+            try
+            {
+                ShowToast("正在生成分享链接…");
+                var url = await _lineupShareService.ExportAsync(lineup);
+                Clipboard.SetText(url);
+                ShowToast($"分享链接已复制：{url}");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn("Lineup", $"Share failed: {ex.Message}");
+                ShowToast($"分享失败：{ex.Message}");
+            }
+        };
+
+        LineupView.ImportLineupRequested += async () =>
+        {
+            string clipboard = "";
+            try { clipboard = Clipboard.GetText() ?? ""; } catch { /* ignore clipboard race */ }
+
+            var dlg = new InputDialog(
+                "导入阵容",
+                "粘贴 dpaste.com 短链接 或 阵容 JSON：",
+                clipboard.Trim())
+            {
+                Owner = this,
+            };
+            if (dlg.ShowDialog() != true) return;
+            var input = dlg.InputText.Trim();
+            if (string.IsNullOrEmpty(input)) return;
+
+            try
+            {
+                ShowToast("正在导入…");
+                var lineup = await _lineupShareService.ImportAsync(input);
+                // Avoid id collision with existing lineups by re-id-ing on import.
+                lineup.Id = Guid.NewGuid().ToString("N");
+                lineup.UpdatedAt = DateTime.UtcNow;
+                if (string.IsNullOrWhiteSpace(lineup.Name))
+                    lineup.Name = "导入的阵容";
+                await LineupVm.AddOrUpdateAsync(lineup);
+                LineupView.RefreshAllBadges();
+                ShowToast($"已导入阵容“{lineup.Name}”");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn("Lineup", $"Import failed: {ex.Message}");
+                ShowToast($"导入失败：{ex.Message}");
+            }
+        };
+
+        LineupView.TrackLineupRequested += lineup =>
+        {
+            try
+            {
+                TrackingVm.ClearAllTracking();
+                var addedOps = new HashSet<string>();
+                var addedEquips = new HashSet<string>();
+                foreach (var slot in lineup.Slots)
+                {
+                    if (!string.IsNullOrEmpty(slot.OperatorName) && addedOps.Add(slot.OperatorName))
+                        TrackingVm.AddTracking(slot.OperatorName, TrackingType.Operator);
+                    foreach (var eq in slot.Equipments)
+                    {
+                        if (!string.IsNullOrEmpty(eq) && addedEquips.Add(eq))
+                            TrackingVm.AddTracking(eq, TrackingType.Equipment);
+                    }
+                }
+                ShowToast($"已追踪阵容“{lineup.Name}”：{addedOps.Count} 干员 / {addedEquips.Count} 装备");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"追踪失败：{ex.Message}");
+            }
+        };
+    }
+
+    private void OpenEditor(Lineup? source)
+    {
+        var calc = LineupVm.Calculator;
+        var editorVm = new LineupEditorViewModel(source, _allOperators, _allEquipment, calc);
+        var window = new LineupEditorWindow(editorVm) { Owner = this };
+        if (window.ShowDialog() != true || window.Result is null) return;
+
+        _ = LineupVm.AddOrUpdateAsync(window.Result).ContinueWith(_ =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                LineupView.RefreshAllBadges();
+                ShowToast(source is null ? "已创建阵容" : "已保存阵容");
+            });
+        });
+    }
+
+    // ── Transient toast ────────────────────────────────────────────────────
+
+    public void ShowToast(string message)
+    {
+        ToastText.Text = message;
+        ToastBorder.Visibility = Visibility.Visible;
+
+        var fadeIn = new DoubleAnimation
+        {
+            From = ToastBorder.Opacity,
+            To = 1.0,
+            Duration = TimeSpan.FromMilliseconds(140),
+        };
+        ToastBorder.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+
+        _toastHideTimer.Stop();
+        _toastHideTimer.Start();
+    }
+
+    private void HideToast()
+    {
+        _toastHideTimer.Stop();
+
+        var fadeOut = new DoubleAnimation
+        {
+            From = ToastBorder.Opacity,
+            To = 0.0,
+            Duration = TimeSpan.FromMilliseconds(220),
+        };
+        fadeOut.Completed += (_, _) =>
+        {
+            ToastBorder.Visibility = Visibility.Collapsed;
+        };
+        ToastBorder.BeginAnimation(UIElement.OpacityProperty, fadeOut);
     }
 }

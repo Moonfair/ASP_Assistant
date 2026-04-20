@@ -134,10 +134,33 @@
                     <TabItem Header="追踪">
                         <views:TrackingView x:Name="TrackingView" />
                     </TabItem>
+                    <TabItem Header="阵容">
+                        <views:LineupListView x:Name="LineupView" />
+                    </TabItem>
                     <TabItem Header="敌人">
                         <views:EnemyView x:Name="EnemyView" />
                     </TabItem>
                 </TabControl>
+
+                <!-- Transient toast: shown via SidePanelWindow.ShowToast(). Click-through unless visible. -->
+                <Border x:Name="ToastBorder"
+                        HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                        Margin="0,0,0,30"
+                        MaxWidth="280"
+                        Background="#E0202040"
+                        BorderBrush="#664FC3F7"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="12,8"
+                        Visibility="Collapsed"
+                        IsHitTestVisible="False"
+                        Opacity="0">
+                    <TextBlock x:Name="ToastText"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontSize="12"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                </Border>
 
                 <!-- Custom resize grip: three accent-coloured diagonal lines -->
                 <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
