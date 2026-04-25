@@ -96,6 +96,14 @@ public class OcrScannerService : IDisposable
     public void SetBanScreenDetectionPaused(bool paused)
     {
         _pauseBanScreenDetection = paused;
+        if (paused)
+        {
+            // Freeze state transitions while overlays cover the game window.
+            // Keep _banScreenActive as-is, but clear accumulated edge counters
+            // to avoid immediate false lost/detected transitions after resume.
+            _banScreenConsecutiveTicks = 0;
+            _banScreenAbsentTicks = 0;
+        }
         AppLogger.Info("BanScreen", $"Ban screen detection paused={paused}");
     }
 
