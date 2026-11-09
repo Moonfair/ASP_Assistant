@@ -26,6 +26,8 @@ public partial class OperatorBrowseView : UserControl
     private double _filterContentHeight;   // natural rendered height of the filter panel
     private double _scrollAnchorOffset;    // VerticalOffset at which the panel was last at full height
     private bool _suppressToggleEvents;    // prevents re-entrant handlers during programmatic toggle
+    private bool _restoringScrollAnchor;
+    private DispatcherOperation? _pendingScrollRestore;
 
     public OperatorBrowseView()
     {
@@ -33,6 +35,10 @@ public partial class OperatorBrowseView : UserControl
         DataContextChanged += OnViewDataContextChanged;
         FilterToggle.Checked += OnFilterToggleChecked;
         FilterToggle.Click += OnFilterToggleClick;
+        PreviewMouseDown += (_, _) => CancelPendingScrollRestore();
+        PreviewMouseWheel += (_, _) => CancelPendingScrollRestore();
+        PreviewKeyDown += (_, _) => CancelPendingScrollRestore();
+        Unloaded += (_, _) => CancelPendingScrollRestore();
     }
 
     private void OnViewDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -46,6 +52,7 @@ public partial class OperatorBrowseView : UserControl
             CoreCovenantFilterList.SelectedIndex = 0;
             OtherCovenantFilterList.SelectedIndex = 0;
             TraitFilterList.SelectedIndex = 0;
+            StackingFilterList.SelectedIndex = 0;
             TriggerTimingFilterList.SelectedIndex = 0;
 
             // Hook the inner ScrollViewer once the visual tree is ready.
@@ -71,7 +78,8 @@ public partial class OperatorBrowseView : UserControl
         // ExtentHeightChange != 0: operator list was rebuilt by a filter/search change and
         //   WPF adjusted the offset — also not user input.
         // Responding to either would create a feedback loop (height → viewport → scroll → height …).
-        if (FilterToggle.IsChecked != true
+        if (_restoringScrollAnchor || _pendingScrollRestore != null
+            || FilterToggle.IsChecked != true
             || e.VerticalChange == 0
             || e.ViewportHeightChange != 0
             || e.ExtentHeightChange != 0) return;
@@ -180,9 +188,6 @@ public partial class OperatorBrowseView : UserControl
     {
         if (e.OriginalSource is OperatorCard card && card.DataContext is Operator op)
         {
-            // #region agent log
-            System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OperatorBrowseView.xaml.cs:OnOperatorTrackingToggled", message = "TrackingToggled fired", data = new { opName = op.Name, cardIsTracked = card.IsTracked, action = card.IsTracked ? "AddTracking" : "RemoveTracking" }, hypothesisId = "A", runId = "post-fix" }) + "\n");
-            // #endregion
             if (card.IsTracked)
                 TrackingRequested?.Invoke(op.Name, TrackingType.Operator);
             else
@@ -197,9 +202,6 @@ public partial class OperatorBrowseView : UserControl
         {
             if (card.DataContext is Operator op)
             {
-                // #region agent log
-                System.IO.File.AppendAllText(@"c:\PlayGround\ASPA\ASP_Assistant\debug-0aa719.log", System.Text.Json.JsonSerializer.Serialize(new { sessionId = "0aa719", timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), location = "OperatorBrowseView.xaml.cs:RefreshTrackingStates", message = "Refreshing card", data = new { opName = op.Name, newIsTracked = IsTrackedCheck(op.Name) }, hypothesisId = "B", runId = "post-fix" }) + "\n");
-                // #endregion
                 card.RefreshTrackedState(IsTrackedCheck(op.Name));
             }
         }
@@ -226,9 +228,25 @@ public partial class OperatorBrowseView : UserControl
         };
     }
 
+    private void OnStackingFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is not OperatorBrowseViewModel vm) return;
+        vm.SelectedStackingFilter = StackingFilterList.SelectedIndex switch
+        {
+            1 => true,
+            2 => false,
+            _ => null
+        };
+    }
+
     private void OnClearBansClicked(object sender, RoutedEventArgs e)
     {
-        ClearBansRequested?.Invoke();
+        if (Window.GetWindow(this) is not { } owner) return;
+
+        var result = MessageBox.Show(owner, "确定清除本局的全部禁用记录吗？", "清除 ban 位",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (result == MessageBoxResult.Yes)
+            ClearBansRequested?.Invoke();
     }
 
     private void OnManualScanClicked(object sender, RoutedEventArgs e)
@@ -242,126 +260,154 @@ public partial class OperatorBrowseView : UserControl
         ManualScanStatusText.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // Tier and Trait filters: single-select, shared null-item fix handler
-    private void OnFilterListPreviewMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is not ListBox lb) return;
-        var container = ItemsControl.ContainerFromElement(lb, e.OriginalSource as DependencyObject) as ListBoxItem;
-        if (container == null) return;
-        if (lb.ItemContainerGenerator.IndexFromContainer(container) != 0) return;
-
-        // WPF cannot select a null item via mouse — force selection programmatically
-        lb.SelectedIndex = 0;
-        e.Handled = true;
-    }
-
-    private void OnTierFilterChanged(object sender, SelectionChangedEventArgs e)
+    private void OnMultiFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (DataContext is not OperatorBrowseViewModel vm) return;
-        vm.SelectedTierFilter = TierFilterList.SelectedItem as int?;
+
+        if (sender == TierFilterList)
+            vm.SetTierFilters(TierFilterList.SelectedItems.OfType<int>());
+        else if (sender == TraitFilterList)
+            vm.SetTraitTypeFilters(TraitFilterList.SelectedItems.OfType<string>());
+        else if (sender == TriggerTimingFilterList)
+            vm.SetTriggerTimingFilters(TriggerTimingFilterList.SelectedItems.OfType<string>());
+        else if (sender == CoreCovenantFilterList)
+            vm.SetCoreCovenantFilters(CoreCovenantFilterList.SelectedItems.OfType<string>().Where(s => s.Length > 0));
+        else if (sender == OtherCovenantFilterList)
+            vm.SetOtherCovenantFilters(OtherCovenantFilterList.SelectedItems.OfType<string>().Where(s => s.Length > 0));
     }
 
-    private void OnTraitFilterChanged(object sender, SelectionChangedEventArgs e)
+    private void OnFilterTagClicked(object sender, RoutedEventArgs e)
     {
-        if (DataContext is not OperatorBrowseViewModel vm) return;
-        vm.SelectedTraitTypeFilter = TraitFilterList.SelectedItem as string;
-    }
+        if (sender is not Button { DataContext: OperatorFilterTag tag } || tag.IsSeparator) return;
 
-    private void OnTriggerTimingFilterChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (DataContext is not OperatorBrowseViewModel vm) return;
-        vm.SelectedTriggerTimingFilter = TriggerTimingFilterList.SelectedItem as string;
-    }
-
-
-    // ── Covenant multi-select ────────────────────────────────────────────────
-
-    // Suppress flag prevents cascading SelectionChanged calls during programmatic
-    // selection updates inside HandleCovenantListMouseDown.
-    private bool _suppressCovenantSelectionChanged = false;
-
-    private void OnCoreCovenantPreviewMouseDown(object sender, MouseButtonEventArgs e)
-        => HandleCovenantListMouseDown(CoreCovenantFilterList, e);
-
-    private void OnOtherCovenantPreviewMouseDown(object sender, MouseButtonEventArgs e)
-        => HandleCovenantListMouseDown(OtherCovenantFilterList, e);
-
-    private void HandleCovenantListMouseDown(ListBox lb, MouseButtonEventArgs e)
-    {
-        var container = ItemsControl.ContainerFromElement(lb, e.OriginalSource as DependencyObject) as ListBoxItem;
-        if (container == null) return;
-
-        int idx = lb.ItemContainerGenerator.IndexFromContainer(container);
-
-        _suppressCovenantSelectionChanged = true;
-
-        if (idx == 0) // "全部" clicked — clear all selections in this row
+        var list = tag.Kind switch
         {
-            for (int i = 1; i < lb.Items.Count; i++)
-            {
-                if (lb.ItemContainerGenerator.ContainerFromIndex(i) is ListBoxItem c)
-                    c.IsSelected = false;
-            }
-            container.IsSelected = true;
-        }
-        else // specific covenant clicked — toggle it
+            OperatorFilterKind.Availability => AvailabilityFilterList,
+            OperatorFilterKind.Tier => TierFilterList,
+            OperatorFilterKind.CoreCovenant => CoreCovenantFilterList,
+            OperatorFilterKind.OtherCovenant => OtherCovenantFilterList,
+            OperatorFilterKind.Trait => TraitFilterList,
+            OperatorFilterKind.Stacking => StackingFilterList,
+            OperatorFilterKind.TriggerTiming => TriggerTimingFilterList,
+            _ => null
+        };
+        if (list == null) return;
+
+        CancelPendingScrollRestore();
+        HookScrollViewer();
+        var anchor = CaptureScrollAnchor();
+        _restoringScrollAnchor = true;
+        try
         {
-            container.IsSelected = !container.IsSelected;
+            if (list.SelectionMode == SelectionMode.Single)
+                list.SelectedIndex = 0;
+            else
+                list.SelectedItems.Remove(tag.Value);
 
-            // Deselect 全部 in this row
-            if (lb.ItemContainerGenerator.ContainerFromIndex(0) is ListBoxItem allContainer)
-                allContainer.IsSelected = false;
-
-            // If nothing remains selected in this row, fall back to 全部
-            bool anySelected = false;
-            for (int i = 1; i < lb.Items.Count; i++)
+            UpdateLayout();
+            var target = RestoreScrollAnchor(anchor);
+            // Programmatic scrolling must not alter the partially collapsed filter panel,
+            // including the origin used for the next genuine user scroll.
+            RebaseFilterCollapseAnchor();
+            if (target != null && anchor != null)
             {
-                if (lb.ItemContainerGenerator.ContainerFromIndex(i) is ListBoxItem c && c.IsSelected)
+                var source = OperatorListControl.ItemsSource;
+                // WPF measures the virtualized cache in the background, refining estimated
+                // heights after UpdateLayout. Correct once more after that work settles.
+                _pendingScrollRestore = Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, () =>
                 {
-                    anySelected = true;
-                    break;
-                }
-            }
-            if (!anySelected)
-            {
-                if (lb.ItemContainerGenerator.ContainerFromIndex(0) is ListBoxItem allContainer2)
-                    allContainer2.IsSelected = true;
+                    _pendingScrollRestore = null;
+                    if (!ReferenceEquals(source, OperatorListControl.ItemsSource)) return;
+                    _restoringScrollAnchor = true;
+                    try { AlignScrollAnchor(anchor, target); }
+                    finally
+                    {
+                        RebaseFilterCollapseAnchor();
+                        _restoringScrollAnchor = false;
+                    }
+                });
             }
         }
-
-        _suppressCovenantSelectionChanged = false;
-        UpdateCovenantFiltersInVm();
+        finally
+        {
+            _restoringScrollAnchor = false;
+        }
         e.Handled = true;
     }
 
-    private void OnCovenantFilterChanged(object sender, SelectionChangedEventArgs e)
+    private sealed record ScrollAnchor(Operator[] PreviousItems, int Index, double ScreenCenterY);
+
+    private void CancelPendingScrollRestore()
     {
-        if (_suppressCovenantSelectionChanged) return;
-        // Handles initial "全部" selection restored by WPF after LoadOperators
-        UpdateCovenantFiltersInVm();
+        if (_pendingScrollRestore != null) RebaseFilterCollapseAnchor();
+        _pendingScrollRestore?.Abort();
+        _pendingScrollRestore = null;
     }
 
-    private void UpdateCovenantFiltersInVm()
+    private void RebaseFilterCollapseAnchor()
     {
-        if (DataContext is not OperatorBrowseViewModel vm) return;
-
-        var core = new List<string>();
-        CollectSelectedCovenants(CoreCovenantFilterList, core);
-        vm.SetCoreCovenantFilters(core);
-
-        var other = new List<string>();
-        CollectSelectedCovenants(OtherCovenantFilterList, other);
-        vm.SetOtherCovenantFilters(other);
+        if (_resultsScrollViewer == null || _filterContentHeight <= 0 || FilterToggle.IsChecked != true) return;
+        double visibleHeight = FilterContentRow.Height.IsAbsolute
+            ? FilterContentRow.Height.Value : _filterContentHeight;
+        // Include offset refinements made by WPF's background cache measurement too.
+        // The next user scroll starts from the panel's current degree of collapse.
+        _scrollAnchorOffset = _resultsScrollViewer.VerticalOffset - (_filterContentHeight - visibleHeight);
     }
 
-    private static void CollectSelectedCovenants(ListBox lb, List<string> selected)
+    private ScrollAnchor? CaptureScrollAnchor()
     {
-        for (int i = 1; i < lb.Items.Count; i++)
+        if (_resultsScrollViewer is not { } scroll || scroll.ViewportHeight <= 0) return null;
+        var card = FindVisualChildren<OperatorCard>(OperatorListControl)
+            .Where(c => c.TranslatePoint(new Point(0, c.ActualHeight), scroll).Y > 0 &&
+                c.TranslatePoint(new Point(), scroll).Y < scroll.ViewportHeight)
+            .MinBy(c => Math.Abs(c.TranslatePoint(new Point(0, c.ActualHeight / 2), scroll).Y - scroll.ViewportHeight / 2));
+        if (card?.DataContext is not Operator op) return null;
+        var items = OperatorListControl.Items.Cast<Operator>().ToArray();
+        return new(items, Array.IndexOf(items, op), card.TranslatePoint(new Point(0, card.ActualHeight / 2), this).Y);
+    }
+
+    private Operator? RestoreScrollAnchor(ScrollAnchor? anchor)
+    {
+        if (anchor == null || _resultsScrollViewer == null || OperatorListControl.Items.Count == 0) return null;
+
+        // Removing one of several OR selections can exclude the old center operator.
+        // Prefer the nearest surviving old result in that case (next result wins ties).
+        var survivors = OperatorListControl.Items.Cast<Operator>().ToHashSet();
+        Operator? target = null;
+        for (int distance = 0; distance < anchor.PreviousItems.Length && target == null; distance++)
         {
-            if (lb.ItemContainerGenerator.ContainerFromIndex(i) is ListBoxItem c
-                && c.IsSelected
-                && lb.Items[i] is string s)
-                selected.Add(s);
+            int next = anchor.Index + distance;
+            int previous = anchor.Index - distance;
+            if (next < anchor.PreviousItems.Length && survivors.Contains(anchor.PreviousItems[next]))
+                target = anchor.PreviousItems[next];
+            else if (previous >= 0 && survivors.Contains(anchor.PreviousItems[previous]))
+                target = anchor.PreviousItems[previous];
+        }
+        if (target == null) return null;
+
+        // The target may be outside the realized range after results are rebuilt.
+        FindChild<VirtualizingStackPanel>(OperatorListControl)?.BringIndexIntoViewPublic(OperatorListControl.Items.IndexOf(target));
+        UpdateLayout();
+        AlignScrollAnchor(anchor, target);
+        return target;
+    }
+
+    private void AlignScrollAnchor(ScrollAnchor anchor, Operator target)
+    {
+        if (_resultsScrollViewer is not { } scroll) return;
+        // Variable-height virtualized cards can refine the extent after each layout.
+        // Correct using actual screen coordinates, also accounting for header wrapping.
+        for (int pass = 0; pass < 4; pass++)
+        {
+            var card = FindVisualChildren<OperatorCard>(OperatorListControl)
+                .FirstOrDefault(c => ReferenceEquals(c.DataContext, target));
+            if (card == null) break;
+            double delta = card.TranslatePoint(new Point(0, card.ActualHeight / 2), this).Y - anchor.ScreenCenterY;
+            if (Math.Abs(delta) < 0.5) break;
+            double offset = Math.Clamp(scroll.VerticalOffset + delta, 0, scroll.ScrollableHeight);
+            if (Math.Abs(offset - scroll.VerticalOffset) < 0.5) break;
+            scroll.ScrollToVerticalOffset(offset);
+            UpdateLayout();
         }
     }
 }

@@ -46,4 +46,52 @@ public class SettingsManagerTests : IDisposable
         loaded.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("{broken")]
+    [InlineData("null")]
+    [InlineData("[null]")]
+    [InlineData("[{\"name\":\"\",\"type\":0}]")]
+    [InlineData("[{\"name\":\"test\",\"type\":99}]")]
+    public async Task LoadTrackingEntries_CorruptFile_PreservesOriginalAndRecovers(string content)
+    {
+        var path = Path.Combine(_tempDir, "tracking.json");
+        await File.WriteAllTextAsync(path, content);
+
+        (await _manager.LoadTrackingEntriesAsync()).Should().BeEmpty();
+        var backup = Directory.GetFiles(_tempDir, "tracking.corrupt-*.json").Should().ContainSingle().Subject;
+        (await File.ReadAllTextAsync(backup)).Should().Be(content);
+        File.Exists(path).Should().BeFalse();
+
+        await _manager.SaveTrackingEntriesAsync([new() { Name = "角峰" }]);
+        (await _manager.LoadTrackingEntriesAsync()).Should().ContainSingle().Which.Name.Should().Be("角峰");
+    }
+
+    [Fact]
+    public async Task SaveTrackingEntries_QueuedSaves_PersistLatestCompleteSnapshot()
+    {
+        var large = Enumerable.Range(0, 10000).Select(i => new TrackingEntry { Name = $"operator-{i}" }).ToList();
+        var first = _manager.SaveTrackingEntriesAsync(large);
+        var last = _manager.SaveTrackingEntriesAsync([new() { Name = "latest" }]);
+        await Task.WhenAll(first, last);
+
+        (await _manager.LoadTrackingEntriesAsync()).Should().ContainSingle().Which.Name.Should().Be("latest");
+        Directory.GetFiles(_tempDir, "*.tmp").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SaveTrackingEntries_ReplacementDenied_KeepsPreviousFile()
+    {
+        await _manager.SaveTrackingEntriesAsync([new() { Name = "previous" }]);
+        var path = Path.Combine(_tempDir, "tracking.json");
+        var original = await File.ReadAllTextAsync(path);
+        using (File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var save = () => _manager.SaveTrackingEntriesAsync([new() { Name = "new" }]);
+            await save.Should().ThrowAsync<Exception>().Where(ex => ex is IOException || ex is UnauthorizedAccessException);
+            (await File.ReadAllTextAsync(path)).Should().Be(original);
+        }
+        Directory.GetFiles(_tempDir, "*.tmp").Should().BeEmpty();
+    }
+
 }

@@ -27,13 +27,13 @@ public partial class EquipmentBrowseView : UserControl
     private void OnTierFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (DataContext is not EquipmentBrowseViewModel vm) return;
-        vm.SelectedTierFilter = TierFilterList.SelectedItem as int?;
+        vm.SetTierFilters(TierFilterList.SelectedItems.OfType<int>());
     }
 
     private void OnTypeFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (DataContext is not EquipmentBrowseViewModel vm) return;
-        vm.SelectedTypeFilter = TypeFilterList.SelectedItem as string ?? "";
+        vm.SetTypeFilters(TypeFilterList.SelectedItems.OfType<string>());
     }
 
     private void OnEquipmentTrackingToggled(object sender, RoutedEventArgs e)

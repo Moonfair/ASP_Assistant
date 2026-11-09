@@ -68,22 +68,39 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Grid>
-                                <Border Padding="7,2" Margin="0,0,3,2"
-                                        Background="#224FC3F7"
-                                        BorderBrush="{StaticResource AccentBrush}"
-                                        BorderThickness="1" CornerRadius="10">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
+                                <Button Content="{Binding Label}" Padding="7,2" Margin="0,0,3,2"
+                                        FontSize="11" Cursor="Hand" ToolTip="点击移除此筛选"
+                                        Click="OnFilterTagClicked">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#224FC3F7" />
+                                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Padding="{TemplateBinding Padding}"
+                                                                Background="{TemplateBinding Background}"
+                                                                BorderBrush="{StaticResource AccentBrush}"
+                                                                BorderThickness="1" CornerRadius="10">
+                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding}" Value="|">
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#444FC3F7" />
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter Property="Background" Value="#664FC3F7" />
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding IsSeparator}" Value="True">
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </Border.Style>
-                                    <TextBlock Text="{Binding}" FontSize="11"
-                                               Foreground="{StaticResource AccentBrush}" />
-                                </Border>
+                                    </Button.Style>
+                                </Button>
                                 <TextBlock Text="|" FontSize="11" Margin="1,0,3,2"
                                            Foreground="{StaticResource TextSecondaryBrush}"
                                            VerticalAlignment="Center">
@@ -91,7 +108,7 @@
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding}" Value="|">
+                                                <DataTrigger Binding="{Binding IsSeparator}" Value="True">
                                                     <Setter Property="Visibility" Value="Visible" />
                                                 </DataTrigger>
                                             </Style.Triggers>
@@ -217,10 +234,10 @@
                 <TextBlock Text="等阶" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,0,0,4" />
                 <ListBox x:Name="TierFilterList"
+                         controls:FilterChipSelection.IsEnabled="True"
                          Style="{StaticResource FilterChipListBox}"
                          ItemsSource="{Binding AvailableTiers}"
-                         PreviewMouseLeftButtonDown="OnFilterListPreviewMouseDown"
-                         SelectionChanged="OnTierFilterChanged">
+                         SelectionChanged="OnMultiFilterChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
@@ -239,11 +256,10 @@
                                Foreground="{StaticResource TextSecondaryBrush}"
                                FontSize="10" Opacity="0.6" Width="30" />
                     <ListBox x:Name="CoreCovenantFilterList"
-                             SelectionMode="Multiple"
+                         controls:FilterChipSelection.IsEnabled="True"
                              Style="{StaticResource FilterChipListBox}"
                              ItemsSource="{Binding AvailableCoreCovenants}"
-                             PreviewMouseLeftButtonDown="OnCoreCovenantPreviewMouseDown"
-                             SelectionChanged="OnCovenantFilterChanged">
+                             SelectionChanged="OnMultiFilterChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
@@ -260,11 +276,10 @@
                                Foreground="{StaticResource TextSecondaryBrush}"
                                FontSize="10" Opacity="0.6" Width="30" />
                     <ListBox x:Name="OtherCovenantFilterList"
-                             SelectionMode="Multiple"
+                         controls:FilterChipSelection.IsEnabled="True"
                              Style="{StaticResource FilterChipListBox}"
                              ItemsSource="{Binding AvailableOtherCovenants}"
-                             PreviewMouseLeftButtonDown="OnOtherCovenantPreviewMouseDown"
-                             SelectionChanged="OnCovenantFilterChanged">
+                             SelectionChanged="OnMultiFilterChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
@@ -277,10 +292,10 @@
                 <TextBlock Text="词条" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,6,0,4" />
                 <ListBox x:Name="TraitFilterList"
+                         controls:FilterChipSelection.IsEnabled="True"
                          Style="{StaticResource FilterChipListBox}"
                          ItemsSource="{Binding AvailableTraitTypes}"
-                         PreviewMouseLeftButtonDown="OnFilterListPreviewMouseDown"
-                         SelectionChanged="OnTraitFilterChanged">
+                         SelectionChanged="OnMultiFilterChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
@@ -289,13 +304,23 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
+                <TextBlock Text="叠层" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="11" Margin="0,6,0,4" />
+                <ListBox x:Name="StackingFilterList"
+                         Style="{StaticResource FilterChipListBox}"
+                         SelectionChanged="OnStackingFilterChanged">
+                    <ListBoxItem Content="全部" />
+                    <ListBoxItem Content="叠层" />
+                    <ListBoxItem Content="非叠层" />
+                </ListBox>
+
                 <TextBlock Text="触发时机" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,6,0,4" />
                 <ListBox x:Name="TriggerTimingFilterList"
+                         controls:FilterChipSelection.IsEnabled="True"
                          Style="{StaticResource FilterChipListBox}"
                          ItemsSource="{Binding AvailableTriggerTimings}"
-                         PreviewMouseLeftButtonDown="OnFilterListPreviewMouseDown"
-                         SelectionChanged="OnTriggerTimingFilterChanged">
+                         SelectionChanged="OnMultiFilterChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"

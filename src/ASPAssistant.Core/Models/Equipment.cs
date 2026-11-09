@@ -27,6 +27,9 @@ public class Equipment
     [JsonPropertyName("iconPath")]
     public string IconPath { get; set; } = "";
 
+    [JsonPropertyName("fusionFormula")]
+    public string FusionFormula { get; set; } = "";
+
     [JsonIgnore]
     public EquipmentType Type { get; set; } = EquipmentType.Normal;
 }

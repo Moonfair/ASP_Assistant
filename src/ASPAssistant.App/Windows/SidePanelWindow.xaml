@@ -33,50 +33,71 @@
                 </DockPanel>
             </Border>
 
-            <!-- Update notification banner (hidden until a new version is found) -->
-            <Border x:Name="UpdateBanner" DockPanel.Dock="Top"
-                    Background="#1A2D4A1E"
-                    BorderBrush="#FF2D4A1E" BorderThickness="0,0,0,1"
-                    Visibility="Collapsed" Padding="10,5">
+            <Grid>
                 <DockPanel>
-                    <Button x:Name="UpdateActionButton" DockPanel.Dock="Right"
-                            Click="OnShowUpdateDialog"
-                            Padding="8,3" FontSize="11" Cursor="Hand"
-                            BorderThickness="0" Background="#FF4CAF50" Foreground="White">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="bg" Background="{TemplateBinding Background}"
-                                        CornerRadius="4" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="bg" Property="Background" Value="#FF66BB6A" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="↑ " FontWeight="Bold" />
-                            <TextBlock Text="查看更新" />
-                        </StackPanel>
-                    </Button>
-                    <TextBlock x:Name="UpdateBannerText"
-                               Foreground="#FF8BC34A" FontSize="11"
-                               VerticalAlignment="Center" />
+                    <!-- Update notification banner (hidden until a new version is found) -->
+                    <Border x:Name="UpdateBanner" DockPanel.Dock="Top"
+                            Background="#1A2D4A1E"
+                            BorderBrush="#FF2D4A1E" BorderThickness="0,0,0,1"
+                            Visibility="Collapsed" Padding="10,5">
+                        <DockPanel>
+                            <Button x:Name="UpdateActionButton" DockPanel.Dock="Right"
+                                    Click="OnShowUpdateDialog"
+                                    Padding="8,3" FontSize="11" Cursor="Hand"
+                                    BorderThickness="0" Background="#FF4CAF50" Foreground="White">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bg" Property="Background" Value="#FF66BB6A" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="↑ " FontWeight="Bold" />
+                                    <TextBlock Text="查看更新" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock x:Name="UpdateBannerText"
+                                       Foreground="#FF8BC34A" FontSize="11"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+                    <Border DockPanel.Dock="Top" Padding="10,6" Background="#FF182736">
+                        <TextBlock x:Name="PreparationStatusText" Text="自动 BP 检测已开启，等待准备界面"
+                                   Foreground="#FF8CDDE5" FontSize="11" TextWrapping="Wrap" />
+                    </Border>
+                    <TabControl Style="{StaticResource DarkTabControl}">
+                        <TabItem Header="干员">
+                            <views:OperatorBrowseView x:Name="OperatorView" />
+                        </TabItem>
+                        <TabItem Header="装备">
+                            <views:EquipmentBrowseView x:Name="EquipmentView" />
+                        </TabItem>
+                        <TabItem Header="追踪">
+                            <views:TrackingView x:Name="TrackingView" />
+                        </TabItem>
+                    </TabControl>
                 </DockPanel>
-            </Border>
-            <TabControl Style="{StaticResource DarkTabControl}">
-                <TabItem Header="干员">
-                    <views:OperatorBrowseView x:Name="OperatorView" />
-                </TabItem>
-                <TabItem Header="装备">
-                    <views:EquipmentBrowseView x:Name="EquipmentView" />
-                </TabItem>
-                <TabItem Header="追踪">
-                    <views:TrackingView x:Name="TrackingView" />
-                </TabItem>
-            </TabControl>
+                <Border x:Name="PreparationOverlay" Background="#FF172C3A"
+                        BorderBrush="#FF64CAD6" BorderThickness="2" Visibility="Collapsed">
+                    <ScrollViewer VerticalAlignment="Center" VerticalScrollBarVisibility="Auto" Padding="20">
+                        <StackPanel>
+                            <TextBlock Text="自动 BP" FontSize="15" FontWeight="Bold"
+                                       Foreground="#FF8CDDE5" />
+                            <TextBlock x:Name="PreparationOverlayTitle" Margin="0,10,0,14"
+                                       Foreground="White" FontSize="24" FontWeight="Bold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="PreparationOverlayText" Foreground="#FFE4F7FA"
+                                       FontSize="17" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
         </DockPanel>
     </Border>
 </Window>

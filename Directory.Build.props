@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Retain build symbols for diagnostics, but never ship machine-specific PDB paths. -->
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+  </PropertyGroup>
+</Project>

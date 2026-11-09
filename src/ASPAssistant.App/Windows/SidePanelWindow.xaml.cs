@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
@@ -15,10 +16,13 @@ public partial class SidePanelWindow : Window
     public BanViewModel BanVm { get; }
 
     public event Action? ManualScanRequested;
+    public event Action? ClearBansRequested;
     public event Action<string, bool>? BanToggleRequested;
 
     private UpdateService? _updateService;
     private UpdateInfo? _pendingUpdate;
+    private readonly DispatcherTimer _preparationResultTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private bool _waitingForScroll;
 
     // 用户意图追踪
     private bool _isUserPositioned;       // 用户手动移动过窗口
@@ -43,6 +47,8 @@ public partial class SidePanelWindow : Window
         BanVm = banVm;
 
         InitializeComponent();
+        _preparationResultTimer.Tick += (_, _) => HidePreparationOverlay();
+        Closed += (_, _) => _preparationResultTimer.Stop();
 
         LocationChanged += OnLocationChanged;
         SizeChanged     += OnSizeChanged;
@@ -65,7 +71,7 @@ public partial class SidePanelWindow : Window
         EquipmentView.UntrackingRequested += name => trackingVm.RemoveTracking(name);
         TrackingView.RemoveTrackingRequested += name => trackingVm.RemoveTracking(name);
 
-        OperatorView.ClearBansRequested += () => banVm.ClearBans();
+        OperatorView.ClearBansRequested += () => ClearBansRequested?.Invoke();
         OperatorView.ManualScanRequested += () => ManualScanRequested?.Invoke();
         OperatorView.BanToggleRequested += (name, banned) => BanToggleRequested?.Invoke(name, banned);
 
@@ -92,6 +98,45 @@ public partial class SidePanelWindow : Window
 
     public void UpdateManualScanStatus(int pending)
         => OperatorView.UpdateManualScanStatus(pending);
+
+    public void UpdatePreparationStatus(PreparationNotice notice)
+    {
+        PreparationStatusText.Text = notice.Text;
+        switch (notice.Kind)
+        {
+            case PreparationNoticeKind.ScrollRequired:
+                _preparationResultTimer.Stop();
+                _waitingForScroll = true;
+                ShowPreparationOverlay("请下拉补全附加盟约", notice.Text);
+                break;
+            case PreparationNoticeKind.Result when notice.IsNewResult || _waitingForScroll:
+                _waitingForScroll = false;
+                ShowPreparationOverlay("识别完成", notice.Text);
+                _preparationResultTimer.Stop();
+                _preparationResultTimer.Start();
+                break;
+            case PreparationNoticeKind.Banner when _waitingForScroll:
+                ShowPreparationOverlay("继续补扫盟约", notice.Text);
+                break;
+            case PreparationNoticeKind.Dismiss:
+                HidePreparationOverlay();
+                break;
+        }
+    }
+
+    private void ShowPreparationOverlay(string title, string text)
+    {
+        PreparationOverlayTitle.Text = title;
+        PreparationOverlayText.Text = text;
+        PreparationOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void HidePreparationOverlay()
+    {
+        _preparationResultTimer.Stop();
+        _waitingForScroll = false;
+        PreparationOverlay.Visibility = Visibility.Collapsed;
+    }
 
     public void StartUpdateCheck(UpdateService updateService)
     {

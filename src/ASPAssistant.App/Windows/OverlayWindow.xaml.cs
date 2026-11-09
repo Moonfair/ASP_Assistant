@@ -162,10 +162,6 @@ public partial class OverlayWindow : Window
     /// </summary>
     public void ShowBanInstructionOverlay()
     {
-        // #region agent log
-        try { var _lp5 = System.IO.Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "debug-591221.log"); System.IO.File.AppendAllText(_lp5, System.Text.Json.JsonSerializer.Serialize(new { sessionId = "591221", hypothesisId = "C+D", location = "OverlayWindow.xaml.cs:ShowBanInstructionOverlay", message = "ShowBanInstructionOverlay called", data = new { isVisible = IsVisible, actualWidth = ActualWidth, actualHeight = ActualHeight, width = Width, height = Height }, timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }) + "\n"); } catch { }
-        // #endregion
-
         // Remove any pre-existing layer (e.g. rapid re-entry).
         HideBanInstructionOverlay();
 

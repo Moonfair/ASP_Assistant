@@ -23,8 +23,7 @@ public partial class OperatorBrowseViewModel : ObservableObject
     [ObservableProperty]
     private string _searchText = "";
 
-    [ObservableProperty]
-    private int? _selectedTierFilter;
+    private readonly HashSet<int> _selectedTierFilters = [];
 
     [ObservableProperty]
     private AvailabilityFilter _selectedAvailabilityFilter = AvailabilityFilter.All;
@@ -32,11 +31,12 @@ public partial class OperatorBrowseViewModel : ObservableObject
     private readonly HashSet<string> _selectedCoreCovenantFilters = [];
     private readonly HashSet<string> _selectedOtherCovenantFilters = [];
 
-    [ObservableProperty]
-    private string? _selectedTraitTypeFilter;
+    private readonly HashSet<string> _selectedTraitTypeFilters = [];
 
     [ObservableProperty]
-    private string? _selectedTriggerTimingFilter;
+    private bool? _selectedStackingFilter;
+
+    private readonly HashSet<string> _selectedTriggerTimingFilters = [];
 
     public List<int?> AvailableTiers { get; private set; } = [];
     public List<string?> AvailableCoreCovenants { get; private set; } = [];
@@ -45,30 +45,34 @@ public partial class OperatorBrowseViewModel : ObservableObject
     public List<string?> AvailableTriggerTimings { get; private set; } = [];
 
     /// <summary>
-    /// Individual tag strings for the active-filter summary bar.
-    /// Regular tags are the filter values; "|" items are dimension separators.
+    /// Active selections with their dimension/value, plus non-interactive group separators.
     /// </summary>
-    public List<string> ActiveFilterTags
+    public List<OperatorFilterTag> ActiveFilterTags
     {
         get
         {
-            var groups = new List<List<string>>();
+            var groups = new List<List<OperatorFilterTag>>();
             if (SelectedAvailabilityFilter != AvailabilityFilter.All)
-                groups.Add([SelectedAvailabilityFilter == AvailabilityFilter.Available ? "本局可用" : "本局不可用"]);
-            if (SelectedTierFilter.HasValue)
-                groups.Add([TierToRoman(SelectedTierFilter.Value)]);
-            var allCovenants = _selectedCoreCovenantFilters.Concat(_selectedOtherCovenantFilters).Order().ToList();
+                groups.Add([new(OperatorFilterKind.Availability, SelectedAvailabilityFilter,
+                    SelectedAvailabilityFilter == AvailabilityFilter.Available ? "本局可用" : "本局不可用")]);
+            if (_selectedTierFilters.Count > 0)
+                groups.Add(_selectedTierFilters.Order().Select(t => new OperatorFilterTag(OperatorFilterKind.Tier, t, TierToRoman(t))).ToList());
+            var allCovenants = _selectedCoreCovenantFilters.Select(c => new OperatorFilterTag(OperatorFilterKind.CoreCovenant, c, c))
+                .Concat(_selectedOtherCovenantFilters.Select(c => new OperatorFilterTag(OperatorFilterKind.OtherCovenant, c, c)))
+                .OrderBy(t => t.Label).ToList();
             if (allCovenants.Count > 0)
                 groups.Add(allCovenants);
-            if (!string.IsNullOrEmpty(SelectedTraitTypeFilter))
-                groups.Add([SelectedTraitTypeFilter]);
-            if (!string.IsNullOrEmpty(SelectedTriggerTimingFilter))
-                groups.Add([$"<{SelectedTriggerTimingFilter}>"]);
+            if (_selectedTraitTypeFilters.Count > 0)
+                groups.Add(_selectedTraitTypeFilters.Order().Select(t => new OperatorFilterTag(OperatorFilterKind.Trait, t, t)).ToList());
+            if (SelectedStackingFilter is bool stacking)
+                groups.Add([new(OperatorFilterKind.Stacking, stacking, stacking ? "叠层" : "非叠层")]);
+            if (_selectedTriggerTimingFilters.Count > 0)
+                groups.Add(_selectedTriggerTimingFilters.Order().Select(t => new OperatorFilterTag(OperatorFilterKind.TriggerTiming, t, $"<{t}>")).ToList());
 
-            var result = new List<string>();
+            var result = new List<OperatorFilterTag>();
             for (int i = 0; i < groups.Count; i++)
             {
-                if (i > 0) result.Add("|");
+                if (i > 0) result.Add(new(OperatorFilterKind.Separator, null, "|"));
                 result.AddRange(groups[i]);
             }
             return result;
@@ -130,10 +134,29 @@ public partial class OperatorBrowseViewModel : ObservableObject
     public void NotifyBansChanged() => ApplyFilters();
 
     partial void OnSearchTextChanged(string value) => ApplyFilters();
-    partial void OnSelectedTierFilterChanged(int? value) => ApplyFilters();
-    partial void OnSelectedTraitTypeFilterChanged(string? value) => ApplyFilters();
-    partial void OnSelectedTriggerTimingFilterChanged(string? value) => ApplyFilters();
+    partial void OnSelectedStackingFilterChanged(bool? value) => ApplyFilters();
     partial void OnSelectedAvailabilityFilterChanged(AvailabilityFilter value) => ApplyFilters();
+
+    public void SetTierFilters(IEnumerable<int> tiers)
+    {
+        _selectedTierFilters.Clear();
+        _selectedTierFilters.UnionWith(tiers);
+        ApplyFilters();
+    }
+
+    public void SetTraitTypeFilters(IEnumerable<string> traits)
+    {
+        _selectedTraitTypeFilters.Clear();
+        _selectedTraitTypeFilters.UnionWith(traits.Where(t => !string.IsNullOrEmpty(t)));
+        ApplyFilters();
+    }
+
+    public void SetTriggerTimingFilters(IEnumerable<string> timings)
+    {
+        _selectedTriggerTimingFilters.Clear();
+        _selectedTriggerTimingFilters.UnionWith(timings.Where(t => !string.IsNullOrEmpty(t)));
+        ApplyFilters();
+    }
 
     public void SetCoreCovenantFilters(IEnumerable<string> covenants)
     {
@@ -162,8 +185,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
                 : filtered.Where(o => !_isBannedCheck(o.Name));
         }
 
-        if (SelectedTierFilter.HasValue)
-            filtered = filtered.Where(o => o.Tier == SelectedTierFilter.Value);
+        if (_selectedTierFilters.Count > 0)
+            filtered = filtered.Where(o => _selectedTierFilters.Contains(o.Tier));
 
         // Core and other covenant dimensions are independent (AND between dimensions,
         // OR within each dimension).
@@ -174,24 +197,28 @@ public partial class OperatorBrowseViewModel : ObservableObject
             filtered = filtered.Where(o =>
                 o.AdditionalCovenants.Any(c => _selectedOtherCovenantFilters.Contains(c)));
 
-        if (!string.IsNullOrEmpty(SelectedTraitTypeFilter))
+        if (_selectedTraitTypeFilters.Count > 0)
             filtered = filtered.Where(o =>
-                o.Normal.Traits.Any(t => t.TraitType == SelectedTraitTypeFilter) ||
-                o.Elite.Traits.Any(t => t.TraitType == SelectedTraitTypeFilter));
+                o.Normal.Traits.Concat(o.Elite.Traits)
+                    .Any(t => _selectedTraitTypeFilters.Contains(t.TraitType)));
 
-        if (!string.IsNullOrEmpty(SelectedTriggerTimingFilter))
+        if (SelectedStackingFilter is bool stacking)
+            filtered = filtered.Where(o => o.Normal.Traits.Concat(o.Elite.Traits)
+                .Any(t => t.TraitDescription.Contains("层数", StringComparison.Ordinal)) == stacking);
+
+        if (_selectedTriggerTimingFilters.Count > 0)
         {
-            var tag = $"<{SelectedTriggerTimingFilter}>";
+            var tags = _selectedTriggerTimingFilters.Select(t => $"<{t}>").ToArray();
             filtered = filtered.Where(o =>
-                o.Normal.Traits.Any(t => t.TraitDescription.Contains(tag)) ||
-                o.Elite.Traits.Any(t => t.TraitDescription.Contains(tag)));
+                o.Normal.Traits.Concat(o.Elite.Traits)
+                    .Any(t => tags.Any(tag => t.TraitDescription.Contains(tag, StringComparison.Ordinal))));
         }
 
         if (!string.IsNullOrEmpty(SearchText))
             filtered = filtered.Where(o =>
                 o.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 
-        FilteredOperators = new ObservableCollection<Operator>(filtered);
+        FilteredOperators = new ObservableCollection<Operator>(filtered.OrderBy(o => o.Tier));
         OnPropertyChanged(nameof(ActiveFilterTags));
     }
 }

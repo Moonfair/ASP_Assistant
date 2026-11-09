@@ -39,10 +39,10 @@ public sealed class MaaBanIconMatcher : IDisposable
     /// ROI for ban-screen operator matching, expressed as fractions of the screenshot dimensions.
     /// Corresponds to the yellow operator grid area on the "确认本局信息" screen.
     /// </summary>
-    public double BanRoiX { get; init; } = 0.216;
-    public double BanRoiY { get; init; } = 0.222;
-    public double BanRoiW { get; init; } = 0.783;
-    public double BanRoiH { get; init; } = 0.775;
+    public double BanRoiX { get; init; } = 0.13;
+    public double BanRoiY { get; init; } = 0.17;
+    public double BanRoiW { get; init; } = 0.565;
+    public double BanRoiH { get; init; } = 0.79;
 
     /// <summary>The application's <c>data/</c> directory passed at construction time.</summary>
     public string DataDir => _dataDir;
@@ -87,21 +87,34 @@ public sealed class MaaBanIconMatcher : IDisposable
         byte[] screenshotPng,
         (string Name, IReadOnlyList<string> TemplateNames) candidate,
         int imgWidth,
-        int imgHeight)
-        => Task.Run(() => FindBestInSlot(screenshotPng, candidate, imgWidth, imgHeight));
+        int imgHeight,
+        System.Drawing.Rectangle? slot = null)
+        => Task.Run(() => FindBestInSlot(screenshotPng, candidate, imgWidth, imgHeight, slot));
 
     private (string Name, bool Hit, System.Drawing.Rectangle HitBox)? FindBestInSlot(
         byte[] screenshotPng, (string Name, IReadOnlyList<string> TemplateNames) candidate,
-        int imgWidth, int imgHeight)
+        int imgWidth, int imgHeight, System.Drawing.Rectangle? slot)
     {
+        // FeatureMatch computes SIFT on the input image even when a small ROI is supplied.
+        // Crop first so automatic scanning does not repeatedly process the entire game frame.
+        var scanBytes = screenshotPng;
+        if (slot is { } portrait)
+        {
+            using var input = new MemoryStream(screenshotPng);
+            using var source = new System.Drawing.Bitmap(input);
+            using var cropped = source.Clone(portrait, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using var output = new MemoryStream();
+            cropped.Save(output, System.Drawing.Imaging.ImageFormat.Png);
+            scanBytes = output.ToArray();
+        }
         using var imgBuf = new MaaImageBuffer();
-        if (!imgBuf.TrySetEncodedData(screenshotPng))
+        if (!imgBuf.TrySetEncodedData(scanBytes))
             return null;
 
-        int roiX = (int)(BanRoiX * imgWidth);
-        int roiY = (int)(BanRoiY * imgHeight);
-        int roiW = (int)(BanRoiW * imgWidth);
-        int roiH = (int)(BanRoiH * imgHeight);
+        int roiX = slot.HasValue ? 0 : (int)(BanRoiX * imgWidth);
+        int roiY = slot.HasValue ? 0 : (int)(BanRoiY * imgHeight);
+        int roiW = slot?.Width ?? (int)(BanRoiW * imgWidth);
+        int roiH = slot?.Height ?? (int)(BanRoiH * imgHeight);
 
         var templateArray = "[" + string.Join(",", candidate.TemplateNames.Select(t => $"\"{t}\"")) + "]";
         var ratio = OperatorRatio.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
@@ -125,8 +138,9 @@ public sealed class MaaBanIconMatcher : IDisposable
             _tasker.GetRecognitionDetail(recoId, out _, out _, out bool wasHit,
                 hitBoxBuf, out string detailJson, null, null);
 
-            return (candidate.Name, wasHit, new System.Drawing.Rectangle(
-                hitBoxBuf.X, hitBoxBuf.Y, hitBoxBuf.Width, hitBoxBuf.Height));
+            var hitBox = new System.Drawing.Rectangle(hitBoxBuf.X, hitBoxBuf.Y, hitBoxBuf.Width, hitBoxBuf.Height);
+            if (slot.HasValue) hitBox.Offset(slot.Value.Location);
+            return (candidate.Name, wasHit && (!slot.HasValue || IsPlausiblePortrait(hitBox, slot.Value)), hitBox);
         }
         catch (Exception ex)
         {
@@ -140,6 +154,17 @@ public sealed class MaaBanIconMatcher : IDisposable
     {
         _tasker.Dispose();
         _nullController.Dispose();
+    }
+
+    public static bool IsPlausiblePortrait(System.Drawing.Rectangle hit, System.Drawing.Rectangle slot)
+    {
+        if (hit.Width < slot.Width * .65 || hit.Height < slot.Height * .65 ||
+            hit.Width > slot.Width * 1.02 || hit.Height > slot.Height * 1.02) return false;
+        if (Math.Abs(hit.Width - hit.Height) > slot.Width * .15) return false;
+        if (Math.Abs(hit.X + hit.Width / 2.0 - slot.X - slot.Width / 2.0) > slot.Width * .15 ||
+            Math.Abs(hit.Y + hit.Height / 2.0 - slot.Y - slot.Height / 2.0) > slot.Height * .15) return false;
+        // Maa may report the entire search ROI when the feature transform is degenerate.
+        return !(hit.Width >= slot.Width * .99 && hit.Height >= slot.Height * .99);
     }
 
     // ?? Null controller ???????????????????????????????????????????????????????

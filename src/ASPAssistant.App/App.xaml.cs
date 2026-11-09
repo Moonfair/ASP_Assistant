@@ -71,13 +71,11 @@ public partial class App : Application
         // Load data
         AppLogger.Info("App", "Loading operators...");
         var operators = await dataStore.LoadOperatorsAsync();
+        var covenantCatalog = await dataStore.LoadCovenantCatalogAsync();
         AppLogger.Info("App", $"Loaded {operators.Count} operators");
 
         var (equipment, manualJobChangeEquipments) = await dataStore.LoadEquipmentAsync();
         AppLogger.Info("App", $"Loaded {equipment.Count} equipment items");
-
-        var skinAvatarMap = await dataStore.LoadSkinAvatarMapAsync();
-        AppLogger.Info("App", $"Loaded {skinAvatarMap.Count} skin avatar entries");
 
         var trackingEntries = await _settingsManager.LoadTrackingEntriesAsync();
         AppLogger.Info("App", $"Loaded {trackingEntries.Count} tracking entries");
@@ -111,31 +109,15 @@ public partial class App : Application
 
         // Services
         var captureService = new ScreenCaptureService();
-        var cardDetector = new MaaCardDetector(dataDir);
         var ocrEngine = new MaaOcrEngine(dataDir);
-        var banIconMatcher = new MaaBanIconMatcher(dataDir);
         _ocrScanner = new OcrScannerService(
-            captureService, garrisonMode.OcrStrategy, cardDetector, ocrEngine, gameState,
-            () => trackingVm.TrackedOperators.Select(o => o.Name).ToList(),
-            getAllOperators: () =>
-            {
-                var covenantLookup = operators.ToDictionary(
-                    o => o.Name,
-                    o => ((IReadOnlyList<string>)o.CoreCovenants, (IReadOnlyList<string>)o.AdditionalCovenants));
-                return skinAvatarMap
-                    .GroupBy(kvp => kvp.Value)
-                    .Select(g =>
-                    {
-                        covenantLookup.TryGetValue(g.Key, out var cv);
-                        return (g.Key,
-                                cv.Item1 ?? (IReadOnlyList<string>)[],
-                                cv.Item2 ?? (IReadOnlyList<string>)[],
-                                (IReadOnlyList<string>)g.Select(kvp => $"skin_avatars/{kvp.Key}").ToList());
-                    })
-                    .ToList();
-            },
-            iconMatcher: banIconMatcher,
-            intervalMs: 1000);
+            captureService, garrisonMode.OcrStrategy, ocrEngine, gameState,
+            () => Dispatcher.Invoke(() => trackingVm.AllEntries.Select(o => o.Name).ToList()),
+            getAllOperators: () => operators.Select(o =>
+                new BanCandidate(o.Name, o.CoreCovenants, o.AdditionalCovenants, [])).ToList(),
+            covenantCatalog: covenantCatalog,
+            intervalMs: 500,
+            shopNames: operators.Select(o => o.Name).Concat(equipment.Select(e => e.Name)).ToList());
 
         _windowTracker = new WindowTrackerService();
 
@@ -196,12 +178,15 @@ public partial class App : Application
         {
             Dispatcher.Invoke(() =>
             {
-                banVm.SetBans(names);
+                banVm.SetBans(_ocrScanner.DetectedBans);
             });
         };
 
         // Manual screenshot scan: button in the operator browse view triggers a one-off scan.
         _sidePanel.ManualScanRequested += () => _ocrScanner!.EnqueueManualScan();
+        _sidePanel.ClearBansRequested += () => _ocrScanner!.ClearBans();
+        _ocrScanner.PreparationStatusChanged += notice =>
+            Dispatcher.InvokeAsync(() => _sidePanel.UpdatePreparationStatus(notice));
 
         // Manual ban/unban from operator card button.
         _sidePanel.BanToggleRequested += (name, banned) =>
@@ -217,12 +202,12 @@ public partial class App : Application
         trackingVm.TrackedOperators.CollectionChanged += async (_, _) =>
         {
             try { await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList()); }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to save tracking: {ex.Message}"); }
+            catch (Exception ex) { AppLogger.Error("Settings", "Failed to save tracking", ex); }
         };
         trackingVm.TrackedEquipment.CollectionChanged += async (_, _) =>
         {
             try { await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList()); }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to save tracking: {ex.Message}"); }
+            catch (Exception ex) { AppLogger.Error("Settings", "Failed to save tracking", ex); }
         };
 
         // Show windows and start services

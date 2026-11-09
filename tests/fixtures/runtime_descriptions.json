@@ -1,0 +1,226 @@
+[
+  {
+    "name": "风絮",
+    "variant": "normal",
+    "chess": {
+      "garrisonIds": [
+        "garrison_36_a"
+      ],
+      "desc": "<休整期结束时> 本回合每获得过一名干员，使已激活的【炎】【聚合】层数<@ba.vup>+2</>（每回合至多叠加16层）"
+    },
+    "garrisons": {
+      "garrison_36_a": {
+        "garrisonDesc": "<休整期结束时>本回合每获得过一名干员<@ba.vup>(已获得{showtag_value_1}名)</>，使已激活的【炎】【聚合】层数<@ba.vup>+2</>（每回合至多叠加16层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "风絮",
+    "variant": "elite",
+    "chess": {
+      "garrisonIds": [
+        "garrison_36_b"
+      ],
+      "desc": "<休整期结束时> 本回合每获得过一名干员，使已激活的【炎】【聚合】层数<@ba.vup>+4</>（每回合至多叠加32层）"
+    },
+    "garrisons": {
+      "garrison_36_b": {
+        "garrisonDesc": "<休整期结束时>本回合每获得过一名干员<@ba.vup>(已获得{showtag_value_1}名)</>，使已激活的【炎】【聚合】层数<@ba.vup>+4</>（每回合至多叠加32层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "极光",
+    "variant": "normal",
+    "chess": {
+      "garrisonIds": [
+        "garrison_50_a"
+      ],
+      "desc": "<获得时> 【谢拉格】层数<@ba.vup>+1</>（每次触发后升级，至多叠加12层）"
+    },
+    "garrisons": {
+      "garrison_50_a": {
+        "garrisonDesc": "<获得时>【谢拉格】层数<@ba.vup>+{showtag_value_1}</>（每次触发后升级，至多叠加12层）",
+        "eventTypeDesc": "单次叠加"
+      }
+    }
+  },
+  {
+    "name": "极光",
+    "variant": "elite",
+    "chess": {
+      "garrisonIds": [
+        "garrison_50_b"
+      ],
+      "desc": "<获得时> 【谢拉格】层数<@ba.vup>+1</>（每次触发后升级，至多叠加12层）"
+    },
+    "garrisons": {
+      "garrison_50_b": {
+        "garrisonDesc": "<获得时>【谢拉格】层数<@ba.vup>+{showtag_value_1}</>（每次触发后升级，至多叠加12层）",
+        "eventTypeDesc": "单次叠加"
+      }
+    }
+  },
+  {
+    "name": "忍冬",
+    "variant": "normal",
+    "chess": {
+      "garrisonIds": [
+        "garrison_74_a"
+      ],
+      "desc": "<获得时> 获得<@ba.vup>1</>次免费刷新（触发2次后升级，至多获得3次免费刷新）"
+    },
+    "garrisons": {
+      "garrison_74_a": {
+        "garrisonDesc": "<获得时>获得<@ba.vup>{showtag_value_1}</>次免费刷新（触发2次后升级，至多获得3次免费刷新）",
+        "eventTypeDesc": "整备能力"
+      }
+    }
+  },
+  {
+    "name": "忍冬",
+    "variant": "elite",
+    "chess": {
+      "garrisonIds": [
+        "garrison_74_b"
+      ],
+      "desc": "<获得时> 获得<@ba.vup>1</>次免费刷新（触发2次后升级，至多获得3次免费刷新）"
+    },
+    "garrisons": {
+      "garrison_74_b": {
+        "garrisonDesc": "<获得时>获得<@ba.vup>{showtag_value_1}</>次免费刷新（触发2次后升级，至多获得3次免费刷新）",
+        "eventTypeDesc": "整备能力"
+      }
+    }
+  },
+  {
+    "name": "安洁莉娜",
+    "variant": "normal",
+    "chess": {
+      "garrisonIds": [
+        "garrison_91_a"
+      ],
+      "desc": "<休整期结束时>本回合每进行过1次刷新，使已激活的【叙拉古】层数<@ba.vup>+2</>（每回合至多叠加8层），【奇迹】层数<@ba.vup>+1</>（每回合至多叠加4层）"
+    },
+    "garrisons": {
+      "garrison_91_a": {
+        "garrisonDesc": "<休整期结束时>本回合每进行过1次刷新<@ba.vup>(已刷新{showtag_value_1}次)</>，使已激活的【叙拉古】层数<@ba.vup>+2</>（每回合至多叠加8层），【奇迹】层数<@ba.vup>+1</>（每回合至多叠加4层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "安洁莉娜",
+    "variant": "elite",
+    "chess": {
+      "garrisonIds": [
+        "garrison_91_b"
+      ],
+      "desc": "<休整期结束时>本回合每进行过1次刷新，使已激活的【叙拉古】层数<@ba.vup>+4</>（每回合至多叠加16层），【奇迹】层数<@ba.vup>+2</>（每回合至多叠加8层）"
+    },
+    "garrisons": {
+      "garrison_91_b": {
+        "garrisonDesc": "<休整期结束时>本回合每进行过1次刷新<@ba.vup>(已刷新{showtag_value_1}次)</>，使已激活的【叙拉古】层数<@ba.vup>+4</>（每回合至多叠加16层），【奇迹】层数<@ba.vup>+2</>（每回合至多叠加8层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "溯光星源",
+    "variant": "normal",
+    "chess": {
+      "garrisonIds": [
+        "garrison_121_a"
+      ],
+      "desc": "<休整期结束时> 本回合每消耗3资金，使已激活的【奥术】层数<@ba.vup>+2</>（每回合至多叠加18层）"
+    },
+    "garrisons": {
+      "garrison_121_a": {
+        "garrisonDesc": "<休整期结束时>本回合每消耗3资金<@ba.vup>(已消耗{showtag_value_1}资金)</>，使已激活的【奥术】层数<@ba.vup>+2</>（每回合至多叠加18层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "溯光星源",
+    "variant": "elite",
+    "chess": {
+      "garrisonIds": [
+        "garrison_121_b"
+      ],
+      "desc": "<休整期结束时> 本回合每消耗3资金，使已激活的【奥术】层数<@ba.vup>+4</>（每回合至多叠加36层）"
+    },
+    "garrisons": {
+      "garrison_121_b": {
+        "garrisonDesc": "<休整期结束时>本回合每消耗3资金<@ba.vup>(已消耗{showtag_value_1}资金)</>，使已激活的【奥术】层数<@ba.vup>+4</>（每回合至多叠加36层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "可露希尔",
+    "variant": "normal",
+    "chess": {
+      "garrisonIds": [
+        "garrison_125_a"
+      ],
+      "desc": "<休整期结束时> 本回合每获得过一名干员，使已激活的【投资人】层数<@ba.vup>+2</>（每回合至多叠加16层）"
+    },
+    "garrisons": {
+      "garrison_125_a": {
+        "garrisonDesc": "<休整期结束时>本回合每获得过一名干员，使已激活的【投资人】层数<@ba.vup>+2</><@ba.vup>(已获得{showtag_value_1}名)</>（每回合至多叠加16层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "可露希尔",
+    "variant": "elite",
+    "chess": {
+      "garrisonIds": [
+        "garrison_125_b"
+      ],
+      "desc": "<休整期结束时> 本回合每获得过一名干员，使已激活的【投资人】层数<@ba.vup>+4</>（每回合至多叠加32层）"
+    },
+    "garrisons": {
+      "garrison_125_b": {
+        "garrisonDesc": "<休整期结束时>本回合每获得过一名干员，使已激活的【投资人】层数<@ba.vup>+4</><@ba.vup>(已获得{showtag_value_1}名)</>（每回合至多叠加32层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "夕",
+    "variant": "normal",
+    "chess": {
+      "garrisonIds": [
+        "garrison_128_a"
+      ],
+      "desc": "<休整期结束时> 本回合每获得过一名干员，使已激活的【炎】【奥术】层数<@ba.vup>+2</>（每回合至多叠加24层）"
+    },
+    "garrisons": {
+      "garrison_128_a": {
+        "garrisonDesc": "<休整期结束时>本回合每获得过一名干员<@ba.vup>(已获得{showtag_value_1}名)</>，使已激活的【炎】【奥术】层数<@ba.vup>+2</>（每回合至多叠加24层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  },
+  {
+    "name": "夕",
+    "variant": "elite",
+    "chess": {
+      "garrisonIds": [
+        "garrison_128_b"
+      ],
+      "desc": "<休整期结束时> 本回合每获得过一名干员，使已激活的【炎】【奥术】层数<@ba.vup>+4</>（每回合至多叠加48层）"
+    },
+    "garrisons": {
+      "garrison_128_b": {
+        "garrisonDesc": "<休整期结束时>本回合每获得过一名干员<@ba.vup>(已获得{showtag_value_1}名)</>，使已激活的【炎】【奥术】层数<@ba.vup>+4</>（每回合至多叠加48层）",
+        "eventTypeDesc": "持续叠加"
+      }
+    }
+  }
+]

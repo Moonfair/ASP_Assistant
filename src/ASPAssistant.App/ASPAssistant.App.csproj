@@ -15,37 +15,24 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\data\**\*.json" Link="data\%(RecursiveDir)%(Filename)%(Extension)">
+    <!-- Ship active catalogues and UI icons only. Legacy avatar/template matching is no longer used. -->
+    <Content Include="..\..\data\operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\source_metadata.json"
+             Link="data\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="..\..\data\icons\**\*.png" Link="data\icons\%(RecursiveDir)%(Filename)%(Extension)">
+    <Content Include="..\..\data\icons\operators\*.png" Link="data\icons\operators\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <!-- Card template images (op_card.png, etc.) copied to data/template/ for reference. -->
-    <Content Include="..\..\data\template\*.png" Link="data\template\%(Filename)%(Extension)">
+    <Content Include="..\..\data\icons\equipment\*.png" Link="data\icons\equipment\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <!-- MaaFramework TemplateMatch bundle: op_card.png is looked up at
-         [bundle]/image/op_card.png when MaaCardDetector calls TemplateMatch. -->
-    <Content Include="..\..\data\template\op_card.png" Link="data\maa_resource\image\op_card.png">
+    <Content Include="..\..\data\model\ocr\det.onnx;..\..\data\model\ocr\rec.onnx;..\..\data\model\ocr\keys.txt"
+             Link="data\model\ocr\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- PRTS operator portrait icons (kept as reference; used until ban_screen set is complete).
-         MaaBanIconMatcher previously looked them up at [bundle]/image/operators/{name}.png. -->
-    <Content Include="..\..\data\icons\operators\*.png" Link="data\maa_resource\image\operators\%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- Skin avatar portraits from PRTS skin_table; used as ban-matching templates.
-         MaaBanIconMatcher looks them up at [bundle]/image/skin_avatars/{avatarId}.png. -->
-    <Content Include="..\..\data\icons\skin_avatars\*.png" Link="data\maa_resource\image\skin_avatars\%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- MaaFramework requires at least one valid JSON file inside pipeline/. -->
-    <Content Include="..\..\data\maa_resource\pipeline\empty.json" Link="data\maa_resource\pipeline\empty.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\..\data\model\**\*" Link="data\model\%(RecursiveDir)%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 </Project>

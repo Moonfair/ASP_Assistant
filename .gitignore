@@ -80,3 +80,9 @@ ehthumbs.db
 # Debug logs
 debug-*.log
 *.log
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/

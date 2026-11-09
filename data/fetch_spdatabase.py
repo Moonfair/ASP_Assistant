@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SPDatabase 数据抓取工具
-从 PRTS Wiki 获取卫戍协议/盟约数据，输出 operators.json 和 equipment.json
+从 PRTS Wiki 获取卫戍协议数据，输出 operators.json 和 equipment.json
 
 数据来源: https://static.prts.wiki/app/spdatabase/index.html
 参考项目: https://github.com/Yanstory/SPDatabase
@@ -16,6 +16,7 @@ import re
 import sys
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -73,8 +74,10 @@ MANUAL_JOB_CHANGE_EQUIPMENTS: list[str] = ["维氏重锤","战栗维式重锤","
 # 赛季配置
 SP_SEASONS = {
     1: {
-        "seasonCode": "act2autochess",
-        "name": "盟约 下半 (Alliance 2nd Phase)",
+        "seasonCode": "act3autochess",
+        "versionCode": "V3_1",
+        "activityType": "AUTOCHESS",
+        "name": "规程 (V3_1)",
         "mode": "ACTIVITY_SEASON",
         "equipIconMap": {
             "盟约之币": "幸运硬币",
@@ -91,19 +94,73 @@ SP_SEASONS = {
             # "数据中的名称": "Wiki图片中的名称",
         },
     },
+    3: {
+        "seasonCode": "act2autochess",
+        "name": "盟约 下半 (存档)",
+        "mode": "ACTIVITY_SEASON_ARC",
+        "archiveFile": "alliance_2nd.json",
+        "equipIconMap": {
+            "盟约之币": "幸运硬币",
+            "奥术法阵": "口袋法阵",
+            "骑士储蓄罐": "竞技投币机",
+        },
+    },
 }
 
 # ── 工具函数 ──────────────────────────────────────────────────────────────────
 
-def fetch_json(url: str) -> dict:
+def fetch_json(url: str, sources: Optional[list[dict]] = None) -> dict:
     print(f"  正在获取: {url}")
     req = urllib.request.Request(url, headers={"User-Agent": "SPDatabase-Scraper/1.0"})
     with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        raw = resp.read()
+        data = json.loads(raw.decode("utf-8"))
+        if sources is not None:
+            sources.append({
+                "url": url,
+                "fetchedAt": datetime.now(timezone.utc).isoformat(),
+                "lastModified": resp.headers.get("Last-Modified"),
+                "etag": resp.headers.get("ETag"),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            })
+        return data
 
 
 def strip_rich_text(text: str) -> str:
-    return re.sub(r'<@[^>]*>|</>', '', text)
+    """Remove styling/link wrappers while preserving gameplay labels like <获得时>."""
+    return re.sub(r'<[@$][^>]*>|</>', '', text)
+
+
+def format_description(
+    text: str,
+    static_text: Optional[str] = None,
+    runtime_values: Optional[dict[str, str]] = None,
+) -> str:
+    """Use upstream static descriptions instead of pretending to know live counters."""
+    result = strip_rich_text(text)
+    placeholder = r'\{[^{}]+\}'
+    if re.search(placeholder, result) and static_text:
+        static_result = strip_rich_text(static_text)
+        if not re.search(placeholder, static_result):
+            return static_result
+
+    def replace(match: re.Match) -> str:
+        key = match.group()[1:-1]
+        if runtime_values is None or key not in runtime_values:
+            raise ValueError(f"说明中存在未解析的占位符 {match.group()}: {text}")
+        return runtime_values[key]
+
+    # Stop before writing either data file if a new upstream format needs support.
+    return re.sub(placeholder, replace, result)
+
+
+def format_equipment_description(effect: dict, buffs: list[dict]) -> str:
+    runtime_values = {}
+    if any(buff.get("key") == "equip_destory_gain_coin" for buff in buffs):
+        # This balance accrues during a match; zero is only the initial value.
+        # Preserve the growth rule in effectDesc, without fabricating a current balance.
+        runtime_values["showtag_value_1"] = "累计的"
+    return format_description(effect.get("effectDesc", ""), runtime_values=runtime_values)
 
 
 def get_prts_media_url(filename: str) -> str:
@@ -136,7 +193,7 @@ def build_traits(chess_entry: dict, garrison_dict: dict) -> list[dict]:
         if gar:
             return [{
                 "traitType": gar["eventTypeDesc"],
-                "traitDescription": strip_rich_text(gar["garrisonDesc"]),
+                "traitDescription": format_description(gar["garrisonDesc"], chess_entry.get("desc")),
             }]
     return []
 
@@ -226,13 +283,38 @@ def process_operators(
 
 # ── 装备处理 ──────────────────────────────────────────────────────────────────
 
+def process_covenants(season_data: dict, bond_info_dict: dict) -> dict:
+    """Include all season covenants, including those without a fixed operator roster."""
+    season_bonds = season_data["bondInfoDict"]
+
+    def pool(bond_ids):
+        bonds = [bond_info_dict[key] for key in bond_ids if key in season_bonds]
+        return {
+            "coreCovenants": [b["name"] for b in bonds if b["bondType"] == "SEASON"],
+            "additionalCovenants": [b["name"] for b in bonds if b["bondType"] == "REGULAR"],
+        }
+
+    catalog = pool(season_bonds)
+    mode_pools = {
+        mode["name"]: {
+            **pool(mode["activeBondIdList"]),
+            **({"selectCoreGroup": True} if "GROUP_SINGLE" in mode.get("groupList", []) else {}),
+        }
+        for mode in season_data.get("modeDataDict", {}).values()
+        if mode.get("activeBondIdList")
+    }
+    if mode_pools:
+        catalog["modePools"] = mode_pools
+    return catalog
+
 def process_equipment(season_data: dict) -> list[dict]:
     """处理装备数据，返回匹配 C# 模型的列表"""
     trap_chess_dict = season_data["trapChessDataDict"]
     trap_shop_dict = season_data["trapShopChessDatas"]
     effect_info_dict = season_data["effectInfoDataDict"]
+    effect_buff_dict = season_data.get("effectBuffInfoDataDict", {})
 
-    equipment_list = []
+    equipment_by_id = {}
 
     for item_id, shop_entry in trap_shop_dict.items():
         if shop_entry.get("itemType") != "EQUIP":
@@ -249,7 +331,7 @@ def process_equipment(season_data: dict) -> list[dict]:
         normal_effect_id = normal_chess.get("effectId")
         normal_effect = effect_info_dict.get(normal_effect_id, {}) if normal_effect_id else {}
         name = normal_effect.get("effectName", item_id)
-        normal_desc = strip_rich_text(normal_effect.get("effectDesc", ""))
+        normal_desc = format_equipment_description(normal_effect, effect_buff_dict.get(normal_effect_id, []))
 
         # 精锐（金色）版本
         elite_desc = ""
@@ -258,9 +340,9 @@ def process_equipment(season_data: dict) -> list[dict]:
             if golden_chess:
                 golden_effect_id = golden_chess.get("effectId")
                 golden_effect = effect_info_dict.get(golden_effect_id, {}) if golden_effect_id else {}
-                elite_desc = strip_rich_text(golden_effect.get("effectDesc", ""))
+                elite_desc = format_equipment_description(golden_effect, effect_buff_dict.get(golden_effect_id, []))
 
-        equip = {
+        equipment_by_id[item_id] = {
             "name": name,
             "iconPath": f"icons/equipment/{name}.png",
             "tier": tier,
@@ -271,9 +353,22 @@ def process_equipment(season_data: dict) -> list[dict]:
                 "effectDescription": elite_desc,
             },
         }
-        equipment_list.append(equip)
+    recipes_by_result = {}
+    for item_id, equip in equipment_by_id.items():
+        chess = trap_chess_dict[item_id]
+        partner_id = chess.get("fuseWith")
+        result_id = chess.get("fuseResult")
+        if not chess.get("canFuse") or partner_id not in equipment_by_id or result_id not in equipment_by_id:
+            continue
+        partner = equipment_by_id[partner_id]
+        # Both ingredients can point to the same result. Keep one formula for the pair.
+        pair = tuple(sorted((item_id, partner_id)))
+        recipes_by_result.setdefault(result_id, {}).setdefault(pair, f"{equip['name']} + {partner['name']}")
 
-    return equipment_list
+    for result_id, recipes in recipes_by_result.items():
+        equipment_by_id[result_id]["fusionFormula"] = "\n".join(recipes.values())
+
+    return list(equipment_by_id.values())
 
 
 # ── 图片后处理 ────────────────────────────────────────────────────────────────
@@ -399,6 +494,7 @@ def main():
     season_cfg = SP_SEASONS[season_no]
     season_code = season_cfg["seasonCode"]
     data_dir = Path(__file__).parent
+    sources: list[dict] = []
 
     print(f"=== SPDatabase 数据抓取工具 ===")
     print(f"赛季: {season_cfg['name']} (season {season_no})\n")
@@ -406,7 +502,7 @@ def main():
     # 1. 获取干员名称表
     print("[1/2] 获取干员数据 (character_table.json)...")
     char_table = fetch_json(
-        f"{TORAPPU_ENDPOINT}/gamedata/latest/excel/character_table.json"
+        f"{TORAPPU_ENDPOINT}/gamedata/latest/excel/character_table.json", sources
     )
     print(f"      共 {len(char_table)} 名干员\n")
 
@@ -414,18 +510,21 @@ def main():
     if season_cfg["mode"] == "ACTIVITY_SEASON_ARC":
         archive_file = season_cfg["archiveFile"]
         print(f"[2/2] 获取存档数据 ({archive_file})...")
-        act_data = fetch_json(f"{ARCHIVE_ENDPOINT}/archive/{archive_file}")
+        act_data = fetch_json(f"{ARCHIVE_ENDPOINT}/archive/{archive_file}", sources)
     else:
         print("[2/2] 获取活动数据 (activity_table.json)...")
         act_data = fetch_json(
-            f"{TORAPPU_ENDPOINT}/gamedata/latest/excel/activity_table.json"
+            f"{TORAPPU_ENDPOINT}/gamedata/latest/excel/activity_table.json", sources
         )
 
     print()
 
     # 3. 定位赛季数据和全局盟约信息
     bond_info_dict = act_data["autoChessData"]["bondInfoDict"]
-    season_data = act_data["activity"]["AUTOCHESS_SEASON"][season_code]
+    activity_type = season_cfg.get("activityType", "AUTOCHESS_SEASON")
+    season_data = act_data["activity"][activity_type][season_code]
+    if "versionCode" in season_cfg:
+        season_data = season_data[season_cfg["versionCode"]]
 
     # 4. 处理干员
     print("处理干员数据...")
@@ -445,7 +544,10 @@ def main():
     # 5. 处理装备
     print("处理装备数据...")
     equipment = process_equipment(season_data)
+    covenants = process_covenants(season_data, bond_info_dict)
     print(f"  装备数: {len(equipment)}")
+    if not operators or not equipment:
+        raise ValueError("上游干员或装备数据为空，停止更新以保留已有数据。")
 
     # 6. 下载图标
     if not args.skip_icons:
@@ -495,7 +597,7 @@ def main():
     if args.download_skins:
         print("\n获取皮肤数据 (skin_table.json)...")
         skin_table = fetch_json(
-            f"{TORAPPU_ENDPOINT}/gamedata/latest/excel/skin_table.json"
+            f"{TORAPPU_ENDPOINT}/gamedata/latest/excel/skin_table.json", sources
         )
         print("下载皮肤头像...")
         avatar_map = process_skin_avatars(operators, skin_table, data_dir)
@@ -526,6 +628,20 @@ def main():
             ensure_ascii=False,
             indent=2,
         )
+
+    metadata_path = data_dir / "source_metadata.json"
+    with open(data_dir / "covenants.json", "w", encoding="utf-8") as f:
+        json.dump(covenants, f, ensure_ascii=False, indent=2)
+
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "season": season_cfg["name"],
+            "seasonCode": season_code,
+            "versionCode": season_cfg.get("versionCode"),
+            "operatorCount": len(operators),
+            "equipmentCount": len(equipment),
+            "sources": sources,
+        }, f, ensure_ascii=False, indent=2)
 
     print(f"\n完成！")
     print(f"  {operators_path.resolve()} ({operators_path.stat().st_size / 1024:.1f} KB)")

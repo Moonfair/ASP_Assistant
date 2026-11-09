@@ -68,86 +68,71 @@ public class UpdateService
         IProgress<double>? progress = null,
         CancellationToken ct = default)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "ASPAssistant-Update");
-        if (Directory.Exists(tempDir))
-            Directory.Delete(tempDir, true);
-        Directory.CreateDirectory(tempDir);
-
-        var zipPath = Path.Combine(tempDir, info.AssetName);
-
-        // Download with progress reporting
-        using var response = await _http.GetAsync(
-            info.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-
-        var totalBytes = response.Content.Headers.ContentLength ?? -1L;
-        await using (var httpStream = await response.Content.ReadAsStreamAsync(ct))
-        await using (var fileStream = File.Create(zipPath))
+        var tempDir = UpdateInstaller.CreateJobDirectory();
+        var installerStarted = false;
+        try
         {
-            var buffer = new byte[65536];
-            long downloaded = 0;
-            int bytesRead;
-            while ((bytesRead = await httpStream.ReadAsync(buffer, ct)) > 0)
+            // Use a fixed local name: release metadata is never interpreted as a path.
+            var zipPath = Path.Combine(tempDir, "update.zip");
+            using var response = await _http.GetAsync(
+                info.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+
+            var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+            await using (var httpStream = await response.Content.ReadAsStreamAsync(ct))
+            await using (var fileStream = File.Create(zipPath))
             {
-                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
-                downloaded += bytesRead;
-                if (totalBytes > 0)
-                    progress?.Report((double)downloaded / totalBytes * 0.9);
+                var buffer = new byte[65536];
+                long downloaded = 0;
+                int bytesRead;
+                while ((bytesRead = await httpStream.ReadAsync(buffer, ct)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
+                    downloaded += bytesRead;
+                    if (totalBytes > 0) progress?.Report((double)downloaded / totalBytes * 0.9);
+                }
+            }
+
+            progress?.Report(0.92);
+            var extractDir = Path.Combine(tempDir, "extracted");
+            ZipFile.ExtractToDirectory(zipPath, extractDir);
+            ct.ThrowIfCancellationRequested();
+            var sourceDir = File.Exists(Path.Combine(extractDir, "ASPAssistant.App.exe"))
+                ? extractDir : Path.Combine(extractDir, "win-x64");
+            var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "ASPAssistant", "logs");
+            var scriptPath = await UpdateInstaller.PrepareAsync(
+                sourceDir, AppContext.BaseDirectory, tempDir, Environment.ProcessId, logDir, ct);
+            progress?.Report(0.97);
+            ct.ThrowIfCancellationRequested();
+
+            var start = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe"),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetTempPath()
+            };
+            foreach (var arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+                         "-NonInteractive", "-File", scriptPath, "-ShowErrorDialog" })
+                start.ArgumentList.Add(arg);
+            using var process = System.Diagnostics.Process.Start(start)
+                ?? throw new IOException("无法启动更新程序。");
+            installerStarted = true;
+            progress?.Report(1.0);
+        }
+        finally
+        {
+            // Once launched, the installer owns cleanup, including copy/restart failures.
+            if (!installerStarted)
+            {
+                try { UpdateInstaller.DeleteJobDirectory(tempDir); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    AppLogger.Error("Updater", "Could not clean failed download", ex);
+                }
             }
         }
-
-        progress?.Report(0.92);
-
-        // Extract zip
-        var extractDir = Path.Combine(tempDir, "extracted");
-        Directory.CreateDirectory(extractDir);
-        ZipFile.ExtractToDirectory(zipPath, extractDir);
-
-        progress?.Report(0.97);
-
-        // Resolve the source directory inside the zip
-        // release.yml zips "publish/win-x64", so the zip contains a "win-x64" root folder
-        var subDirs = Directory.GetDirectories(extractDir);
-        var sourceDir = subDirs.Length == 1 ? subDirs[0] : extractDir;
-
-        var appDir = AppContext.BaseDirectory.TrimEnd('\\', '/');
-        var exePath = Path.Combine(appDir, "ASPAssistant.App.exe");
-        var pid = Environment.ProcessId;
-
-        // Write a PowerShell updater script to run after the app exits
-        var scriptPath = Path.Combine(tempDir, "update.ps1");
-        var scriptContent = $$"""
-            $appPid = {{pid}}
-            Write-Host "等待 ASPAssistant 退出..."
-            $timeout = 30
-            $elapsed = 0
-            while ((Get-Process -Id $appPid -ErrorAction SilentlyContinue) -and ($elapsed -lt $timeout)) {
-                Start-Sleep -Milliseconds 500
-                $elapsed += 0.5
-            }
-            Start-Sleep -Milliseconds 500
-            Write-Host "复制新文件到: {{appDir}}"
-            try {
-                Copy-Item -Path "{{sourceDir}}\*" -Destination "{{appDir}}" -Recurse -Force -ErrorAction Stop
-                Write-Host "更新完成，正在重启..."
-                Start-Process "{{exePath}}"
-            } catch {
-                Write-Host "更新失败: $_"
-                [System.Windows.Forms.MessageBox]::Show("更新时发生错误: $_", "ASPAssistant 更新失败")
-            }
-            """;
-
-        await File.WriteAllTextAsync(scriptPath, scriptContent, ct);
-        progress?.Report(1.0);
-
-        // Launch the update script as a detached background process
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            Arguments = $"-ExecutionPolicy Bypass -WindowStyle Hidden -NonInteractive -File \"{scriptPath}\"",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        });
     }
 
     private static Version ParseVersion(string tag)

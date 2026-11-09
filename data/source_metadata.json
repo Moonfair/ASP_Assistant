@@ -1,0 +1,30 @@
+{
+  "season": "规程 (V3_1)",
+  "seasonCode": "act3autochess",
+  "versionCode": "V3_1",
+  "operatorCount": 141,
+  "equipmentCount": 70,
+  "sources": [
+    {
+      "url": "https://torappu.prts.wiki/gamedata/latest/excel/character_table.json",
+      "fetchedAt": "2026-11-08T11:03:14.976823+00:00",
+      "lastModified": "Sun, 08 Nov 2026 08:04:22 GMT",
+      "etag": "\"6af02d06.02aaa04b-7db470\"",
+      "sha256": "bf578356c458a03242eb82568b82f1e24391767990e57d25d480c465fd7d2267"
+    },
+    {
+      "url": "https://torappu.prts.wiki/gamedata/latest/excel/activity_table.json",
+      "fetchedAt": "2026-11-08T11:03:16.142218+00:00",
+      "lastModified": "Sun, 08 Nov 2026 08:03:41 GMT",
+      "etag": "\"6af02cdd.20536cca-838201\"",
+      "sha256": "5a40a41e4523a3ce84cbee1b60477fff9813d954510e9c42dea192dc3b56864e"
+    },
+    {
+      "url": "https://torappu.prts.wiki/gamedata/latest/excel/skin_table.json",
+      "fetchedAt": "2026-11-08T11:03:54.764595+00:00",
+      "lastModified": "Sun, 08 Nov 2026 08:04:26 GMT",
+      "etag": "\"6af02d0a.0df856bf-29ff12\"",
+      "sha256": "eee9d1b0c41539c3360d1f26a6356cb3cf75c5543be4f15b2612c3a5709ab4df"
+    }
+  ]
+}

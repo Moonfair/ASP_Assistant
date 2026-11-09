@@ -10,7 +10,7 @@ public class GarrisonOcrStrategy : IOcrStrategy
         new("Field", XPercent: 0.10, YPercent: 0.72, WidthPercent: 0.80, HeightPercent: 0.15),
         new("Bench", XPercent: 0.10, YPercent: 0.88, WidthPercent: 0.80, HeightPercent: 0.10),
         // Ban confirmation screen: left faction/covenant panel (faction name labels)
-        new("BanFactionPanel", XPercent: 0.050, YPercent: 0.218, WidthPercent: 0.180, HeightPercent: 0.726),
+        new("BanFactionPanel", XPercent: 0.010, YPercent: 0.170, WidthPercent: 0.115, HeightPercent: 0.790),
     ];
 
     public IReadOnlyList<OcrRegionDefinition> GetScanRegions() => Regions;
