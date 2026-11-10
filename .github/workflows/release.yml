@@ -26,54 +26,29 @@ jobs:
           $version = "${{ github.ref_name }}".TrimStart('v')
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
-      - name: Publish self-contained
-        shell: pwsh
-        run: |
-          dotnet publish src/ASPAssistant.App/ASPAssistant.App.csproj `
-            -c Release -r win-x64 --self-contained true `
-            -p:Version=${{ env.VERSION }} `
-            -o publish/win-x64
+      - name: Run tests
+        run: dotnet test ASPAssistant.sln -c Release
 
-      - name: Trim publish output
-        shell: pwsh
-        run: |
-          $out = "publish/win-x64"
-          # Remove debug symbols
-          Remove-Item "$out\*.pdb" -ErrorAction SilentlyContinue
-          # Remove non-Windows runtimes bundled by MaaFramework NuGet
-          Get-ChildItem "$out\runtimes" -Directory |
-            Where-Object { $_.Name -ne "win-x64" } |
-            ForEach-Object { Remove-Item $_.FullName -Recurse -Force }
+      - name: Run data script tests
+        run: python -B -m unittest discover -s tests
 
-      - name: Bundle VC++ Runtime DLLs
+      - name: Publish self-contained with native prerequisites
         shell: pwsh
-        run: |
-          $out = "publish/win-x64"
-          # These three DLLs are required by MaaFramework's native C++ code.
-          # Microsoft permits redistribution alongside applications per the VC++ EULA.
-          # The GitHub Actions windows-latest runner always has them in System32.
-          $dlls = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll")
-          foreach ($dll in $dlls) {
-            $src = "C:\Windows\System32\$dll"
-            if (Test-Path $src) {
-              Copy-Item $src "$out\$dll" -Force
-              Write-Host "Bundled $dll"
-            } else {
-              Write-Warning "$dll not found in System32 — skipping"
-            }
-          }
+        run: ./scripts/publish.ps1 -Version '${{ env.VERSION }}' -OutputDirectory publish/win-x64
 
       - name: Zip release assets
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          Compress-Archive -Path publish/win-x64/* `
-            -DestinationPath "publish/ASPAssistant-${tag}-win-x64.zip"
+          $version = "${{ github.ref_name }}"
+          Compress-Archive `
+            -Path publish/win-x64 `
+            -DestinationPath "publish/ASPAssistant-${version}-win-x64.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
 
       - name: Setup ossutil
@@ -85,23 +60,22 @@ jobs:
           access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
 
       - name: Upload to Aliyun OSS
-        shell: pwsh
-        run: |
-          $tag = "${{ github.ref_name }}"
-          ossutil cp "publish/ASPAssistant-${tag}-win-x64.zip" `
-            "oss://${{ secrets.OSS_BUCKET }}/releases/ASPAssistant-${tag}-win-x64.zip" `
-            --force
+        run: >
+          ossutil cp
+          publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
+          oss://${{ secrets.OSS_BUCKET }}/releases/ASPAssistant-${{ github.ref_name }}-win-x64.zip
+          --force
 
       - name: Update Pages OSS release info
         shell: pwsh
         run: |
-          $tag    = "${{ github.ref_name }}"
+          $tag = "${{ github.ref_name }}"
           $ossUrl = "https://${{ secrets.OSS_BUCKET }}.${{ secrets.OSS_ENDPOINT }}/releases/ASPAssistant-${tag}-win-x64.zip"
-          $json   = [ordered]@{ version = $tag; url = $ossUrl } | ConvertTo-Json -Compress
+          $json = [ordered]@{ version = $tag; url = $ossUrl } | ConvertTo-Json -Compress
           git fetch origin main
           git checkout main
           [System.IO.File]::WriteAllText("docs/oss-release.json", $json, [System.Text.Encoding]::UTF8)
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/oss-release.json
           git diff --cached --quiet || git commit -m "chore: update OSS release info for ${tag}"

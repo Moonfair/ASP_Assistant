@@ -3,12 +3,14 @@
     <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
     <IsPackable>false</IsPackable>
     <WindowsSdkPackageVersion>10.0.17763.56</WindowsSdkPackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="System.IO" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,10 +26,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ASPAssistant.Core\ASPAssistant.Core.csproj" />
+    <ProjectReference Include="..\ASPAssistant.App\ASPAssistant.App.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="TestData\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="TestData\**\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

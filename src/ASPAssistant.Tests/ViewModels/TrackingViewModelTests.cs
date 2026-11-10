@@ -7,6 +7,28 @@ namespace ASPAssistant.Tests.ViewModels;
 public class TrackingViewModelTests
 {
     [Fact]
+    public void TrackLineup_AddsBothSlotsAndOperatorsOnce_AndNotifiesAfterTheBatch()
+    {
+        var vm = new TrackingViewModel();
+        vm.AddTracking("角峰", TrackingType.Operator);
+        var snapshots = new List<int>();
+        vm.TrackingChanged += () => snapshots.Add(vm.AllEntries.Count);
+        var lineup = new Lineup
+        {
+            Members =
+            [
+                new() { OperatorName = "角峰", Equipment1 = "长剑", Equipment2 = "法杖" },
+                new() { OperatorName = "地灵", Equipment2 = "长剑" }
+            ]
+        };
+        vm.TrackLineup(lineup).Should().Be(3);
+        vm.TrackLineup(lineup).Should().Be(0);
+        vm.TrackedOperators.Select(item => item.Name).Should().Equal("角峰", "地灵");
+        vm.TrackedEquipment.Select(item => item.Name).Should().Equal("长剑", "法杖");
+        snapshots.Should().Equal(4);
+    }
+
+    [Fact]
     public void AddTracking_AddsEntry()
     {
         var vm = new TrackingViewModel();

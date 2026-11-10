@@ -1,9 +1,9 @@
-using System.IO;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using ASPAssistant.App.Controls;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.ViewModels;
 
@@ -11,344 +11,196 @@ namespace ASPAssistant.App.Windows;
 
 public partial class LineupEditorWindow : Window
 {
+    private enum Step { Roster, Description, Completed }
+
     private readonly LineupEditorViewModel _vm;
+    private readonly Func<Lineup, Task<bool>> _save;
+    private bool _saving;
+    private bool _panelCloseApproved;
+    private Step _step;
+    private Lineup? _savedLineup;
+    internal bool IsComplete => _step == Step.Completed;
 
-    /// <summary>Set to the saved Lineup if user clicked Save, else null.</summary>
-    public Lineup? Result { get; private set; }
-
-    public LineupEditorWindow(LineupEditorViewModel vm)
+    public LineupEditorWindow(LineupEditorViewModel vm, Func<Lineup, Task<bool>> save)
     {
         _vm = vm;
+        _save = save;
         InitializeComponent();
-        LineupNameBox.Text = _vm.Name;
-        BuildSlotCards();
-        RefreshCovenantPanel();
+        DataContext = vm;
+        Height = Math.Min(Height, SystemParameters.WorkArea.Height - 30);
+        Closing += OnClosing;
     }
 
-    private void OnTitleBarDrag(object sender, MouseButtonEventArgs e)
+    private void OnRemoveMember(object sender, RoutedEventArgs e)
     {
-        if (e.LeftButton == MouseButtonState.Pressed)
-            DragMove();
+        if ((sender as FrameworkElement)?.DataContext is LineupMemberViewModel member) _vm.RemoveMember(member);
     }
 
-    private void OnLineupNameChanged(object sender, TextChangedEventArgs e)
+    private void OnRosterMemberClick(object sender, MouseButtonEventArgs e)
     {
-        _vm.Name = LineupNameBox.Text;
+        if (ItemsControl.ContainerFromElement(RosterList, e.OriginalSource as DependencyObject) is ListBoxItem)
+            _vm.CatalogPreview = null;
     }
 
-    private void OnSaveClick(object sender, RoutedEventArgs e)
+    private void OnReturnToMember(object sender, RoutedEventArgs e) => _vm.CatalogPreview = null;
+
+    private void OnMemberDetailChanged(object sender, DependencyPropertyChangedEventArgs e)
+        => MemberDetailScroll?.ScrollToTop();
+
+    private void OnMemberDetailVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        Result = _vm.ToLineup();
-        DialogResult = true;
+        if (e.NewValue is true && LineupDragDrop.GetActiveKind(this) == LineupDragKind.Equipment)
+            ((ScrollViewer)sender).ScrollToTop();
     }
 
-    private void OnCancelClick(object sender, RoutedEventArgs e)
+    private void OnCatalogDetailChanged(object sender, DependencyPropertyChangedEventArgs e)
+        => ((ScrollViewer)sender).ScrollToTop();
+
+    private void OnClearEquipment(object sender, RoutedEventArgs e)
     {
-        Result = null;
-        DialogResult = false;
-    }
-
-    // ── Slot card construction ──────────────────────────────────────────────
-
-    private readonly List<Border> _slotCards = [];
-
-    private void BuildSlotCards()
-    {
-        _slotCards.Clear();
-        SlotsHost.Items.Clear();
-        for (int i = 0; i < _vm.Slots.Count; i++)
+        if (sender is Button { DataContext: LineupMemberViewModel member } button)
         {
-            var card = CreateSlotCard(i);
-            _slotCards.Add(card);
-            SlotsHost.Items.Add(card);
+            _vm.ClearEquipment(member, int.Parse((string)button.Tag));
+            e.Handled = true;
         }
     }
 
-    private Border CreateSlotCard(int slotIndex)
+    private void OnRosterDragOver(object sender, DragEventArgs e) => SetDropEffect(e, e.Data.GetDataPresent(LineupDragDrop.OperatorFormat));
+    private void OnMemberDragOver(object sender, DragEventArgs e) => SetDropEffect(e,
+        e.Data.GetDataPresent(LineupDragDrop.OperatorFormat) || e.Data.GetDataPresent(LineupDragDrop.EquipmentFormat));
+    private void OnSlotDragOver(object sender, DragEventArgs e) => SetDropEffect(e, e.Data.GetDataPresent(LineupDragDrop.EquipmentFormat));
+    private void OnEditorSlotDragOver(object sender, DragEventArgs e)
     {
-        var border = new Border
-        {
-            Margin = new Thickness(4),
-            Padding = new Thickness(8),
-            CornerRadius = new CornerRadius(6),
-            Background = (Brush)FindResource("CardBackgroundBrush"),
-            BorderBrush = (Brush)FindResource("BorderBrush"),
-            BorderThickness = new Thickness(1),
-            Tag = slotIndex,
-        };
-        RefreshSlotCard(border, slotIndex);
-        return border;
+        if (e.Data.GetDataPresent(LineupDragDrop.EquipmentFormat) || e.Data.GetDataPresent(LineupDragDrop.OperatorFormat))
+            OnSlotDragOver(sender, e);
+    }
+    private void OnEditorSlotDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(LineupDragDrop.EquipmentFormat) || e.Data.GetDataPresent(LineupDragDrop.OperatorFormat))
+            OnSlotDrop(sender, e);
     }
 
-    private void RefreshSlotCard(Border border, int slotIndex)
+    private void OnNextStep(object sender, RoutedEventArgs e)
     {
-        var slot = _vm.Slots[slotIndex];
-        var stack = new StackPanel();
-
-        // Header
-        var headerDock = new DockPanel { LastChildFill = true };
-
-        if (string.IsNullOrEmpty(slot.OperatorName))
-        {
-            var pickBtn = new Button
-            {
-                Content = "+ 选择干员",
-                Style = (Style)FindResource("EditorSecondaryButton"),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Padding = new Thickness(8, 14, 8, 14),
-                FontSize = 12,
-            };
-            pickBtn.Click += (_, _) => PickOperator(slotIndex);
-            stack.Children.Add(pickBtn);
-            border.Child = stack;
-            return;
-        }
-
-        // Filled: portrait + name + remove button
-        var iconBorder = new Border
-        {
-            Width = 44,
-            Height = 44,
-            CornerRadius = new CornerRadius(4),
-            Background = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF)),
-            ClipToBounds = true,
-            VerticalAlignment = VerticalAlignment.Top,
-            Cursor = Cursors.Hand,
-        };
-        var img = new Image { Stretch = Stretch.UniformToFill };
-        TryLoadOperatorIcon(slot.OperatorName, img);
-        iconBorder.Child = img;
-        iconBorder.MouseLeftButtonUp += (_, _) => PickOperator(slotIndex);
-        DockPanel.SetDock(iconBorder, Dock.Left);
-        headerDock.Children.Add(iconBorder);
-
-        var rightStack = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
-
-        var nameRow = new DockPanel();
-        var removeBtn = new Button
-        {
-            Content = "✕",
-            FontSize = 11,
-            Padding = new Thickness(6, 1, 6, 1),
-            Background = Brushes.Transparent,
-            Foreground = (Brush)FindResource("TextSecondaryBrush"),
-            BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand,
-            VerticalAlignment = VerticalAlignment.Top,
-            ToolTip = "清空该槽位",
-        };
-        removeBtn.Click += (_, _) =>
-        {
-            _vm.SetSlotOperator(slotIndex, "");
-            RefreshSlotCard(border, slotIndex);
-            RefreshCovenantPanel();
-        };
-        DockPanel.SetDock(removeBtn, Dock.Right);
-        nameRow.Children.Add(removeBtn);
-
-        var nameText = new TextBlock
-        {
-            Text = slot.OperatorName,
-            FontSize = 13,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)FindResource("TextPrimaryBrush"),
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-        };
-        nameRow.Children.Add(nameText);
-        rightStack.Children.Add(nameRow);
-
-        // Equipment chips (2 slots)
-        var equipPanel = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
-        for (int slotI = 0; slotI < LineupEditorViewModel.MaxEquipPerSlot; slotI++)
-        {
-            string? eqName = slotI < slot.Equipments.Count ? slot.Equipments[slotI] : null;
-            var chip = new Button
-            {
-                Content = eqName ?? "+ 装备",
-                Style = (Style)FindResource("ChipButton"),
-                ToolTip = eqName ?? "添加装备",
-            };
-            int captured = slotI;
-            chip.Click += (_, _) => PickEquipment(slotIndex, captured);
-            if (eqName is not null) chip.Tag = "active";
-            equipPanel.Children.Add(chip);
-        }
-        rightStack.Children.Add(equipPanel);
-
-        headerDock.Children.Add(rightStack);
-        stack.Children.Add(headerDock);
-
-        // Tags
-        var tagsLabel = new TextBlock
-        {
-            Text = "标签",
-            FontSize = 10,
-            Foreground = (Brush)FindResource("TextSecondaryBrush"),
-            Margin = new Thickness(0, 8, 0, 2),
-        };
-        stack.Children.Add(tagsLabel);
-        var tagPanel = new WrapPanel();
-        foreach (LineupTag tag in Enum.GetValues<LineupTag>())
-        {
-            var chip = new Button
-            {
-                Content = tag.ToString(),
-                Style = (Style)FindResource("ChipButton"),
-            };
-            if (slot.Tags.Contains(tag)) chip.Tag = "active";
-            chip.Click += (_, _) =>
-            {
-                _vm.ToggleSlotTag(slotIndex, tag);
-                RefreshSlotCard(border, slotIndex);
-                RefreshCovenantPanel();
-            };
-            tagPanel.Children.Add(chip);
-        }
-        stack.Children.Add(tagPanel);
-
-        border.Child = stack;
-    }
-
-    private void PickOperator(int slotIndex)
-    {
-        var current = _vm.Slots[slotIndex].OperatorName;
-        var items = _vm.AllOperators
-            .OrderBy(o => o.Tier)
-            .ThenBy(o => o.Name, StringComparer.CurrentCulture)
-            .Select(o => new SimplePickerDialog.PickerItem(
-                o.Name,
-                $"[T{o.Tier}] {o.Name}",
-                o.IconPath,
-                FormatOperatorCovenants(o)));
-
-        var dlg = new SimplePickerDialog("选择干员", items, current,
-            "搜索干员名 / 单击直接选中")
-        {
-            Owner = this,
-        };
-        if (dlg.ShowDialog() == true)
-        {
-            _vm.SetSlotOperator(slotIndex, dlg.Result ?? "");
-            RefreshSlotCard(_slotCards[slotIndex], slotIndex);
-            RefreshCovenantPanel();
-        }
-    }
-
-    private static string FormatOperatorCovenants(Operator op)
-    {
-        var parts = new List<string>(op.CoreCovenants.Count + op.AdditionalCovenants.Count);
-        parts.AddRange(op.CoreCovenants);
-        parts.AddRange(op.AdditionalCovenants);
-        return string.Join(" · ", parts);
-    }
-
-    private void PickEquipment(int slotIndex, int equipIndex)
-    {
-        var slot = _vm.Slots[slotIndex];
-        if (string.IsNullOrEmpty(slot.OperatorName)) return;
-
-        var current = equipIndex < slot.Equipments.Count ? slot.Equipments[equipIndex] : null;
-
-        var items = _vm.AllEquipment
-            .OrderBy(eq => eq.Tier)
-            .ThenBy(eq => eq.Name, StringComparer.CurrentCulture)
-            .Select(eq => new SimplePickerDialog.PickerItem(
-                eq.Name,
-                $"[T{eq.Tier}] {eq.Name}",
-                eq.IconPath));
-
-        var dlg = new SimplePickerDialog("选择装备", items, current,
-            "搜索装备名 / 双击或确定")
-        {
-            Owner = this,
-        };
-        if (dlg.ShowDialog() != true) return;
-
-        var picked = dlg.Result;
-        if (picked is null) return;
-
-        // Apply: replace at equipIndex, or remove if cleared
-        var newEquips = new List<string>(slot.Equipments);
-        if (string.IsNullOrEmpty(picked))
-        {
-            if (equipIndex < newEquips.Count)
-                newEquips.RemoveAt(equipIndex);
-        }
-        else
-        {
-            // Disallow duplicates within the slot
-            var existingIdx = newEquips.IndexOf(picked);
-            if (existingIdx >= 0 && existingIdx != equipIndex)
-                newEquips.RemoveAt(existingIdx);
-
-            if (equipIndex < newEquips.Count)
-                newEquips[equipIndex] = picked;
-            else
-                newEquips.Add(picked);
-
-            while (newEquips.Count > LineupEditorViewModel.MaxEquipPerSlot)
-                newEquips.RemoveAt(0);
-        }
-        _vm.Slots[slotIndex].Equipments.Clear();
-        foreach (var n in newEquips) _vm.Slots[slotIndex].Equipments.Add(n);
-        // Force collection-changed notification by reassigning the slot
-        _vm.Slots[slotIndex] = new LineupSlot
-        {
-            OperatorName = slot.OperatorName,
-            Equipments   = [.. newEquips],
-            Tags         = [.. slot.Tags],
-        };
-        _vm.Recalculate();
-
-        RefreshSlotCard(_slotCards[slotIndex], slotIndex);
-        RefreshCovenantPanel();
-    }
-
-    private void TryLoadOperatorIcon(string opName, Image image)
-    {
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "data", "icons", "operators", $"{opName}.png");
-        if (!File.Exists(iconPath)) return;
+        if (_step != Step.Roster) return;
         try
         {
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.UriSource = new Uri(iconPath, UriKind.Absolute);
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.EndInit();
-            bmp.Freeze();
-            image.Source = bmp;
+            _vm.BuildLineup(includeDescription: false);
+            _vm.ShowRequiredFieldErrors = false;
+            _vm.Status = "";
+            ShowStep(Step.Description);
         }
-        catch
+        catch (FormatException ex)
         {
-            // ignore – just leave the placeholder background visible
+            _vm.ShowRequiredFieldErrors = true;
+            _vm.Status = ex.Message;
         }
     }
 
-    // ── Covenant panel ──────────────────────────────────────────────────────
-
-    private void RefreshCovenantPanel()
+    private void OnPreviousStep(object sender, RoutedEventArgs e)
     {
-        ActivatedSummaryText.Text = $"激活 {_vm.ActivatedCount} 个盟约 · 已选 {_vm.FilledSlotCount}/9 干员";
-        // The ItemsControl re-binds against ActiveStats automatically.
-        CovenantStatsList.ItemsSource = null;
-        CovenantStatsList.ItemsSource = _vm.ActiveStats;
-        EditorHint.Text = "提示：盟约阈值缺失（?）请在 data/covenants.user.json 中手动补齐。";
+        if (_step != Step.Description || _saving) return;
+        if (!DescriptionWorkspace.TryApplyPendingGraphProperties()) return;
+        _vm.Status = "";
+        ShowStep(Step.Roster);
     }
 
-    private void OnCovenantRowLoaded(object sender, RoutedEventArgs e)
+    private void ShowStep(Step step)
     {
-        if (sender is not Border b || b.Tag is not bool activated) return;
-        if (activated)
+        if (step == Step.Description) DescriptionWorkspace.RefreshIconPickers();
+        _step = step;
+        var roster = step == Step.Roster ? Visibility.Visible : Visibility.Collapsed;
+        var description = step == Step.Description ? Visibility.Visible : Visibility.Collapsed;
+        var completed = step == Step.Completed ? Visibility.Visible : Visibility.Collapsed;
+        IdentityFields.Visibility = WorkspaceMemberCount.Visibility = RosterWorkspace.Visibility = NextButton.Visibility = roster;
+        DescriptionStage.Visibility = DescriptionWorkspace.Visibility = SaveButton.Visibility = BackButton.Visibility = description;
+        CompletedStage.Visibility = ShareButton.Visibility = DoneButton.Visibility = completed;
+        CancelButton.Visibility = step == Step.Completed ? Visibility.Collapsed : Visibility.Visible;
+        (WorkspaceTitle.Text, WorkspaceHint.Text) = step switch
         {
-            b.Background = new SolidColorBrush(Color.FromArgb(0x33, 0x4F, 0xC3, 0xF7));
-            b.BorderBrush = (Brush)FindResource("AccentBrush");
-            b.BorderThickness = new Thickness(1);
-        }
-        else
+            Step.Description => ("编辑阵容介绍", "填写阵容思路、装备搭配或操作顺序。"),
+            Step.Completed => ("阵容保存完成", "这是其他玩家打开分享阵容时看到的预览。"),
+            _ => ("构建你的阵容", "拖入干员组成阵容，再把装备拖到干员头像或指定装备槽。")
+        };
+    }
+    private static void SetDropEffect(DragEventArgs e, bool accepted)
+    {
+        e.Effects = accepted && e.AllowedEffects.HasFlag(DragDropEffects.Copy) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+    private void OnRosterDrop(object sender, DragEventArgs e) => ApplyDrop(e);
+    private void OnMemberDrop(object sender, DragEventArgs e) => ApplyDrop(e, (sender as FrameworkElement)?.DataContext as LineupMemberViewModel);
+    private void OnSlotDrop(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: LineupMemberViewModel member, Tag: string tag })
+            ApplyDrop(e, member, int.Parse(tag));
+    }
+    private void ApplyDrop(DragEventArgs e, LineupMemberViewModel? member = null, int? slot = null)
+    {
+        e.Effects = LineupDragDrop.Apply(_vm, e.Data, member, slot) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnSave(object sender, RoutedEventArgs e)
+    {
+        if (_step != Step.Description || _saving) return;
+        if (!DescriptionWorkspace.TryApplyPendingGraphProperties()) return;
+        try
         {
-            b.Background = new SolidColorBrush(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
-            b.BorderThickness = new Thickness(0);
+            var lineup = _vm.BuildLineup() with { Description = LineupDiagramSource.RemoveLegacyPositions(_vm.Description) };
+            _saving = true;
+            // Freeze the form while the snapshot is persisted so later edits cannot be lost.
+            ((UIElement)Content).IsEnabled = false;
+            if (await _save(lineup))
+            {
+                _savedLineup = lineup;
+                _vm.IsDirty = false;
+                _vm.Status = "";
+                CompletedPreview.ShowLineup(lineup, _vm.FindIcon);
+                ShowStep(Step.Completed);
+            }
         }
+        catch (FormatException ex) { _vm.Status = ex.Message; }
+        finally { _saving = false; ((UIElement)Content).IsEnabled = true; }
+    }
+
+    private void OnShare(object sender, RoutedEventArgs e)
+    {
+        if (_savedLineup is not { } lineup) return;
+        try
+        {
+            var text = _vm.ExportLineup(lineup);
+            try
+            {
+                Clipboard.SetText(text);
+                ShareFallback.Visibility = Visibility.Collapsed;
+                _vm.Status = "分享文本已复制到剪切板。";
+            }
+            catch (Exception ex) when (ex is ExternalException or System.Threading.ThreadStateException)
+            {
+                ShareFallback.Text = text;
+                ShareFallback.Visibility = Visibility.Visible;
+                ShareFallback.Focus();
+                ShareFallback.SelectAll();
+                _vm.Status = "剪切板暂不可用，可以手动复制分享文本。";
+            }
+        }
+        catch (FormatException ex) { _vm.Status = ex.Message; }
+    }
+
+    private void OnCancel(object sender, RoutedEventArgs e) => Close();
+
+    private void OnClosing(object? sender, CancelEventArgs e)
+        => e.Cancel = !_panelCloseApproved && !ConfirmClose();
+
+    internal void ApprovePanelClose() => _panelCloseApproved = true;
+
+    // The side panel checks all drafts before shutting down the application.
+    public bool ConfirmClose(Func<bool>? confirmDiscard = null)
+    {
+        if (_saving) { _vm.Status = "正在保存阵容，请稍候再关闭。"; return false; }
+        return !_vm.IsDirty || (confirmDiscard ?? (() => MessageBox.Show(this,
+            $"阵容“{(string.IsNullOrWhiteSpace(_vm.Name) ? "未命名" : _vm.Name)}”尚未保存，确定放弃本次编辑？", "放弃编辑",
+            MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes))();
     }
 }

@@ -1,18 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <WindowsSdkPackageVersion>10.0.17763.56</WindowsSdkPackageVersion>
     <!-- Version is overridden by CI via -p:Version=x.y.z during release builds -->
     <Version>0.0.0</Version>
-    <!-- Custom entry point with OS version guard (Program.cs); overrides WPF auto-generated Main -->
-    <StartupObject>ASPAssistant.App.Program</StartupObject>
-    <ApplicationIcon>..\..\data\icons\aspa_logo.ico</ApplicationIcon>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <!-- Keep only Simplified Chinese satellite assemblies; removes cs/de/es/fr/… folders from output -->
-    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,63 +15,28 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\data\**\*.json" Link="data\%(RecursiveDir)%(Filename)%(Extension)">
+    <!-- Ship active catalogues and UI icons only. Legacy avatar/template matching is no longer used. -->
+    <Content Include="..\..\data\operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\source_metadata.json"
+             Link="data\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="..\..\data\icons\**\*.png" Link="data\icons\%(RecursiveDir)%(Filename)%(Extension)">
+    <Content Include="..\..\data\icons\operators\*.png" Link="data\icons\operators\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <!-- Enemy-type icons downloaded by fetch_spdatabase.py (7 type badges) -->
-    <Content Include="..\..\data\icons\enemy_types\*.png"
-             Link="data\icons\enemy_types\%(Filename)%(Extension)"
-             Condition="Exists('..\..\data\icons\enemy_types')">
+    <Content Include="..\..\data\icons\covenants\*.png" Link="data\icons\covenants\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <!-- Special-enemy (小怪) portraits downloaded by fetch_spdatabase.py -->
-    <Content Include="..\..\data\icons\enemies\*.png"
-             Link="data\icons\enemies\%(Filename)%(Extension)"
-             Condition="Exists('..\..\data\icons\enemies')">
+    <Content Include="..\..\data\icons\equipment\*.png" Link="data\icons\equipment\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <!-- Boss avatar portraits downloaded by fetch_spdatabase.py -->
-    <Content Include="..\..\data\icons\bosses\*.png"
-             Link="data\icons\bosses\%(Filename)%(Extension)"
-             Condition="Exists('..\..\data\icons\bosses')">
+    <Content Include="..\..\data\model\ocr\det.onnx;..\..\data\model\ocr\rec.onnx;..\..\data\model\ocr\keys.txt"
+             Link="data\model\ocr\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- Card template images (op_card.png, etc.) copied to data/template/ for reference. -->
-    <Content Include="..\..\data\template\*.png" Link="data\template\%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- MaaFramework TemplateMatch bundle: op_card.png is looked up at
-         [bundle]/image/op_card.png when MaaCardDetector calls TemplateMatch. -->
-    <Content Include="..\..\data\template\op_card.png" Link="data\maa_resource\image\op_card.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- Ban-indicator badge template for BanIndicatorDetector (FeatureMatch).
-         Placed in data/template/ban_indicator.png; copied to maa_resource/image/ so
-         MaaFramework's resource bundle can index it. Only included when the file exists. -->
-    <Content Include="..\..\data\template\ban_indicator.png"
-             Link="data\maa_resource\image\ban_indicator.png"
-             Condition="Exists('..\..\data\template\ban_indicator.png')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- PRTS operator portrait icons (kept as reference; used until ban_screen set is complete).
-         MaaBanIconMatcher previously looked them up at [bundle]/image/operators/{name}.png. -->
-    <Content Include="..\..\data\icons\operators\*.png" Link="data\maa_resource\image\operators\%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- Skin avatar portraits from PRTS skin_table; used as ban-matching templates.
-         MaaBanIconMatcher looks them up at [bundle]/image/skin_avatars/{avatarId}.png. -->
-    <Content Include="..\..\data\icons\skin_avatars\*.png" Link="data\maa_resource\image\skin_avatars\%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <!-- MaaFramework requires at least one valid JSON file inside pipeline/. -->
-    <Content Include="..\..\data\maa_resource\pipeline\empty.json" Link="data\maa_resource\pipeline\empty.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="..\..\data\model\**\*" Link="data\model\%(RecursiveDir)%(Filename)%(Extension)">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 </Project>

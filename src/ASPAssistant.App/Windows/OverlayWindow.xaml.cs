@@ -4,7 +4,6 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
-using ASPAssistant.Core;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 
@@ -25,19 +24,6 @@ public partial class OverlayWindow : Window
 
     // The full-screen instruction layer shown at the start of ban detection.
     private FrameworkElement? _banInstructionLayer;
-    private FrameworkElement? _banInputBlockLayer;
-    private FrameworkElement? _banTimedMessageLayer;
-
-    // Debug card border overlays, keyed by ShopItem.Id.
-    private readonly Dictionary<string, FrameworkElement> _debugBorderPool = [];
-
-    /// <summary>
-    /// When <see langword="true"/>, <see cref="UpdateShopItems"/> draws a
-    /// semi-transparent border around every detected operator card boundary
-    /// (green = tracked, orange = detected but not tracked). Toggle at
-    /// runtime to aid alignment debugging without restarting the app.
-    /// </summary>
-    public bool ShowDebugCardBorders { get; set; } = false;
 
     public OverlayWindow()
     {
@@ -72,16 +58,8 @@ public partial class OverlayWindow : Window
             .Where(s => s.IsTracked)
             .ToDictionary(s => s.Id);
 
-        AppLogger.Info("Overlay",
-            $"UpdateShopItems: total={shopItems.Count} tracked={nowTracked.Count} " +
-            $"overlay={ActualWidth:F0}x{ActualHeight:F0} " +
-            $"items=[{string.Join(", ", shopItems.Select(i => $"{i.Name}(tracked={i.IsTracked},region=({i.OcrRegion.X:F3},{i.OcrRegion.Y:F3},{i.OcrRegion.Width:F3},{i.OcrRegion.Height:F3}))"))}]");
-
         // Fade out markers whose card slots are no longer present
-        var toRemove = _markerPool.Keys.Except(nowTracked.Keys).ToList();
-        if (toRemove.Count > 0)
-            AppLogger.Info("Overlay", $"Fading out {toRemove.Count} marker(s): [{string.Join(", ", toRemove)}]");
-        foreach (var id in toRemove)
+        foreach (var id in _markerPool.Keys.Except(nowTracked.Keys).ToList())
             FadeOutAndRemove(id);
 
         // Add new markers or reposition existing ones
@@ -93,7 +71,6 @@ public partial class OverlayWindow : Window
             {
                 Canvas.SetLeft(existing, mx);
                 Canvas.SetTop(existing, my);
-                AppLogger.Info("Overlay", $"Repositioned marker '{item.Id}' to ({mx:F1},{my:F1})");
             }
             else
             {
@@ -104,99 +81,10 @@ public partial class OverlayWindow : Window
                 OverlayCanvas.Children.Add(marker);
                 _markerPool[item.Id] = marker;
 
-                AppLogger.Info("Overlay", $"Added new marker '{item.Id}' at ({mx:F1},{my:F1})");
                 marker.BeginAnimation(OpacityProperty,
                     new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250)));
             }
         }
-
-        if (ShowDebugCardBorders)
-            UpdateDebugBorders(shopItems);
-    }
-
-    // ── Debug card borders ────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Redraws debug border rectangles for every detected card.
-    /// Green border + name label = tracked; orange border = detected, not tracked.
-    /// Clears and re-creates on every call so positions always stay in sync.
-    /// </summary>
-    private void UpdateDebugBorders(IReadOnlyList<ShopItem> shopItems)
-    {
-        // Remove borders for cards no longer in the set.
-        var currentIds = shopItems.Select(i => i.Id).ToHashSet();
-        foreach (var id in _debugBorderPool.Keys.Except(currentIds).ToList())
-        {
-            OverlayCanvas.Children.Remove(_debugBorderPool[id]);
-            _debugBorderPool.Remove(id);
-        }
-
-        foreach (var item in shopItems)
-        {
-            double bx = item.OcrRegion.X      * ActualWidth;
-            double by = item.OcrRegion.Y      * ActualHeight;
-            double bw = item.OcrRegion.Width  * ActualWidth;
-            double bh = item.OcrRegion.Height * ActualHeight;
-
-            if (_debugBorderPool.TryGetValue(item.Id, out var existing))
-            {
-                Canvas.SetLeft(existing, bx);
-                Canvas.SetTop(existing, by);
-                if (existing is Grid g)
-                {
-                    g.Width  = bw;
-                    g.Height = bh;
-                    if (g.Children[0] is Border b)
-                        b.BorderBrush = item.IsTracked
-                            ? new SolidColorBrush(Color.FromArgb(0xCC, 0x4C, 0xAF, 0x50))
-                            : new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0x98, 0x00));
-                }
-            }
-            else
-            {
-                var border = CreateDebugBorder(item, bw, bh);
-                Canvas.SetLeft(border, bx);
-                Canvas.SetTop(border, by);
-                OverlayCanvas.Children.Add(border);
-                _debugBorderPool[item.Id] = border;
-            }
-        }
-    }
-
-    private static Grid CreateDebugBorder(ShopItem item, double w, double h)
-    {
-        var color = item.IsTracked
-            ? Color.FromArgb(0xCC, 0x4C, 0xAF, 0x50)   // green
-            : Color.FromArgb(0xCC, 0xFF, 0x98, 0x00);   // orange
-
-        var border = new Border
-        {
-            Width            = w,
-            Height           = h,
-            BorderBrush      = new SolidColorBrush(color),
-            BorderThickness  = new Thickness(2),
-            Background       = new SolidColorBrush(Color.FromArgb(0x20, color.R, color.G, color.B)),
-            IsHitTestVisible = false,
-        };
-
-        var label = new TextBlock
-        {
-            Text             = item.Name,
-            Foreground       = Brushes.White,
-            FontSize         = 11,
-            FontWeight       = FontWeights.SemiBold,
-            Margin           = new Thickness(3, 1, 3, 1),
-            IsHitTestVisible = false,
-            Effect           = new System.Windows.Media.Effects.DropShadowEffect
-            {
-                Color = Colors.Black, BlurRadius = 4, ShadowDepth = 1, Opacity = 0.9
-            }
-        };
-
-        var grid = new Grid { Width = w, Height = h, IsHitTestVisible = false };
-        grid.Children.Add(border);
-        grid.Children.Add(label);
-        return grid;
     }
 
     private void FadeOutAndRemove(string id)
@@ -289,9 +177,10 @@ public partial class OverlayWindow : Window
         dimRect.Height = ActualHeight > 0 ? ActualHeight : 720;
 
         // Central message panel.
-        var mainText = new TextBlock
+        var text = new TextBlock
         {
-            Text = "下滑后按 Ctrl+Shift+/ 截取ban位记录",
+            // "???????????"
+            Text = "\u5411\u4e0b\u6eda\u52a8\u4ee5\u4fdd\u5b58\u7981\u7528\u5e72\u5458",
             Foreground = Brushes.White,
             FontSize = 22,
             FontWeight = FontWeights.SemiBold,
@@ -299,18 +188,6 @@ public partial class OverlayWindow : Window
             Effect = new System.Windows.Media.Effects.DropShadowEffect
             {
                 Color = Colors.Black, BlurRadius = 8, ShadowDepth = 2, Opacity = 0.8
-            }
-        };
-
-        var hintText = new TextBlock
-        {
-            Text = "(尽量保持完整的干员头像)",
-            Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
-            FontSize = 15,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Effect = new System.Windows.Media.Effects.DropShadowEffect
-            {
-                Color = Colors.Black, BlurRadius = 6, ShadowDepth = 1, Opacity = 0.7
             }
         };
 
@@ -344,9 +221,7 @@ public partial class OverlayWindow : Window
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        panel.Children.Add(mainText);
-        panel.Children.Add(new Border { Height = 4 });
-        panel.Children.Add(hintText);
+        panel.Children.Add(text);
         panel.Children.Add(new Border { Height = 12 });
         panel.Children.Add(arrow);
 
@@ -382,7 +257,7 @@ public partial class OverlayWindow : Window
             new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)));
 
         // Remove click-through so we can receive the scroll wheel event.
-        UpdateClickThroughMode();
+        SetClickThrough(false);
         MouseWheel += OnBanScreenScrollDetected;
     }
 
@@ -393,12 +268,10 @@ public partial class OverlayWindow : Window
     public void HideBanInstructionOverlay()
     {
         MouseWheel -= OnBanScreenScrollDetected;
+        SetClickThrough(true);
 
         if (_banInstructionLayer == null)
-        {
-            UpdateClickThroughMode();
             return;
-        }
 
         var layer = _banInstructionLayer;
         _banInstructionLayer = null;
@@ -406,7 +279,6 @@ public partial class OverlayWindow : Window
         var anim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
         anim.Completed += (_, _) => OverlayCanvas.Children.Remove(layer);
         layer.BeginAnimation(OpacityProperty, anim);
-        UpdateClickThroughMode();
     }
 
     private void OnBanScreenScrollDetected(object sender, System.Windows.Input.MouseWheelEventArgs e)
@@ -422,93 +294,6 @@ public partial class OverlayWindow : Window
             var lParam = (IntPtr)(((cursorPos.Y & 0xFFFF) << 16) | (cursorPos.X & 0xFFFF));
             User32.SendMessage(gameHwnd, User32.WM_MOUSEWHEEL, wParam, lParam);
         }
-    }
-
-    /// <summary>
-    /// Shows a transparent full-screen blocker that intercepts mouse input on the game window.
-    /// </summary>
-    public void ShowBanInputBlockOverlay()
-    {
-        HideBanInputBlockOverlay();
-
-        var blocker = new Rectangle
-        {
-            Fill = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)),
-            IsHitTestVisible = true
-        };
-        Canvas.SetLeft(blocker, 0);
-        Canvas.SetTop(blocker, 0);
-        blocker.Width = ActualWidth > 0 ? ActualWidth : 1280;
-        blocker.Height = ActualHeight > 0 ? ActualHeight : 720;
-
-        OverlayCanvas.Children.Add(blocker);
-        _banInputBlockLayer = blocker;
-        UpdateClickThroughMode();
-    }
-
-    public void HideBanInputBlockOverlay()
-    {
-        if (_banInputBlockLayer != null)
-        {
-            OverlayCanvas.Children.Remove(_banInputBlockLayer);
-            _banInputBlockLayer = null;
-        }
-        UpdateClickThroughMode();
-    }
-
-    public void ShowBanTimedMessageOverlay(string message)
-    {
-        HideBanTimedMessageOverlay();
-
-        var container = new Grid
-        {
-            Width = ActualWidth > 0 ? ActualWidth : 1280,
-            Height = ActualHeight > 0 ? ActualHeight : 720,
-            IsHitTestVisible = true
-        };
-
-        var dim = new Rectangle
-        {
-            Fill = new SolidColorBrush(Color.FromArgb(0xE6, 0x00, 0x00, 0x00)),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Stretch
-        };
-
-        var text = new TextBlock
-        {
-            Text = message,
-            Foreground = Brushes.White,
-            FontSize = 40,
-            FontWeight = FontWeights.Bold,
-            TextAlignment = TextAlignment.Center,
-            TextWrapping = TextWrapping.Wrap,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(48),
-            Effect = new System.Windows.Media.Effects.DropShadowEffect
-            {
-                Color = Colors.Black,
-                BlurRadius = 12,
-                ShadowDepth = 2,
-                Opacity = 0.85
-            }
-        };
-
-        container.Children.Add(dim);
-        container.Children.Add(text);
-        OverlayCanvas.Children.Add(container);
-        _banTimedMessageLayer = container;
-        UpdateClickThroughMode();
-    }
-
-    public void HideBanTimedMessageOverlay()
-    {
-        if (_banTimedMessageLayer != null)
-        {
-            OverlayCanvas.Children.Remove(_banTimedMessageLayer);
-            _banTimedMessageLayer = null;
-        }
-        UpdateClickThroughMode();
     }
 
     // ?? Ban avatar markers ????????????????????????????????????????????????????
@@ -615,13 +400,5 @@ public partial class OverlayWindow : Window
         else
             User32.SetWindowLong(hwnd, User32.GWL_EXSTYLE,
                 exStyle & ~User32.WS_EX_TRANSPARENT);
-    }
-
-    private void UpdateClickThroughMode()
-    {
-        bool shouldBlockInput = _banInstructionLayer != null
-            || _banInputBlockLayer != null
-            || _banTimedMessageLayer != null;
-        SetClickThrough(!shouldBlockInput);
     }
 }

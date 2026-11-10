@@ -118,43 +118,6 @@ public static class User32
 
     private const uint MonitorDefaultToNearest = 2;
 
-    // Global hotkey APIs
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-
-    public const uint MOD_CONTROL = 0x0002;
-    public const uint MOD_SHIFT   = 0x0004;
-    public const uint VK_OEM_2    = 0xBF;  // '/' key
-    public const int  WM_HOTKEY   = 0x0312;
-
-    /// <summary>
-    /// Sends WM_MOUSEWHEEL to the game window to scroll it vertically.
-    /// Positive <paramref name="clicks"/> scrolls up; negative scrolls down.
-    /// One click equals one WHEEL_DELTA (120 units).
-    /// The message is targeted at the window's center so the game receives it
-    /// regardless of where the real mouse cursor is.
-    /// </summary>
-    public static void ScrollWindow(IntPtr hwnd, int clicks)
-    {
-        var clientRect = GetClientRectScreen(hwnd);
-        if (clientRect == null) return;
-
-        int cx = clientRect.Value.Left + clientRect.Value.Width  / 2;
-        int cy = clientRect.Value.Top  + clientRect.Value.Height / 2;
-
-        // wParam high-word = delta; lParam = screen coords of cursor position.
-        int delta = clicks * 120; // WHEEL_DELTA = 120
-        IntPtr wParam = (IntPtr)((uint)(delta << 16));
-        IntPtr lParam = (IntPtr)((cy << 16) | (cx & 0xFFFF));
-        SendMessage(hwnd, WM_MOUSEWHEEL, wParam, lParam);
-    }
-
     /// <summary>
     /// Returns the bounding rectangle (in physical pixels) of the monitor
     /// that contains the given physical-pixel point, or the nearest monitor

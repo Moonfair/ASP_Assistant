@@ -13,12 +13,12 @@
                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                  Background="#FF2A2A40" Foreground="{StaticResource TextPrimaryBrush}"
                  BorderBrush="{StaticResource BorderBrush}" Padding="6,4" />
-        <StackPanel DockPanel.Dock="Top" Margin="8,0,8,4">
+        <StackPanel x:Name="TopFilterHost" DockPanel.Dock="Top" Margin="8,0,8,4">
             <ToggleButton x:Name="FilterToggle"
                           Foreground="{StaticResource TextSecondaryBrush}"
-                          FontSize="12" Padding="0,4,12,4">
+                          FontSize="12" Padding="0,4,12,4" Cursor="Hand">
                 <ToggleButton.Style>
-                    <Style TargetType="ToggleButton" BasedOn="{StaticResource ClickableToggleButtonBase}">
+                    <Style TargetType="ToggleButton">
                         <Setter Property="Content" Value="▶ 筛选" />
                         <Setter Property="Background" Value="Transparent" />
                         <Setter Property="BorderThickness" Value="0" />
@@ -42,21 +42,12 @@
                 </ToggleButton.Style>
             </ToggleButton>
 
-            <StackPanel Margin="0,6,0,2">
-                <StackPanel.Style>
-                    <Style TargetType="StackPanel">
-                        <Setter Property="Visibility" Value="Collapsed" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsChecked, ElementName=FilterToggle}" Value="True">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </StackPanel.Style>
+            <StackPanel x:Name="FilterContentPanel" Margin="0,6,0,2">
 
                 <TextBlock Text="等阶" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,0,0,4" />
                 <ListBox x:Name="TierFilterList"
+                         controls:FilterChipSelection.IsEnabled="True"
                          Style="{StaticResource FilterChipListBox}"
                          ItemsSource="{Binding AvailableTiers}"
                          SelectionChanged="OnTierFilterChanged">
@@ -71,6 +62,7 @@
                 <TextBlock Text="类型" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,6,0,4" />
                 <ListBox x:Name="TypeFilterList"
+                         controls:FilterChipSelection.IsEnabled="True"
                          Style="{StaticResource FilterChipListBox}"
                          ItemsSource="{Binding AvailableTypes}"
                          SelectionChanged="OnTypeFilterChanged">

@@ -20,17 +20,37 @@ public partial class TrackingViewModel : ObservableObject
 
     public IReadOnlyList<TrackingEntry> AllEntries =>
         [.. TrackedOperators, .. TrackedEquipment];
+    public event Action? TrackingChanged;
 
     public void AddTracking(string name, TrackingType type)
     {
-        if (IsTracked(name))
-            return;
+        if (TryAddTracking(name, type)) TrackingChanged?.Invoke();
+    }
+
+    public int TrackLineup(Lineup lineup)
+    {
+        var added = 0;
+        foreach (var member in lineup.Members)
+        {
+            if (TryAddTracking(member.OperatorName, TrackingType.Operator)) added++;
+            if (TryAddTracking(member.Equipment1, TrackingType.Equipment)) added++;
+            if (TryAddTracking(member.Equipment2, TrackingType.Equipment)) added++;
+        }
+        if (added > 0) TrackingChanged?.Invoke();
+        return added;
+    }
+
+    private bool TryAddTracking(string name, TrackingType type)
+    {
+        if (string.IsNullOrWhiteSpace(name) || IsTracked(name))
+            return false;
 
         var entry = new TrackingEntry { Name = name, Type = type };
         if (type == TrackingType.Operator)
             TrackedOperators.Add(entry);
         else
             TrackedEquipment.Add(entry);
+        return true;
     }
 
     public void RemoveTracking(string name)
@@ -39,18 +59,16 @@ public partial class TrackingViewModel : ObservableObject
         if (opEntry != null)
         {
             TrackedOperators.Remove(opEntry);
+            TrackingChanged?.Invoke();
             return;
         }
 
         var eqEntry = TrackedEquipment.FirstOrDefault(e => e.Name == name);
         if (eqEntry != null)
+        {
             TrackedEquipment.Remove(eqEntry);
-    }
-
-    public void ClearAllTracking()
-    {
-        TrackedOperators.Clear();
-        TrackedEquipment.Clear();
+            TrackingChanged?.Invoke();
+        }
     }
 
     public bool IsTracked(string name)
@@ -70,5 +88,6 @@ public partial class TrackingViewModel : ObservableObject
             else
                 TrackedEquipment.Add(entry);
         }
+        TrackingChanged?.Invoke();
     }
 }

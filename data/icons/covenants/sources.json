@@ -1,0 +1,188 @@
+{
+  "source": "https://torappu.prts.wiki/gamedata/latest/excel/activity_table.json",
+  "season": "act3autochess/V3_1",
+  "icons": [
+    {
+      "name": "炎",
+      "id": "yanShip",
+      "icon": "icon_yanShip",
+      "url": "https://media.prts.wiki/c/c6/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_yanShip.png",
+      "sha256": "ee44a09b625d801a998ee483fa328961b323355329b11b8329a052d8fb51678b"
+    },
+    {
+      "name": "萨尔贡",
+      "id": "sargonShip",
+      "icon": "icon_sargonShip",
+      "url": "https://media.prts.wiki/b/ba/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_sargonShip.png",
+      "sha256": "13063e680984c6da74a01bd9e551b78ff8d615f15773cb22801d88dfd0c38f26"
+    },
+    {
+      "name": "维多利亚",
+      "id": "victoriaShip",
+      "icon": "icon_victoriaShip",
+      "url": "https://media.prts.wiki/e/e7/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_victoriaShip.png",
+      "sha256": "aa99c01b64804d978b11257d6504dce82395ea8a669cd8926a7076fc9512e530"
+    },
+    {
+      "name": "谢拉格",
+      "id": "kjeragShip",
+      "icon": "icon_kjeragShip",
+      "url": "https://media.prts.wiki/b/b0/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_kjeragShip.png",
+      "sha256": "fc4ca11fbcf32a1b61ac7ace381a2dcd0456c3b761a4a62938c6b995a04587ac"
+    },
+    {
+      "name": "阿戈尔",
+      "id": "egirShip",
+      "icon": "icon_egirShip",
+      "url": "https://media.prts.wiki/e/e5/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_egirShip.png",
+      "sha256": "057c765bfb1ddf9ac11a6b0234d2c70dd8b74a6ac5b02c74baf634684e7568df"
+    },
+    {
+      "name": "叙拉古",
+      "id": "siracusaShip",
+      "icon": "icon_siracusaShip",
+      "url": "https://media.prts.wiki/b/b6/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_siracusaShip.png",
+      "sha256": "021412cc399aa649356825a5d8c6e532e322c5b05d7e582b6ec552b7edfd0d03"
+    },
+    {
+      "name": "卡西米尔",
+      "id": "kazimierzShip",
+      "icon": "icon_kazimierzShip",
+      "url": "https://media.prts.wiki/0/0d/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_kazimierzShip.png",
+      "sha256": "e5e8044f05f2f91f4cae5dd57ed8752c2ca62f10b265719b5947ecc4ef99f304"
+    },
+    {
+      "name": "乌萨斯",
+      "id": "ursusShip",
+      "icon": "icon_ursusShip",
+      "url": "https://media.prts.wiki/f/f1/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_ursusShip.png",
+      "sha256": "bafc5ebbcec4d550a93da41922e902abe9f248b64c83da4c20cc0d9d87f8068a"
+    },
+    {
+      "name": "伊比利亚",
+      "id": "iberiaShip",
+      "icon": "icon_iberiaShip",
+      "url": "https://media.prts.wiki/d/d2/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_iberiaShip.png",
+      "sha256": "8e098fe520102290951837e85282fe4efa046ef12a68a4a9c4a028e4fc5fa2c2"
+    },
+    {
+      "name": "莱塔尼亚",
+      "id": "lethaniaShip",
+      "icon": "icon_lethaniaShip",
+      "url": "https://media.prts.wiki/0/03/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_lethaniaShip.png",
+      "sha256": "8c2c1325d6ae73a6bbd51c18ed69c01ec65c0db078c498829dba5199be7da7ad"
+    },
+    {
+      "name": "精准",
+      "id": "preciShip",
+      "icon": "icon_preciShip",
+      "url": "https://media.prts.wiki/b/bc/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_preciShip.png",
+      "sha256": "38b603a607ed30ef8a479b54bffe20834d61b46fe1e8805576b632b7f24e2495"
+    },
+    {
+      "name": "迅捷",
+      "id": "swiftShip",
+      "icon": "icon_swiftShip",
+      "url": "https://media.prts.wiki/d/da/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_swiftShip.png",
+      "sha256": "53238b4cfc9bee78c9ede117b24550a1399c47ec01c9e06145d83d3efd7f0eb2"
+    },
+    {
+      "name": "灵巧",
+      "id": "skillfulShip",
+      "icon": "icon_skillfulShip",
+      "url": "https://media.prts.wiki/7/7d/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_skillfulShip.png",
+      "sha256": "c97e9707059266727211e55474097fd66633f7af4e076f2ea437bae827b0465a"
+    },
+    {
+      "name": "坚守",
+      "id": "steadShip",
+      "icon": "icon_steadShip",
+      "url": "https://media.prts.wiki/1/17/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_steadShip.png",
+      "sha256": "46d4fd5cf44980527ed5f91aa194ea6adc28a90e24f75107b57ead550d399ef5"
+    },
+    {
+      "name": "助力",
+      "id": "deputShip",
+      "icon": "icon_deputShip",
+      "url": "https://media.prts.wiki/f/f9/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_deputShip.png",
+      "sha256": "2732a33e7ff03408d1960046e0de40aa7a24d35bfa4dbfae65f8b62537132467"
+    },
+    {
+      "name": "远见",
+      "id": "visiShip",
+      "icon": "icon_visiShip",
+      "url": "https://media.prts.wiki/8/82/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_visiShip.png",
+      "sha256": "074fb4c9b3efe11f66798f187e5d586cdc4e88cc1ac7afdddf6e33c9d7dcd417"
+    },
+    {
+      "name": "奇迹",
+      "id": "miraShip",
+      "icon": "icon_miraShip",
+      "url": "https://media.prts.wiki/f/fe/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_miraShip.png",
+      "sha256": "21afd79f3db8495b7fda4350451e1831068552a299e8b411767ab006522614ce"
+    },
+    {
+      "name": "投资人",
+      "id": "investShip",
+      "icon": "icon_investShip",
+      "url": "https://media.prts.wiki/e/e0/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_investShip.png",
+      "sha256": "6e25388873b714bf39442613c93d614e85d9de0c1f8c29f0eb50c4717c856c9c"
+    },
+    {
+      "name": "突袭",
+      "id": "raidShip",
+      "icon": "icon_raidShip",
+      "url": "https://media.prts.wiki/a/ae/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_raidShip.png",
+      "sha256": "6451999212ffb7bd52f8b4658d6b0b31ef588444b735a4dfa9960f885a6b13d0"
+    },
+    {
+      "name": "不屈",
+      "id": "indomShip",
+      "icon": "icon_indomShip",
+      "url": "https://media.prts.wiki/a/a1/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_indomShip.png",
+      "sha256": "695901fc6b9283ac867c03adee33502e4a12d578005064854efe6d3d5c7bb6bf"
+    },
+    {
+      "name": "调和",
+      "id": "maniShip",
+      "icon": "icon_maniShip",
+      "url": "https://media.prts.wiki/c/c6/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_maniShip.png",
+      "sha256": "a334a719f0d01ac8f1e9ccd4144735b2b04aaf3cc19e8c7fa9681d4d2b36643a"
+    },
+    {
+      "name": "协防干员",
+      "id": "emptyShip",
+      "icon": "icon_emptyShip",
+      "url": "https://media.prts.wiki/5/5b/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_emptyShip.png",
+      "sha256": "6d4de3797e89f8f26cc004017192ff7136f8dacfb4e91a7de1ac15efb953e029"
+    },
+    {
+      "name": "独行",
+      "id": "soloShip",
+      "icon": "icon_soloShip",
+      "url": "https://media.prts.wiki/e/e0/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_soloShip.png",
+      "sha256": "31045b3d94b6f861166ccc9d984b16311e21d6cb21ef7317281b13c85b05050d"
+    },
+    {
+      "name": "绝技",
+      "id": "suntShip",
+      "icon": "icon_suntShip",
+      "url": "https://media.prts.wiki/d/dc/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_suntShip.png",
+      "sha256": "b1041735b105ef82909f93c658400228988a9b14021e5492542a8f884c2642dc"
+    },
+    {
+      "name": "聚合",
+      "id": "docShip",
+      "icon": "icon_docShip",
+      "url": "https://media.prts.wiki/a/ae/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_docShip.png",
+      "sha256": "f54655544acdcdf9d7209765943af120c9b4b08ba825c5d563faaa6423699ea4"
+    },
+    {
+      "name": "奥术",
+      "id": "arcaneShip",
+      "icon": "icon_arcaneShip",
+      "url": "https://media.prts.wiki/f/f5/%E5%8D%AB%E6%88%8D%E5%8D%8F%E8%AE%AE%EF%BC%9A%E7%9B%9F%E7%BA%A6_icon_arcaneShip.png",
+      "sha256": "c739e66760ec99cb6bf02dfc6198614fbc979e7e8c4e1f27a38c31732c60d4f5"
+    }
+  ]
+}

@@ -9,7 +9,6 @@
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
         Topmost="True"
-        Cursor="Arrow"
         Icon="{StaticResource AspaLogo}"
         Background="{StaticResource PanelBackgroundBrush}">
     <WindowChrome.WindowChrome>
@@ -21,6 +20,9 @@
             <Border DockPanel.Dock="Top" Background="#FF12122A" MouseLeftButtonDown="OnTitleBarDrag">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="SettingsButton" Content="⚙" FontFamily="Segoe UI Symbol"
+                                Click="OnOpenSettings" ToolTip="设置" AutomationProperties.Name="设置"
+                                Style="{StaticResource TitleBarButton}" />
                         <Button Content="─" Click="OnMinimize"
                                 Style="{StaticResource TitleBarButton}" />
                         <Button Content="✕" Click="OnClose"
@@ -34,167 +36,154 @@
                 </DockPanel>
             </Border>
 
-            <!-- Update notification banner (hidden until a new version is found) -->
-            <Border x:Name="UpdateBanner" DockPanel.Dock="Top"
-                    Background="#1A2D4A1E"
-                    BorderBrush="#FF2D4A1E" BorderThickness="0,0,0,1"
-                    Visibility="Collapsed" Padding="10,5,10,4">
-                <StackPanel>
-                    <!-- Top row: text + buttons -->
-                    <DockPanel>
-                        <!-- Action button: "查看更新" or "立即重启" -->
-                        <Button x:Name="UpdateActionButton" DockPanel.Dock="Right"
-                                Click="OnBannerAction"
-                                Padding="8,3" FontSize="11" Cursor="Hand"
-                                BorderThickness="0" Background="#FF4CAF50" Foreground="White">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bg" Background="{TemplateBinding Background}"
-                                            CornerRadius="4" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="bg" Property="Background" Value="#FF66BB6A" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock x:Name="UpdateActionIcon" Text="↑ " FontWeight="Bold" />
-                                <TextBlock x:Name="UpdateActionText" Text="查看更新" />
-                            </StackPanel>
-                        </Button>
-                        <!-- Skip this version button -->
-                        <Button x:Name="SkipVersionButton" DockPanel.Dock="Right"
-                                Click="OnSkipVersion"
-                                Padding="6,3" FontSize="11" Cursor="Hand" Margin="0,0,6,0"
-                                BorderThickness="0" Background="Transparent" Foreground="#FF8BC34A">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bg" Background="{TemplateBinding Background}"
-                                            CornerRadius="4" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="bg" Property="Background" Value="#22FFFFFF" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <TextBlock Text="跳过该版本" />
-                        </Button>
-                        <TextBlock x:Name="UpdateBannerText"
-                                   Foreground="#FF8BC34A" FontSize="11"
-                                   VerticalAlignment="Center" />
-                    </DockPanel>
-                    <!-- Download progress bar (visible during background download) -->
-                    <ProgressBar x:Name="UpdateBannerProgress"
-                                 Height="2" Margin="0,4,0,0"
-                                 Minimum="0" Maximum="100" Value="0"
-                                 Visibility="Collapsed"
-                                 Background="#33FFFFFF" Foreground="#FF4CAF50"
-                                 BorderThickness="0" />
-                </StackPanel>
-            </Border>
-
-            <!-- Fullscreen warning banner -->
-            <Border x:Name="FullscreenBanner" DockPanel.Dock="Top"
-                    Background="#1AFFA000"
-                    BorderBrush="#FFFFA000" BorderThickness="0,0,0,1"
-                    Visibility="Collapsed" Padding="10,6">
-                <DockPanel>
-                    <Button x:Name="FullscreenBannerClose" DockPanel.Dock="Right"
-                            Click="OnDismissFullscreenBanner"
-                            Width="20" Cursor="Hand"
-                            BorderThickness="0" Background="Transparent" Foreground="#FFFFA000"
-                            FontSize="12" FontWeight="Bold" Content="✕"
-                            VerticalAlignment="Top" Margin="4,0,0,0"
-                            ToolTip="关闭提示" />
-                    <StackPanel>
-                        <TextBlock Text="推荐在窗口模式下运行"
-                                   Foreground="#FFFFC107" FontSize="11" FontWeight="SemiBold" />
-                        <TextBlock Text="（全屏下如有遮挡可拖动右下角调节窗口）"
-                                   Foreground="#FFCC9900" FontSize="10"
-                                   TextWrapping="Wrap" Margin="0,2,0,0" />
-                    </StackPanel>
-                </DockPanel>
-            </Border>
-
-            <!-- Tab content + visible resize grip overlay -->
             <Grid>
-                <TabControl Style="{StaticResource DarkTabControl}">
-                    <TabItem Header="干员">
-                        <views:OperatorBrowseView x:Name="OperatorView" />
-                    </TabItem>
-                    <TabItem Header="装备">
-                        <views:EquipmentBrowseView x:Name="EquipmentView" />
-                    </TabItem>
-                    <TabItem Header="追踪">
-                        <views:TrackingView x:Name="TrackingView" />
-                    </TabItem>
-                    <TabItem Header="阵容">
-                        <views:LineupListView x:Name="LineupView" />
-                    </TabItem>
-                    <TabItem Header="敌人">
-                        <views:EnemyView x:Name="EnemyView" />
-                    </TabItem>
-                </TabControl>
-
-                <!-- Transient toast: shown via SidePanelWindow.ShowToast(). Click-through unless visible. -->
-                <Border x:Name="ToastBorder"
-                        HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                        Margin="0,0,0,30"
-                        MaxWidth="280"
-                        Background="#E0202040"
-                        BorderBrush="#664FC3F7"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="12,8"
-                        Visibility="Collapsed"
-                        IsHitTestVisible="False"
-                        Opacity="0">
-                    <TextBlock x:Name="ToastText"
-                               Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="12"
-                               TextAlignment="Center"
-                               TextWrapping="Wrap" />
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="SidebarColumn" Width="0" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="SideFilterPanel" Grid.Column="0" Visibility="Collapsed"
+                        Background="#FF202039" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                    <DockPanel Margin="8">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,5,0,12">
+                            <Button x:Name="CollapseSideFiltersButton" DockPanel.Dock="Left" Content="› 收起" Click="OnCollapseSideFilters"
+                                    Style="{StaticResource TrackingButton}" Margin="0,0,6,0" Padding="5,3" />
+                            <Button x:Name="ResetSideFiltersButton" DockPanel.Dock="Right" Content="重置"
+                                    Click="OnResetSideFilters" Style="{StaticResource TrackingButton}" Margin="5,0,0,0" Padding="5,3" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="筛选" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="SideFilterCount" Foreground="{StaticResource AccentBrush}" FontSize="13" Margin="6,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+                        <ScrollViewer x:Name="SideFilterTagScroll" DockPanel.Dock="Top" MaxHeight="90" Margin="0,0,0,6"
+                                      Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ContentControl x:Name="SideFilterTags" />
+                        </ScrollViewer>
+                        <ContentControl x:Name="SideFilterActions" DockPanel.Dock="Bottom" />
+                        <ScrollViewer x:Name="SideFilterScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" />
+                    </DockPanel>
                 </Border>
-
-                <!-- Custom resize grip: three accent-coloured diagonal lines -->
-                <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                        Width="20" Height="20" Cursor="SizeNWSE"
-                        Background="Transparent" ToolTip="拖动调整窗口大小">
-                    <Canvas Width="20" Height="20">
-                        <Line X1="6"  Y1="18" X2="18" Y2="6"
-                              Stroke="#993D6EF5" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                        <Line X1="11" Y1="18" X2="18" Y2="11"
-                              Stroke="#BB3D6EF5" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                        <Line X1="16" Y1="18" X2="18" Y2="16"
-                              Stroke="#FF6B9FFF" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                    </Canvas>
+                <Border x:Name="FilterRail" Grid.Column="0" Visibility="Collapsed" Background="{StaticResource PanelBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                    <Button x:Name="ExpandSideFiltersButton" Click="OnExpandSideFilters" VerticalAlignment="Stretch" VerticalContentAlignment="Top"
+                            Style="{StaticResource TrackingButton}" Padding="2,12" BorderThickness="0" ToolTip="展开筛选">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{StaticResource PanelBackgroundBrush}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Top" />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel>
+                            <TextBlock Text="‹" FontSize="22" HorizontalAlignment="Center" />
+                            <TextBlock Text="筛" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            <TextBlock Text="选" FontSize="11" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="FilterRailCount" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Button>
                 </Border>
-
-                <Grid x:Name="BanProcessingMask"
-                      Visibility="Collapsed"
-                      Background="#CC000000"
-                      IsHitTestVisible="True">
-                    <Border HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Background="#E61E1E1E"
-                            BorderBrush="#4D6B9FFF"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="16,12">
-                        <TextBlock x:Name="BanProcessingMaskText"
-                                   Text="ban位识别中，请勿操作鼠标"
-                                   Foreground="White"
-                                   FontSize="14"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap"
-                                   TextAlignment="Center"/>
+                <Grid x:Name="MainSurface" Grid.Column="1">
+            <Grid x:Name="MainContent">
+                <DockPanel>
+                    <!-- Update notification banner (hidden until a new version is found) -->
+                    <Border x:Name="UpdateBanner" DockPanel.Dock="Top"
+                            Background="#1A2D4A1E"
+                            BorderBrush="#FF2D4A1E" BorderThickness="0,0,0,1"
+                            Visibility="Collapsed" Padding="10,5">
+                        <DockPanel>
+                            <Button x:Name="UpdateActionButton" DockPanel.Dock="Right"
+                                    Click="OnShowUpdateDialog"
+                                    Padding="8,3" FontSize="11" Cursor="Hand"
+                                    BorderThickness="0" Background="#FF4CAF50" Foreground="White">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bg" Property="Background" Value="#FF66BB6A" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="↑ " FontWeight="Bold" />
+                                    <TextBlock Text="查看更新" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock x:Name="UpdateBannerText"
+                                       Foreground="#FF8BC34A" FontSize="11"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
                     </Border>
+                    <Border DockPanel.Dock="Top" Padding="10,6" Background="#FF182736">
+                        <TextBlock x:Name="PreparationStatusText" Text="自动 BP 检测已开启，等待准备界面"
+                                   Foreground="#FF8CDDE5" FontSize="11" TextWrapping="Wrap" />
+                    </Border>
+                    <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}">
+                        <TabItem Header="干员">
+                            <views:OperatorBrowseView x:Name="OperatorView" />
+                        </TabItem>
+                        <TabItem Header="装备">
+                            <views:EquipmentBrowseView x:Name="EquipmentView" />
+                        </TabItem>
+                        <TabItem Header="追踪">
+                            <views:TrackingView x:Name="TrackingView" />
+                        </TabItem>
+                        <TabItem x:Name="LineupTab" Header="阵容">
+                            <views:LineupView x:Name="LineupView" />
+                        </TabItem>
+                    </TabControl>
+                </DockPanel>
+                <Border x:Name="PreparationOverlay" Background="#FF172C3A"
+                        BorderBrush="#FF64CAD6" BorderThickness="2" Visibility="Collapsed">
+                    <ScrollViewer VerticalAlignment="Center" VerticalScrollBarVisibility="Auto" Padding="20">
+                        <StackPanel>
+                            <TextBlock Text="自动 BP" FontSize="15" FontWeight="Bold"
+                                       Foreground="#FF8CDDE5" />
+                            <TextBlock x:Name="PreparationOverlayTitle" Margin="0,10,0,14"
+                                       Foreground="White" FontSize="24" FontWeight="Bold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="PreparationOverlayText" Foreground="#FFE4F7FA"
+                                       FontSize="17" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+            <DockPanel x:Name="SettingsPage" Visibility="Collapsed" Margin="12">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                    <Button x:Name="BackFromSettingsButton" Content="返回" DockPanel.Dock="Right" Click="OnCloseSettings"
+                            Style="{StaticResource TrackingButton}" Padding="8,4" />
+                    <TextBlock Text="设置" FontSize="18" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                </DockPanel>
+                <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                    <StackPanel>
+                        <TextBlock x:Name="SettingsUpdateStatus" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,6" />
+                        <Button x:Name="SettingsViewUpdateButton" Content="查看更新" Click="OnShowUpdateDialog"
+                                Style="{StaticResource TrackingButton}" HorizontalAlignment="Right" Visibility="Collapsed" Margin="0,0,0,6" />
+                        <DockPanel>
+                            <Button x:Name="SettingsCheckUpdateButton" Content="检查更新" DockPanel.Dock="Right"
+                                    Click="OnCheckForUpdates" Style="{StaticResource TrackingButton}" Padding="8,5" />
+                            <TextBlock x:Name="SettingsVersion" Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,6,0" />
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="7" Padding="10" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="筛选布局" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,9" />
+                            <CheckBox x:Name="LayoutToggle" Content="在侧边显示筛选"
+                                      Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="开启时，干员和装备筛选显示在侧边。关闭后，筛选回到列表顶部。"
+                                       Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                </ScrollViewer>
+            </DockPanel>
                 </Grid>
             </Grid>
         </DockPanel>

@@ -1,0 +1,9 @@
+<Project>
+  <Target Name="ExcludeReleaseSymbolsFromPublish" AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(Configuration)' == 'Release'">
+    <!-- Referenced projects' symbols can enter through CopyLocal even when the app's symbols are disabled. -->
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -66,6 +66,18 @@
             <TextBlock x:Name="EffectText" Margin="0,4,0,0"
                        FontSize="12" Foreground="{StaticResource TextPrimaryBrush}"
                        TextWrapping="Wrap" />
+            <TextBlock Text="{Binding FusionFormula, StringFormat='合成：{0}'}" Margin="0,5,0,0"
+                       FontSize="12" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding FusionFormula, TargetNullValue='', FallbackValue=''}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
         </StackPanel>
     </Border>
 </UserControl>

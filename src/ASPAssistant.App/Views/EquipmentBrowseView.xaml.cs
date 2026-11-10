@@ -9,6 +9,8 @@ namespace ASPAssistant.App.Views;
 
 public partial class EquipmentBrowseView : UserControl
 {
+    public BrowseFilterPresenter Filters { get; }
+
     public event Action<string, TrackingType>? TrackingRequested;
     public event Action<string>? UntrackingRequested;
     public Func<string, bool>? IsTrackedCheck { get; set; }
@@ -16,6 +18,7 @@ public partial class EquipmentBrowseView : UserControl
     public EquipmentBrowseView()
     {
         InitializeComponent();
+        Filters = new(this, TopFilterHost, FilterContentPanel, FilterToggle, null, null, TierFilterList, TypeFilterList);
     }
 
     private void OnViewDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -27,13 +30,13 @@ public partial class EquipmentBrowseView : UserControl
     private void OnTierFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (DataContext is not EquipmentBrowseViewModel vm) return;
-        vm.SelectedTierFilter = TierFilterList.SelectedItem as int?;
+        vm.SetTierFilters(TierFilterList.SelectedItems.OfType<int>());
     }
 
     private void OnTypeFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (DataContext is not EquipmentBrowseViewModel vm) return;
-        vm.SelectedTypeFilter = TypeFilterList.SelectedItem as string ?? "";
+        vm.SetTypeFilters(TypeFilterList.SelectedItems.OfType<string>());
     }
 
     private void OnEquipmentTrackingToggled(object sender, RoutedEventArgs e)

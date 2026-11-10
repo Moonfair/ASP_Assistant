@@ -14,14 +14,11 @@ public partial class EquipmentBrowseViewModel : ObservableObject
     [ObservableProperty]
     private string _searchText = "";
 
-    [ObservableProperty]
-    private int? _selectedTierFilter;
-
-    [ObservableProperty]
-    private string _selectedTypeFilter = "";
+    private readonly HashSet<int> _selectedTierFilters = [];
+    private readonly HashSet<EquipmentType> _selectedTypeFilters = [];
 
     public List<int?> AvailableTiers { get; private set; } = [];
-    public static List<string> AvailableTypes { get; } = ["", "普通", "转职", "专属"];
+    public static List<string> AvailableTypes { get; } = ["", "普通", "转职"];
 
     public void LoadEquipment(
         List<Equipment> equipment,
@@ -47,6 +44,12 @@ public partial class EquipmentBrowseViewModel : ObservableObject
                    : EquipmentType.Normal;
         }
 
+        LoadEquipment(equipment);
+    }
+
+    /// <summary>Use an already-classified catalog without altering its equipment types.</summary>
+    public void LoadEquipment(List<Equipment> equipment)
+    {
         _allEquipment = equipment;
         AvailableTiers = [null, .. equipment.Select(e => (int?)e.Tier).Distinct().OrderBy(t => t)];
         OnPropertyChanged(nameof(AvailableTiers));
@@ -55,33 +58,41 @@ public partial class EquipmentBrowseViewModel : ObservableObject
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilters();
-    partial void OnSelectedTierFilterChanged(int? value) => ApplyFilters();
-    partial void OnSelectedTypeFilterChanged(string value) => ApplyFilters();
+
+    public void SetTierFilters(IEnumerable<int> tiers)
+    {
+        _selectedTierFilters.Clear();
+        _selectedTierFilters.UnionWith(tiers);
+        ApplyFilters();
+    }
+
+    public void SetTypeFilters(IEnumerable<string> types)
+    {
+        _selectedTypeFilters.Clear();
+        foreach (var type in types)
+        {
+            if (type == "普通") _selectedTypeFilters.Add(EquipmentType.Normal);
+            if (type == "转职") _selectedTypeFilters.Add(EquipmentType.JobChange);
+        }
+        ApplyFilters();
+    }
 
     private void ApplyFilters()
     {
         var filtered = _allEquipment.AsEnumerable();
 
-        if (SelectedTierFilter.HasValue)
-            filtered = filtered.Where(e => e.Tier == SelectedTierFilter.Value);
+        if (_selectedTierFilters.Count > 0)
+            filtered = filtered.Where(e => _selectedTierFilters.Contains(e.Tier));
 
-        if (!string.IsNullOrEmpty(SelectedTypeFilter))
-        {
-            var t = SelectedTypeFilter switch
-            {
-                "普通" => EquipmentType.Normal,
-                "转职" => EquipmentType.JobChange,
-                "专属" => EquipmentType.Exclusive,
-                _ => (EquipmentType?)null
-            };
-            if (t.HasValue)
-                filtered = filtered.Where(e => e.Type == t.Value);
-        }
+        if (_selectedTypeFilters.Count > 0)
+            filtered = filtered.Where(e => _selectedTypeFilters.Contains(e.Type));
 
         if (!string.IsNullOrEmpty(SearchText))
             filtered = filtered.Where(e =>
                 e.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 
-        FilteredEquipment = new ObservableCollection<Equipment>(filtered);
+        var results = filtered.ToList();
+        if (!FilteredEquipment.SequenceEqual(results))
+            FilteredEquipment = new ObservableCollection<Equipment>(results);
     }
 }

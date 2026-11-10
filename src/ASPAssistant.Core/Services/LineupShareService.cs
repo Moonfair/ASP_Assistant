@@ -1,97 +1,92 @@
-using System.Net.Http;
-using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.Services;
 
-/// <summary>
-/// 阵容分享/导入：通过 dpaste.com 匿名 API 把阵容 JSON 上传成短链接。
-/// 文档：https://dpaste.com/api/v2/
-/// </summary>
-public class LineupShareService
+public sealed class LineupShareService(IEnumerable<string> operators, IEnumerable<string> equipment)
 {
-    private const string DpasteEndpoint = "https://dpaste.com/api/v2/";
-    private const int ExpiryDays = 365; // dpaste 上限
-
-    private static readonly Regex DpasteUrlRegex =
-        new(@"https?://dpaste\.com/[A-Za-z0-9]+", RegexOptions.IgnoreCase);
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private const string LegacyHeader = "ASPA-LINEUP/1";
+    private const string Header = "ASPA-LINEUP/2";
+    private readonly HashSet<string> _operators = new(operators, StringComparer.Ordinal);
+    private readonly HashSet<string> _equipment = new(equipment, StringComparer.Ordinal);
+    internal static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = false,
-        PropertyNameCaseInsensitive = true,
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        MaxDepth = 16,
+        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
     };
 
-    private readonly HttpClient _http;
-
-    public LineupShareService(HttpClient? httpClient = null)
+    public string Export(Lineup lineup)
     {
-        _http = httpClient ?? new HttpClient
+        Validate(lineup);
+        // The share carries content and attribution, never the local identity.
+        var description = lineup.Description.Length == 0 ? null : lineup.Description;
+        return (description is null ? LegacyHeader : Header) + "\n" +
+            JsonSerializer.Serialize(new ShareContent(lineup.Name, lineup.Author, lineup.Members, description), JsonOptions);
+    }
+
+    public Lineup Import(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) throw new FormatException("请先复制阵容分享文本。");
+        if (text.Length > 100_000) throw new FormatException("分享文本过长，请检查是否复制了完整且正确的阵容。");
+        text = text.Trim().TrimStart('\uFEFF');
+        var newline = text.IndexOf('\n');
+        if (newline < 0 || text[..newline].TrimEnd('\r') is not (Header or LegacyHeader))
+            throw new FormatException("不支持的阵容格式或版本，请使用 ASP Assistant 导出的文本。");
+        try
         {
-            Timeout = TimeSpan.FromSeconds(15),
-        };
-        if (!_http.DefaultRequestHeaders.UserAgent.Any())
+            var content = JsonSerializer.Deserialize<ShareContent>(text[(newline + 1)..], JsonOptions)
+                ?? throw new FormatException("分享文本中没有阵容。");
+            var lineup = new Lineup
+            {
+                Name = content.Name, Author = content.Author, Members = content.Members,
+                Description = content.Description ?? "", IsImported = true
+            };
+            Validate(lineup);
+            return lineup;
+        }
+        catch (JsonException ex) { throw new FormatException("阵容文本不完整或字段格式错误。", ex); }
+    }
+
+    public void Validate(Lineup lineup)
+    {
+        ValidateStructure(lineup);
+        foreach (var member in lineup.Members)
         {
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("ASPAssistant-LineupShare/1.0");
+            if (!_operators.Contains(member.OperatorName))
+                throw new FormatException($"当前数据中没有干员“{member.OperatorName}”，请检查赛季或更新数据。");
+            foreach (var name in new[] { member.Equipment1, member.Equipment2 })
+                if (name.Length > 0 && !_equipment.Contains(name))
+                    throw new FormatException($"当前数据中没有装备“{name}”，请检查赛季或更新数据。");
         }
     }
 
-    /// <summary>把阵容序列化后上传到 dpaste，返回短链接 URL（如 https://dpaste.com/XXXXX）。</summary>
-    public async Task<string> ExportAsync(Lineup lineup, CancellationToken ct = default)
+    internal static void ValidateStructure(Lineup lineup)
     {
-        var json = JsonSerializer.Serialize(lineup, JsonOptions);
-
-        using var content = new FormUrlEncodedContent(new[]
+        if (lineup is null || lineup.Id == Guid.Empty) throw new FormatException("无效的阵容标识。");
+        if (!ValidName(lineup.Name, 80)) throw new FormatException("请填写阵容名称（1–80 字）。");
+        if (!ValidName(lineup.Author, 80)) throw new FormatException("请填写作者名称（1–80 字）。");
+        if (lineup.Description is null || lineup.Description.Length > Lineup.MaxDescriptionLength)
+            throw new FormatException($"阵容介绍最多支持 {Lineup.MaxDescriptionLength} 字。");
+        if (lineup.Members is null || lineup.Members.Count is < 1 or > 10)
+            throw new FormatException("每个阵容需要 1–10 名干员。");
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var member in lineup.Members)
         {
-            new KeyValuePair<string, string>("content", json),
-            new KeyValuePair<string, string>("syntax", "json"),
-            new KeyValuePair<string, string>("expiry_days", ExpiryDays.ToString()),
-        });
-
-        using var response = await _http.PostAsync(DpasteEndpoint, content, ct);
-        response.EnsureSuccessStatusCode();
-
-        var body = (await response.Content.ReadAsStringAsync(ct)).Trim();
-        var match = DpasteUrlRegex.Match(body);
-        if (!match.Success)
-            throw new InvalidOperationException($"dpaste 响应不含可识别的 URL：{body}");
-        return match.Value;
+            if (member is null || !ValidName(member.OperatorName, 100)) throw new FormatException("阵容中存在无效干员。");
+            if (!names.Add(member.OperatorName)) throw new FormatException($"干员“{member.OperatorName}”重复加入了阵容。");
+            foreach (var name in new[] { member.Equipment1, member.Equipment2 })
+                if (name is null || (name.Length > 0 && !ValidName(name, 100)))
+                    throw new FormatException("装备名称无效。");
+        }
     }
 
-    /// <summary>
-    /// 从 dpaste 短链接拉取并反序列化阵容；URL 不合法或非 dpaste 链接时抛出。
-    /// 也支持直接传入 JSON 字符串，方便用户手动粘贴。
-    /// </summary>
-    public async Task<Lineup> ImportAsync(string urlOrJson, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(urlOrJson))
-            throw new ArgumentException("导入内容为空", nameof(urlOrJson));
+    private static bool ValidName(string? value, int limit) =>
+        !string.IsNullOrWhiteSpace(value) && value.Length <= limit && !value.Any(char.IsControl);
 
-        urlOrJson = urlOrJson.Trim();
-
-        string json;
-        var match = DpasteUrlRegex.Match(urlOrJson);
-        if (match.Success)
-        {
-            // 取 raw 文本视图
-            var rawUrl = match.Value.TrimEnd('/') + ".txt";
-            json = await _http.GetStringAsync(rawUrl, ct);
-        }
-        else if (urlOrJson.StartsWith("{"))
-        {
-            json = urlOrJson;
-        }
-        else
-        {
-            throw new ArgumentException("导入内容必须是 dpaste.com 短链接或阵容 JSON 字符串");
-        }
-
-        var lineup = JsonSerializer.Deserialize<Lineup>(json, JsonOptions)
-                     ?? throw new InvalidOperationException("无法解析阵容 JSON");
-        if (string.IsNullOrEmpty(lineup.Id))
-            lineup.Id = Guid.NewGuid().ToString("N");
-        return lineup;
-    }
+    private sealed record ShareContent(string Name, string Author, List<LineupMember> Members,
+        [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        string? Description = null);
 }
