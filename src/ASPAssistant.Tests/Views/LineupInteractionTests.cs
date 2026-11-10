@@ -5,9 +5,11 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Polyline = System.Windows.Shapes.Polyline;
 using System.Windows.Threading;
 using ASPAssistant.App.Views;
 using ASPAssistant.App.Controls;
+using ASPAssistant.App.Services;
 using ASPAssistant.App.Windows;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Models;
@@ -216,6 +218,109 @@ public class LineupInteractionTests
     }
 
     [Fact]
+    public void DiagramEdges_FollowEitherNodeDuringDragAndReturnOnCancel()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            LineupDiagram.TryParse(["flowchart LR", "A[{{op:A}}]", "B[{{op:B}}]", "A -->|link| B"],
+                out var graph, out _).Should().BeTrue();
+            var moves = new Dictionary<string, Action<Point>>();
+            var canvas = LineupDiagram.BuildCanvas(graph, (_, _, _) => new TextBlock(),
+                (_, node, move) => moves.Add(node.Id, move), (_, _) => { });
+            var lines = canvas.Children.OfType<Polyline>().ToArray();
+            var arrow = canvas.Children.OfType<System.Windows.Shapes.Polygon>().Single();
+            var label = canvas.Children.OfType<TextBlock>().Single();
+            var originalLabelPosition = Canvas.GetTop(label);
+            lines[0].Points.Should().Equal(new Point(166, 77), new Point(298, 77));
+
+            moves["A"](new Point(2, 166));
+            lines[0].Points.Should().Equal(new Point(150, 188), new Point(298, 114));
+            lines[1].Points.Should().Equal(lines[0].Points);
+            arrow.Points[0].Should().Be(lines[0].Points[^1]);
+            Canvas.GetTop(label).Should().BeGreaterThan(originalLabelPosition);
+
+            moves["A"](new Point(18, 18));
+            lines[0].Points.Should().Equal(new Point(166, 77), new Point(298, 77));
+            Canvas.GetTop(label).Should().Be(originalLabelPosition);
+
+            moves["B"](new Point(338, 18));
+            lines[0].Points.Should().Equal(new Point(166, 77), new Point(338, 77));
+            arrow.Points[0].Should().Be(new Point(338, 77));
+        });
+    }
+
+    [Fact]
+    public void LineupLibrary_ShowsOrderedPortraitsAndUpdatesGrayscaleWithMatchBans()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "ASPA-LineupPortraits", Guid.NewGuid().ToString("N"));
+            try
+            {
+                var store = new LineupStore(directory);
+                store.SaveAsync([new Lineup
+                {
+                    Name = "测试阵容", Author = "测试作者",
+                    Members = [new() { OperatorName = "能天使" }, new() { OperatorName = "地灵" }, new() { OperatorName = "旧干员" }]
+                }]).GetAwaiter().GetResult();
+                var library = new LineupLibraryViewModel(store);
+                library.LoadAsync().GetAwaiter().GetResult();
+                const string firstPath = "icons/operators/能天使.png";
+                const string secondPath = "icons/operators/地灵.png";
+                var bans = new BanViewModel();
+                bans.SetBans(["能天使"]);
+                var view = new LineupView();
+                view.ConfigurePortraits(name => name switch
+                {
+                    "能天使" => firstPath,
+                    "地灵" => secondPath,
+                    _ => null
+                }, bans.IsBanned);
+                bans.BansChanged += view.RefreshBannedPortraits;
+                view.DataContext = library;
+                Layout(view, 278, 500);
+                var cards = (ItemsControl)view.FindName("LineupCards");
+                var portraits = Descendants<Image>(cards).ToArray();
+                portraits.Select(image => ((LineupMember)image.DataContext).OperatorName)
+                    .Should().Equal("能天使", "地灵", "旧干员");
+                foreach (var portrait in portraits)
+                    portrait.RaiseEvent(new RoutedEventArgs(FrameworkElement.LoadedEvent));
+                portraits.Select(DeferredIcon.GetPath).Should().Equal(firstPath, secondPath, "");
+                IconLoadingTests.PumpUntil(() => portraits[0].Source is BitmapSource && portraits[1].Source is BitmapSource);
+                var original = IconLoadQueue.Shared.RequestAsync(firstPath).GetAwaiter().GetResult()!;
+                var otherOriginal = portraits[1].Source;
+                var originalPixels = ReadBgraPixels(original);
+                var grayPixels = ReadBgraPixels((BitmapSource)portraits[0].Source);
+                var colorPixel = Enumerable.Range(0, originalPixels.Length / 4).Select(i => i * 4)
+                    .First(i => originalPixels[i + 3] == 255 && originalPixels[i] != originalPixels[i + 2]);
+                grayPixels[colorPixel].Should().Be(grayPixels[colorPixel + 1]).And.Be(grayPixels[colorPixel + 2]);
+                grayPixels.Where((_, i) => i % 4 == 3).Should().Equal(originalPixels.Where((_, i) => i % 4 == 3));
+                Descendants<TextBlock>(cards).Single(text => text.Text == "旧干员").Visibility.Should().Be(Visibility.Visible);
+
+                bans.SetBans(["地灵"]);
+                portraits[0].Source.Should().BeSameAs(original);
+                portraits[1].Source.Should().NotBeSameAs(otherOriginal);
+                bans.ClearBans();
+                portraits[1].Source.Should().BeSameAs(otherOriginal);
+            }
+            finally
+            {
+                File.Delete(Path.Combine(directory, "lineups.json"));
+                if (Directory.Exists(directory)) Directory.Delete(directory);
+            }
+        });
+    }
+
+    private static byte[] ReadBgraPixels(BitmapSource source)
+    {
+        var bitmap = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+        return pixels;
+    }
+
+    [Fact]
     public void Editor_ControlsUpdateSavedContent_AndLibraryFitsNarrowPanel()
     {
         Exception? failure = null;
@@ -413,11 +518,43 @@ public class LineupInteractionTests
                 sourceEditor.Text.Should().Contain("N1[{{gear:法杖}}]");
                 ClickNode("B");
                 ClickNodeMenu("N1", "从此节点创建连线");
+                var connectingCanvas = (Canvas)surface.Content;
+                var previewLines = connectingCanvas.Children.OfType<System.Windows.Shapes.Line>();
+                var preview = previewLines.Should().ContainSingle().Which;
+                preview.IsHitTestVisible.Should().BeFalse();
+                zoom.Value = 0.8;
+                description.SetDiagramPan(new Vector(40, 25));
+                Layout(content, 1020, 730);
+                var startPoint = connectingCanvas.TranslatePoint(new Point(preview.X1, preview.Y1), viewport);
+                (startPoint - FindNode("N1").TranslatePoint(cardCenter, viewport)).Length.Should().BeLessThan(0.01);
+                VisualTreeHelper.GetClip(viewport).Bounds.Should().Be(new Rect(viewport.RenderSize));
+                var inside = new Point(viewport.ActualWidth / 3, viewport.ActualHeight / 3);
+                description.UpdateConnectionPreview(inside);
+                (connectingCanvas.TranslatePoint(new Point(preview.X2, preview.Y2), viewport) - inside)
+                    .Length.Should().BeLessThan(0.01);
+                var outside = new Point(viewport.ActualWidth + 35, -25);
+                description.UpdateConnectionPreview(outside);
+                (connectingCanvas.TranslatePoint(new Point(preview.X2, preview.Y2), viewport) - outside)
+                    .Length.Should().BeLessThan(0.01);
+                ClickGraphButton("ConnectNodesButton");
+                previewLines.Should().BeEmpty();
+                description.SetDiagramPan(default);
+                zoom.Value = 1;
+                ClickNodeMenu("N1", "从此节点创建连线");
                 ClickNode("A");
+                previewLines = ((Canvas)surface.Content).Children.OfType<System.Windows.Shapes.Line>();
+                previewLines.Should().BeEmpty();
                 var graphText = (TextBox)description.FindName("GraphPropertyText");
                 graphText.Text = "提供增益";
                 ClickGraphButton("ApplyGraphPropertiesButton");
                 sourceEditor.Text.Should().Contain("N1 -->|提供增益| A");
+                var graphCanvas = (Canvas)surface.Content;
+                var originalEdge = graphCanvas.Children.OfType<Polyline>().Single(line => Equals(line.Tag, 0));
+                var originalLabel = graphCanvas.Children.OfType<TextBlock>().Single(label => Equals(label.Tag, 0));
+                originalLabel.ContextMenu.Items.OfType<MenuItem>().Should().ContainSingle(item => Equals(item.Header, "删除连线"));
+                originalEdge.ContextMenu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "删除连线"))
+                    .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                sourceEditor.Text.Should().NotContain("A -->|装备| B").And.Contain("N1 -->|提供增益| A").And.Contain("B[{{gear:法杖}}]");
                 ClickNode("N1");
                 graphText.Text = "备用装备";
                 ((CheckBox)description.FindName("HighlightNode")).IsChecked = true;
@@ -449,6 +586,11 @@ public class LineupInteractionTests
                 window.ConfirmClose(() => false).Should().BeFalse("a rejected discard must block both editor and owner closure");
                 window.ConfirmClose(() => true).Should().BeTrue();
                 editor.IsDirty.Should().BeTrue("preflight must not discard drafts before all editors approve closure");
+                window.WindowState = WindowState.Minimized;
+                window.BringForward("已有阵容正在编辑，请先保存或取消当前编辑。");
+                window.WindowState.Should().Be(WindowState.Normal);
+                editor.Status.Should().Contain("已有阵容正在编辑");
+                editor.BuildLineup().Should().BeEquivalentTo(saved, "bringing the editor forward must keep the existing draft");
                 ((TextBox)slots[0].Template.FindName("PART_EditableTextBox", slots[0])).Text.Should().Be("法杖");
                 ((TextBox)slots[1].Template.FindName("PART_EditableTextBox", slots[1])).Text.Should().Be("长剑");
                 editor.Status = "";
@@ -483,8 +625,6 @@ public class LineupInteractionTests
                 store.SaveAsync([saved, importedEditor.BuildLineup()]).GetAwaiter().GetResult();
                 var vm = new LineupLibraryViewModel(store);
                 vm.LoadAsync().GetAwaiter().GetResult();
-                File.Delete(Path.Combine(directory, "lineups.json"));
-                Directory.Delete(directory);
                 view.DataContext = vm;
                 view.Measure(new Size(278, 500));
                 view.Arrange(new Rect(0, 0, 278, 500));
@@ -515,15 +655,26 @@ public class LineupInteractionTests
                     bounds.Right.Should().BeLessThanOrEqualTo(278);
                 }
                 view.ShareService = codec;
-                Lineup? imported = null;
-                view.ImportPreviewRequested += lineup => imported = lineup;
-                view.ImportText(codec.Export(saved));
+                var openedWindow = false;
+                view.EditRequested += _ => openedWindow = true;
+                view.PreviewRequested += _ => openedWindow = true;
+                var importTask = Dispatcher.CurrentDispatcher.InvokeAsync(() => view.ImportTextAsync(codec.Export(saved))).Task.Unwrap();
+                IconLoadingTests.PumpUntil(() => importTask.IsCompleted);
+                importTask.GetAwaiter().GetResult();
+                vm.Lineups.Should().HaveCount(3);
+                var imported = vm.Lineups.Last();
                 imported.Should().BeEquivalentTo(saved with { IsImported = true }, o => o.Excluding(x => x.Id));
-                imported!.Id.Should().NotBe(saved.Id);
-                vm.Lineups.Should().HaveCount(2, "import is a draft until saved");
-                imported = null;
-                view.ImportText("broken");
-                imported.Should().BeNull();
+                imported.Id.Should().NotBe(saved.Id);
+                openedWindow.Should().BeFalse();
+                categoryTabs.SelectedIndex.Should().Be(2);
+                cards.Items.Cast<Lineup>().Should().Contain(imported);
+                var reload = store.LoadAsync();
+                IconLoadingTests.PumpUntil(() => reload.IsCompleted);
+                reload.GetAwaiter().GetResult().Should().ContainEquivalentOf(imported);
+                File.Delete(Path.Combine(directory, "lineups.json"));
+                Directory.Delete(directory);
+                view.ImportTextAsync("broken").GetAwaiter().GetResult();
+                vm.Lineups.Should().HaveCount(3);
                 vm.Status.Should().NotBeEmpty();
             }
             catch (Exception ex) { failure = ex; }

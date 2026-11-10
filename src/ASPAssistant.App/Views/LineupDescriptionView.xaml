@@ -1,6 +1,48 @@
 <UserControl x:Class="ASPAssistant.App.Views.LineupDescriptionView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             PreviewMouseMove="OnDiagramMouseMove" MouseLeave="OnConnectionPointerMove">
+    <UserControl.Resources>
+        <Style x:Key="DiagramMenuItem" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#FFE7E9F3" />
+            <Setter Property="Padding" Value="9,5" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Row" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="3">
+                            <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="#FF29445D" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Row" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="DiagramContextMenu" TargetType="ContextMenu">
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="3" />
+            <Setter Property="MaxHeight" Value="320" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource DiagramMenuItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" CornerRadius="4">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -97,9 +139,10 @@
                         AllowDrop="True" PreviewDragEnter="OnDiagramDragOver" PreviewDragOver="OnDiagramDragOver"
                         PreviewDragLeave="OnDiagramDragLeave" PreviewDrop="OnDiagramDrop">
                     <ScrollViewer x:Name="DiagramSurface" Background="Transparent" CanContentScroll="False" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  PreviewMouseDown="OnDiagramPanStart" PreviewMouseMove="OnDiagramPanMove"
-                                  PreviewMouseUp="OnDiagramPanEnd" LostMouseCapture="OnDiagramPanLostCapture" />
+                                  HorizontalScrollBarVisibility="Auto" ClipToBounds="True"
+                                  PreviewMouseDown="OnDiagramPanStart"
+                                  PreviewMouseUp="OnDiagramPanEnd" LostMouseCapture="OnDiagramPanLostCapture"
+                                  LayoutUpdated="OnDiagramLayoutUpdated" />
                 </Border>
                 </DockPanel>
                 <DockPanel x:Name="DiagramSourceHost" Visibility="Collapsed">

@@ -119,12 +119,13 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource CoreCovenantTag}" CornerRadius="8" Background="#224FC3F7"
-                                    Padding="6,1" Margin="0,0,4,0">
+                                    Padding="7,2" Margin="0,0,4,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <controls:CovenantIcon Covenant="{Binding}" Width="13" Height="13" Margin="0,0,4,0" Foreground="{StaticResource AccentBrush}" />
+                                    <controls:CovenantIcon Covenant="{Binding}" Width="15" Height="15" Margin="0,0,4,0"
+                                                           Foreground="{StaticResource AccentBrush}" />
                                     <TextBlock Text="{Binding}"
                                            Foreground="{StaticResource AccentBrush}"
-                                           FontSize="11" />
+                                           FontSize="13" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
@@ -138,12 +139,13 @@
                         <DataTemplate>
                             <Border Style="{StaticResource AdditionalCovenantTag}" CornerRadius="8" Background="#14FFFFFF"
                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                                    Padding="6,1" Margin="0,0,4,0">
+                                    Padding="7,2" Margin="0,0,4,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <controls:CovenantIcon Covenant="{Binding}" Width="13" Height="13" Margin="0,0,4,0" Foreground="{StaticResource TextSecondaryBrush}" />
+                                    <controls:CovenantIcon Covenant="{Binding}" Width="15" Height="15" Margin="0,0,4,0"
+                                                           Foreground="{StaticResource TextSecondaryBrush}" />
                                     <TextBlock Text="{Binding}"
                                            Foreground="{StaticResource TextSecondaryBrush}"
-                                           FontSize="11" />
+                                           FontSize="13" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
@@ -158,9 +160,9 @@
                         <StackPanel Margin="0,0,0,4">
                             <!-- Trait type chip -->
                             <Border Style="{StaticResource TraitTagBorder}"
-                                    HorizontalAlignment="Left">
+                                    Padding="6,2" HorizontalAlignment="Left">
                                 <TextBlock Text="{Binding TraitType}"
-                                           FontSize="10" Foreground="{StaticResource AccentBrush}" />
+                                           FontSize="12" Foreground="{StaticResource AccentBrush}" />
                             </Border>
                             <!-- Trait description -->
                             <TextBlock Text="{Binding TraitDescription}"

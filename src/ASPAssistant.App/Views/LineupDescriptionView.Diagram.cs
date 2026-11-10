@@ -22,6 +22,7 @@ public partial class LineupDescriptionView
     private string? _selectedNode;
     private int? _selectedEdge;
     private string? _connectFrom;
+    private Line? _connectionPreview;
     private Canvas? _canvas;
     private readonly TranslateTransform _diagramPan = new();
     private Point? _panStart;
@@ -50,6 +51,7 @@ public partial class LineupDescriptionView
         DiagramPicker.Visibility = _graphBlocks.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
         _settingDiagramPicker = false;
         _canvas = null;
+        _connectionPreview = null;
 
         var block = _graphBlocks.ElementAtOrDefault(_graphIndex);
         var error = "";
@@ -120,23 +122,39 @@ public partial class LineupDescriptionView
         e.Handled = true;
     }
 
-    private void OnDiagramPanMove(object sender, MouseEventArgs e)
+    private void OnDiagramMouseMove(object sender, MouseEventArgs e)
     {
-        if (_panStart is not { } start) return;
-        if (e.MiddleButton != MouseButtonState.Pressed)
+        if (_panStart is { } start)
         {
-            EndDiagramPan();
-            return;
+            if (e.MiddleButton == MouseButtonState.Pressed)
+            {
+                var delta = e.GetPosition(DiagramSurface) - start;
+                SetDiagramPan(_panOffset + delta);
+                e.Handled = true;
+                return;
+            }
+            else EndDiagramPan();
         }
-        var delta = e.GetPosition(DiagramSurface) - start;
-        SetDiagramPan(_panOffset + delta);
-        e.Handled = true;
+        OnConnectionPointerMove(sender, e);
+    }
+
+    private void OnConnectionPointerMove(object sender, MouseEventArgs e)
+    {
+        if (_connectionPreview is not null) UpdateConnectionPreview(e.GetPosition(DiagramViewport));
+    }
+
+    private void OnDiagramLayoutUpdated(object? sender, EventArgs e) => RefreshConnectionPointer();
+
+    private void RefreshConnectionPointer()
+    {
+        if (_connectionPreview is not null) UpdateConnectionPreview(Mouse.GetPosition(DiagramViewport));
     }
 
     internal void SetDiagramPan(Vector offset)
     {
         _diagramPan.X = offset.X;
         _diagramPan.Y = offset.Y;
+        RefreshConnectionPointer();
     }
 
     private void OnResetDiagramView(object sender, RoutedEventArgs e) => ResetDiagramView();
@@ -251,18 +269,12 @@ public partial class LineupDescriptionView
         var names = equipment
             ? vm.Members.SelectMany(member => new[] { member.Equipment1, member.Equipment2 })
             : vm.Members.Select(member => member.OperatorName);
-        var menu = new ContextMenu
-        {
-            PlacementTarget = button,
-            Placement = PlacementMode.Bottom,
-            Background = (Brush)FindResource("CardBackgroundBrush"),
-            Foreground = Brushes.WhiteSmoke,
-            BorderBrush = (Brush)FindResource("BorderBrush"),
-            MaxHeight = 320
-        };
+        var menu = CreateDiagramMenu();
+        menu.PlacementTarget = button;
+        menu.Placement = PlacementMode.Bottom;
         foreach (var name in names.Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.Ordinal))
         {
-            var item = new MenuItem { Header = name, Icon = MakeDiagramIcon(equipment, name, 20) };
+            var item = new MenuItem { Header = name };
             item.Click += (_, _) => AddDiagramNode(equipment, name);
             menu.Items.Add(item);
         }
@@ -271,6 +283,13 @@ public partial class LineupDescriptionView
         button.ContextMenu = menu;
         menu.IsOpen = true;
     }
+
+    private ContextMenu CreateDiagramMenu() => new()
+    {
+        Style = (Style)FindResource("DiagramContextMenu"),
+        Background = (Brush)FindResource("CardBackgroundBrush"),
+        BorderBrush = (Brush)FindResource("BorderBrush")
+    };
 
     private void OnDiagramDragOver(object sender, DragEventArgs e)
     {
@@ -351,6 +370,40 @@ public partial class LineupDescriptionView
         _selectedEdge = null;
         _connectFrom = id;
         UpdateGraphInspector();
+    }
+
+    private void SyncConnectionPreview(Canvas canvas)
+    {
+        if (_connectFrom is not { } id)
+        {
+            if (_connectionPreview is { } preview) canvas.Children.Remove(preview);
+            _connectionPreview = null;
+            return;
+        }
+        var card = canvas.Children.OfType<Border>().FirstOrDefault(node => Equals(node.Tag, id));
+        if (card is null) return;
+        if (_connectionPreview is null)
+        {
+            _connectionPreview = new Line
+            {
+                Stroke = Brushes.LightSkyBlue, StrokeThickness = 1.5, StrokeDashArray = [4, 3],
+                IsHitTestVisible = false
+            };
+            Panel.SetZIndex(_connectionPreview, -1);
+            canvas.Children.Add(_connectionPreview);
+        }
+        _connectionPreview.X1 = Canvas.GetLeft(card) + LineupDiagram.CardWidth / 2;
+        _connectionPreview.Y1 = Canvas.GetTop(card) + LineupDiagram.CardHeight / 2;
+        RefreshConnectionPointer();
+    }
+
+    internal void UpdateConnectionPreview(Point pointer)
+    {
+        if (_connectionPreview is not { } line || _canvas is not { } canvas) return;
+        // The scroll content presenter clips the segment at the visible canvas boundary.
+        var end = DiagramViewport.TranslatePoint(pointer, canvas);
+        line.X2 = end.X;
+        line.Y2 = end.Y;
     }
 
     private void SelectNode(string id)
@@ -467,18 +520,13 @@ public partial class LineupDescriptionView
         e.Handled = true;
     }
 
-    private void ConfigureNode(Border card, LineupDiagram.Node node)
+    private void ConfigureNode(Border card, LineupDiagram.Node node, Action<Point> moveNode)
     {
         card.Tag = node.Id;
         card.Cursor = Cursors.SizeAll;
         card.Focusable = true;
         System.Windows.Automation.AutomationProperties.SetName(card, node.Name);
-        var menu = new ContextMenu
-        {
-            Background = (Brush)FindResource("CardBackgroundBrush"),
-            Foreground = Brushes.WhiteSmoke,
-            BorderBrush = (Brush)FindResource("BorderBrush")
-        };
+        var menu = CreateDiagramMenu();
         var connect = new MenuItem { Header = "从此节点创建连线" };
         var delete = new MenuItem { Header = "删除节点" };
         connect.Click += (_, _) => StartNodeConnection(node.Id);
@@ -517,8 +565,7 @@ public partial class LineupDescriptionView
                 && Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance) return;
             moved = true;
             var position = ClampDiagramPosition(origin + startingInset + delta / DiagramZoom.Value) - GetCanvasCenteringOffset();
-            Canvas.SetLeft(card, position.X);
-            Canvas.SetTop(card, position.Y);
+            moveNode(position);
         };
         card.MouseLeftButtonUp += (_, e) =>
         {
@@ -537,8 +584,7 @@ public partial class LineupDescriptionView
         {
             if (down is null) return;
             down = null;
-            Canvas.SetLeft(card, origin.X);
-            Canvas.SetTop(card, origin.Y);
+            moveNode(origin);
         };
         card.KeyDown += (_, e) =>
         {
@@ -554,6 +600,15 @@ public partial class LineupDescriptionView
         {
             element.Tag = index;
             element.Cursor = Cursors.Hand;
+            var menu = CreateDiagramMenu();
+            var delete = new MenuItem { Header = "删除连线" };
+            delete.Click += (_, _) =>
+            {
+                if (GetCurrentGraph() is not null && ReferenceEquals(element.Parent, _canvas))
+                    DeleteGraphItem(null, index);
+            };
+            menu.Items.Add(delete);
+            element.ContextMenu = menu;
         }
         hitTarget.MouseLeftButtonDown += (_, e) =>
         {
@@ -578,7 +633,7 @@ public partial class LineupDescriptionView
         AddOperatorNode.IsEnabled = AddEquipmentNode.IsEnabled = _graph is not null;
         GraphHint.Text = _graph is null ? "修正左侧源码后即可继续编辑。"
             : _connectFrom is not null ? "点击另一个节点作为连线终点。"
-            : "中键拖动画布，右键节点可创建连线或删除。";
+            : "中键拖动画布，右键节点或连线可打开菜单。";
         if (node is not null)
         {
             GraphSelectionTitle.Text = $"{node.Name} · 节点注释";
@@ -603,6 +658,7 @@ public partial class LineupDescriptionView
         foreach (var line in _canvas.Children.OfType<Polyline>())
             if (line.Tag is int edgeIndex)
                 line.Stroke = edgeIndex == _selectedEdge ? new SolidColorBrush(Color.FromArgb(70, 51, 187, 255)) : Brushes.Transparent;
+        SyncConnectionPreview(_canvas);
     }
 
     private void ClearGraphSelection()

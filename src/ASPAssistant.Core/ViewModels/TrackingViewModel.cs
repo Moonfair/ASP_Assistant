@@ -6,21 +6,24 @@ namespace ASPAssistant.Core.ViewModels;
 
 public partial class TrackingViewModel : ObservableObject
 {
+    private readonly ILookup<string, string> _operatorIcons;
+    private readonly ILookup<string, string> _equipmentIcons;
+
     [ObservableProperty]
     private ObservableCollection<TrackingEntry> _trackedOperators = [];
 
     [ObservableProperty]
     private ObservableCollection<TrackingEntry> _trackedEquipment = [];
 
-    [ObservableProperty]
-    private Dictionary<string, int> _covenantCounts = new();
-
-    [ObservableProperty]
-    private object? _gameState;
-
     public IReadOnlyList<TrackingEntry> AllEntries =>
         [.. TrackedOperators, .. TrackedEquipment];
     public event Action? TrackingChanged;
+
+    public TrackingViewModel(IEnumerable<Operator>? operators = null, IEnumerable<Equipment>? equipment = null)
+    {
+        _operatorIcons = (operators ?? []).ToLookup(item => item.Name, item => item.IconPath);
+        _equipmentIcons = (equipment ?? []).ToLookup(item => item.Name, item => item.IconPath);
+    }
 
     public void AddTracking(string name, TrackingType type)
     {
@@ -45,12 +48,22 @@ public partial class TrackingViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(name) || IsTracked(name))
             return false;
 
-        var entry = new TrackingEntry { Name = name, Type = type };
-        if (type == TrackingType.Operator)
-            TrackedOperators.Add(entry);
-        else
-            TrackedEquipment.Add(entry);
+        AddEntry(new TrackingEntry { Name = name, Type = type });
         return true;
+    }
+
+    private void AddEntry(TrackingEntry entry)
+    {
+        if (entry.Type == TrackingType.Operator)
+        {
+            entry.IconPath = _operatorIcons[entry.Name].FirstOrDefault() ?? "";
+            TrackedOperators.Add(entry);
+        }
+        else
+        {
+            entry.IconPath = _equipmentIcons[entry.Name].FirstOrDefault() ?? "";
+            TrackedEquipment.Add(entry);
+        }
     }
 
     public void RemoveTracking(string name)
@@ -77,17 +90,22 @@ public partial class TrackingViewModel : ObservableObject
             || TrackedEquipment.Any(e => e.Name == name);
     }
 
+    public void ClearTracking()
+    {
+        if (TrackedOperators.Count == 0 && TrackedEquipment.Count == 0)
+            return;
+
+        TrackedOperators.Clear();
+        TrackedEquipment.Clear();
+        TrackingChanged?.Invoke();
+    }
+
     public void LoadEntries(List<TrackingEntry> entries)
     {
         TrackedOperators.Clear();
         TrackedEquipment.Clear();
         foreach (var entry in entries)
-        {
-            if (entry.Type == TrackingType.Operator)
-                TrackedOperators.Add(entry);
-            else
-                TrackedEquipment.Add(entry);
-        }
+            AddEntry(entry);
         TrackingChanged?.Invoke();
     }
 }

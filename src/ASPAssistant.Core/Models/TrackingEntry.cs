@@ -15,4 +15,7 @@ public class TrackingEntry
 
     [JsonPropertyName("type")]
     public TrackingType Type { get; set; }
+
+    [JsonIgnore]
+    public string IconPath { get; internal set; } = "";
 }

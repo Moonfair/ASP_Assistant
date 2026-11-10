@@ -30,7 +30,7 @@ public partial class SidePanelWindow : Window
     private LineupLibraryViewModel? _lineupLibrary;
     private List<Operator> _lineupOperators = [];
     private List<Equipment> _lineupEquipment = [];
-    private readonly Dictionary<Guid, LineupEditorWindow> _lineupEditors = [];
+    private LineupEditorWindow? _lineupEditor;
 
     // 用户意图追踪
     private bool _isUserPositioned;       // 用户手动移动过窗口
@@ -61,26 +61,27 @@ public partial class SidePanelWindow : Window
         Closed += (_, _) => _preparationResultTimer.Stop();
         Closing += (_, args) =>
         {
-            foreach (var editor in _lineupEditors.Values.ToArray())
+            if (LineupView.IsImporting && _lineupLibrary is { } library)
             {
-                if (editor.ConfirmClose()) continue;
                 args.Cancel = true;
-                editor.Activate();
-                break;
+                library.Status = "正在导入阵容，请稍候再关闭。";
+                return;
+            }
+            if (_lineupEditor is { } editor && !editor.ConfirmClose())
+            {
+                args.Cancel = true;
+                editor.BringForward();
             }
         };
         Closed += (_, _) =>
         {
-            foreach (var editor in _lineupEditors.Values)
-                editor.ApprovePanelClose();
+            _lineupEditor?.ApprovePanelClose();
             Application.Current.Shutdown();
         };
 
         LocationChanged += OnLocationChanged;
         SizeChanged     += OnSizeChanged;
         StateChanged    += OnStateChanged;
-
-        trackingVm.GameState = gameStateVm;
 
         OperatorView.DataContext = operatorVm;
         EquipmentView.DataContext = equipmentVm;
@@ -95,7 +96,6 @@ public partial class SidePanelWindow : Window
         OperatorView.UntrackingRequested += name => trackingVm.RemoveTracking(name);
         EquipmentView.TrackingRequested += (name, type) => trackingVm.AddTracking(name, type);
         EquipmentView.UntrackingRequested += name => trackingVm.RemoveTracking(name);
-        TrackingView.RemoveTrackingRequested += name => trackingVm.RemoveTracking(name);
 
         OperatorView.ClearBansRequested += () => ClearBansRequested?.Invoke();
         OperatorView.ManualScanRequested += () => ManualScanRequested?.Invoke();
@@ -107,6 +107,7 @@ public partial class SidePanelWindow : Window
             {
                 OperatorView.RefreshBannedStates();
                 operatorVm.NotifyBansChanged();
+                LineupView.RefreshBannedPortraits();
             });
         };
 
@@ -122,12 +123,12 @@ public partial class SidePanelWindow : Window
         _lineupLibrary = library;
         _lineupOperators = operators;
         _lineupEquipment = equipment;
+        LineupView.ConfigurePortraits(FindLineupOperatorIcon, BanVm.IsBanned);
         LineupView.DataContext = library;
         LineupView.ShareService = new LineupShareService(operators.Select(o => o.Name), equipment.Select(e => e.Name));
-        LineupView.NewRequested += () => OpenLineupEditor(null);
-        LineupView.EditRequested += lineup => OpenLineupEditor(lineup);
-        LineupView.PreviewRequested += lineup => OpenLineupPreview(lineup, importing: false);
-        LineupView.ImportPreviewRequested += lineup => OpenLineupPreview(lineup, importing: true);
+        LineupView.NewRequested += () => TryOpenLineupEditor(null);
+        LineupView.EditRequested += lineup => TryOpenLineupEditor(lineup);
+        LineupView.PreviewRequested += OpenLineupPreview;
         LineupView.TrackRequested += lineup =>
         {
             var added = TrackingVm.TrackLineup(lineup);
@@ -135,42 +136,34 @@ public partial class SidePanelWindow : Window
         };
     }
 
-    private void OpenLineupPreview(Lineup lineup, bool importing)
+    private string? FindLineupOperatorIcon(string name) => _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath;
+
+    private void OpenLineupPreview(Lineup lineup)
     {
         var preview = new ASPAssistant.App.Views.LineupPreviewView { Margin = new Thickness(18) };
         preview.ShowLineup(lineup, (equipment, name) => equipment
             ? _lineupEquipment.FirstOrDefault(item => item.Name == name)?.IconPath
-            : _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath);
+            : FindLineupOperatorIcon(name));
         var window = new Window
         {
-            Title = importing ? "导入阵容预览 · ASP Assistant" : "阵容预览 · ASP Assistant",
+            Title = "阵容预览 · ASP Assistant",
             Content = preview,
             Width = 860, Height = 680, MinWidth = 480, MinHeight = 420,
             Background = (System.Windows.Media.Brush)preview.FindResource("PanelBackgroundBrush"),
             WindowStartupLocation = WindowStartupLocation.CenterScreen
         };
-        if (importing)
-            preview.EnableImport(() =>
-            {
-                OpenLineupEditor(lineup);
-                window.Close();
-            });
         window.Show();
     }
 
-    private void OpenLineupEditor(Lineup? lineup)
+    private bool TryOpenLineupEditor(Lineup? lineup)
     {
-        if (_lineupLibrary is null) return;
-        if (lineup is not null && _lineupEditors.TryGetValue(lineup.Id, out var existing))
+        if (_lineupLibrary is null) return false;
+        if (_lineupEditor is { } existing)
         {
-            if (existing.IsComplete)
-                existing.Close();
-            else
-            {
-                existing.WindowState = WindowState.Normal;
-                existing.Activate();
-                return;
-            }
+            existing.BringForward(existing.IsComplete
+                ? "当前阵容已保存。请先点击“完成”关闭窗口。"
+                : "已有阵容正在编辑，请先保存或取消当前编辑。");
+            return false;
         }
         var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup);
         vm.OperatorBrowser.SetBanChecker(BanVm.IsBanned);
@@ -193,17 +186,17 @@ public partial class SidePanelWindow : Window
             }
             return success;
         });
-        var editorKey = vm.LineupId;
         BanVm.BansChanged += RefreshEditorBans;
         OperatorBrowseVm.PropertyChanged += RefreshEditorAvailability;
         editor.Closed += (_, _) =>
         {
             BanVm.BansChanged -= RefreshEditorBans;
             OperatorBrowseVm.PropertyChanged -= RefreshEditorAvailability;
-            _lineupEditors.Remove(editorKey);
+            _lineupEditor = null;
         };
-        _lineupEditors.Add(editorKey, editor);
+        _lineupEditor = editor;
         editor.Show();
+        return true;
     }
 
     public void UpdateManualScanStatus(int pending)

@@ -132,7 +132,7 @@ internal static partial class LineupDiagram
     }
 
     internal static Canvas BuildCanvas(Graph graph, Func<bool, string, int, FrameworkElement> makeIcon,
-        Action<Border, Node>? configureNode = null, Action<UIElement, int>? configureEdge = null,
+        Action<Border, Node, Action<Point>>? configureNode = null, Action<UIElement, int>? configureEdge = null,
         IReadOnlyDictionary<string, Point>? manualPositions = null)
     {
         var canvas = new Canvas { Background = new SolidColorBrush(Color.FromRgb(25, 25, 46)) };
@@ -159,38 +159,16 @@ internal static partial class LineupDiagram
         }
         var width = positions.Values.Max(p => p.X) + CardWidth;
         var height = positions.Values.Max(p => p.Y) + CardHeight;
+        var edgeUpdates = new List<(Edge Edge, double Lane, Action<Point[]> Update)>();
         var outside = 0;
         for (var index = 0; index < graph.Edges.Count; index++)
         {
             var edge = graph.Edges[index];
-            var from = positions[edge.From];
-            var to = positions[edge.To];
-            Point[] points;
-            if ((manualPositions?.ContainsKey(edge.From) == true || manualPositions?.ContainsKey(edge.To) == true)
-                && (Math.Abs(to.X - from.X) > CardWidth || Math.Abs(to.Y - from.Y) > CardHeight))
-            {
-                var center = new Vector(CardWidth / 2, CardHeight / 2);
-                var delta = to - from;
-                var radius = 0.5 / Math.Max(Math.Abs(delta.X) / CardWidth, Math.Abs(delta.Y) / CardHeight);
-                points = [from + center + delta * radius, to + center - delta * radius];
-            }
-            else if (horizontal && to.X - from.X == HorizontalPitch)
-                points = [new(from.X + CardWidth, from.Y + CardHeight / 2), new(to.X, to.Y + CardHeight / 2)];
-            else if (!horizontal && to.Y - from.Y == RowPitch)
-                points = [new(from.X + CardWidth / 2, from.Y + CardHeight), new(to.X + CardWidth / 2, to.Y)];
-            else if (horizontal)
-            {
-                var lane = height + 24 + outside++ * 18;
-                points = [new(from.X + CardWidth, from.Y + CardHeight / 2), new(from.X + CardWidth + 8, from.Y + CardHeight / 2),
-                    new(from.X + CardWidth + 8, lane), new(to.X - 8, lane), new(to.X - 8, to.Y + CardHeight / 2), new(to.X, to.Y + CardHeight / 2)];
-            }
-            else
-            {
-                var lane = width + 24 + outside++ * 18;
-                points = [new(from.X + CardWidth / 2, from.Y + CardHeight), new(from.X + CardWidth / 2, from.Y + CardHeight + 10),
-                    new(lane, from.Y + CardHeight + 10), new(lane, to.Y - 10), new(to.X + CardWidth / 2, to.Y - 10), new(to.X + CardWidth / 2, to.Y)];
-            }
-            DrawEdge(canvas, points, edge.Label, index, configureEdge);
+            var lane = (horizontal ? height : width) + 24 + outside * 18;
+            var points = RouteEdge(positions[edge.From], positions[edge.To], horizontal, IsManual(edge), lane);
+            if (points.Length > 2) outside++;
+            var update = DrawEdge(canvas, points, edge.Label, index, configureEdge);
+            if (configureNode is not null) edgeUpdates.Add((edge, lane, update));
         }
         canvas.Width = width + 18 + (!horizontal && outside > 0 ? 78 + outside * 18 : 0);
         canvas.Height = height + 18 + (horizontal && outside > 0 ? 34 + outside * 18 : 0);
@@ -222,10 +200,47 @@ internal static partial class LineupDiagram
                 Background = new SolidColorBrush(highlighted ? Color.FromRgb(64, 53, 39) : Color.FromRgb(36, 36, 62)),
                 Child = content
             };
-            configureNode?.Invoke(border, node);
-            Put(canvas, border, positions[node.Id].X, positions[node.Id].Y);
+            var origin = positions[node.Id];
+            if (configureNode is not null)
+            {
+                var incidentEdges = edgeUpdates.Where(item => item.Edge.From == node.Id || item.Edge.To == node.Id).ToArray();
+                configureNode(border, node, position =>
+                {
+                    Canvas.SetLeft(border, position.X);
+                    Canvas.SetTop(border, position.Y);
+                    foreach (var (edge, lane, update) in incidentEdges)
+                    {
+                        var from = edge.From == node.Id ? position : positions[edge.From];
+                        var to = edge.To == node.Id ? position : positions[edge.To];
+                        update(RouteEdge(from, to, horizontal, position != origin || IsManual(edge), lane));
+                    }
+                });
+            }
+            Put(canvas, border, origin.X, origin.Y);
         }
         return canvas;
+
+        bool IsManual(Edge edge) => manualPositions?.ContainsKey(edge.From) == true || manualPositions?.ContainsKey(edge.To) == true;
+    }
+
+    private static Point[] RouteEdge(Point from, Point to, bool horizontal, bool manual, double lane)
+    {
+        var delta = to - from;
+        if (manual && (Math.Abs(delta.X) > CardWidth || Math.Abs(delta.Y) > CardHeight))
+        {
+            var center = new Vector(CardWidth / 2, CardHeight / 2);
+            var radius = 0.5 / Math.Max(Math.Abs(delta.X) / CardWidth, Math.Abs(delta.Y) / CardHeight);
+            return [from + center + delta * radius, to + center - delta * radius];
+        }
+        if (horizontal && delta.X == HorizontalPitch)
+            return [new(from.X + CardWidth, from.Y + CardHeight / 2), new(to.X, to.Y + CardHeight / 2)];
+        if (!horizontal && delta.Y == RowPitch)
+            return [new(from.X + CardWidth / 2, from.Y + CardHeight), new(to.X + CardWidth / 2, to.Y)];
+        if (horizontal)
+            return [new(from.X + CardWidth, from.Y + CardHeight / 2), new(from.X + CardWidth + 8, from.Y + CardHeight / 2),
+                new(from.X + CardWidth + 8, lane), new(to.X - 8, lane), new(to.X - 8, to.Y + CardHeight / 2), new(to.X, to.Y + CardHeight / 2)];
+        return [new(from.X + CardWidth / 2, from.Y + CardHeight), new(from.X + CardWidth / 2, from.Y + CardHeight + 10),
+            new(lane, from.Y + CardHeight + 10), new(lane, to.Y - 10), new(to.X + CardWidth / 2, to.Y - 10), new(to.X + CardWidth / 2, to.Y)];
     }
 
     private static Dictionary<string, Point> Arrange(IEnumerable<string> ids, List<Edge> edges, bool horizontal)
@@ -257,37 +272,53 @@ internal static partial class LineupDiagram
         return positions;
     }
 
-    private static void DrawEdge(Canvas canvas, Point[] points, string label, int index, Action<UIElement, int>? configureEdge)
+    private static Action<Point[]> DrawEdge(Canvas canvas, Point[] points, string label, int index, Action<UIElement, int>? configureEdge)
     {
-        canvas.Children.Add(new Polyline { Points = new PointCollection(points), Stroke = Brushes.LightSkyBlue, StrokeThickness = 1.5 });
+        var line = new Polyline { Stroke = Brushes.LightSkyBlue, StrokeThickness = 1.5 };
+        canvas.Children.Add(line);
+        Polyline? hitTarget = null;
         if (configureEdge is not null)
         {
-            var hitTarget = new Polyline { Points = new PointCollection(points), Stroke = Brushes.Transparent, StrokeThickness = 12 };
+            hitTarget = new Polyline { Stroke = Brushes.Transparent, StrokeThickness = 12 };
             configureEdge(hitTarget, index);
             canvas.Children.Add(hitTarget);
         }
-        var tip = points[^1];
-        var direction = tip - points[^2];
-        direction.Normalize();
-        var normal = new Vector(-direction.Y, direction.X);
-        var tail = tip - direction * 8;
-        canvas.Children.Add(new Polygon
+        var arrow = new Polygon { Fill = Brushes.LightSkyBlue, IsHitTestVisible = false };
+        canvas.Children.Add(arrow);
+        TextBlock? text = null;
+        if (label.Length > 0)
         {
-            Points = new PointCollection([tip, tail + normal * 4, tail - normal * 4]), Fill = Brushes.LightSkyBlue, IsHitTestVisible = false
-        });
-        if (label.Length == 0) return;
-        var a = points[(points.Length - 1) / 2];
-        var b = points[points.Length / 2];
-        var text = new TextBlock
+            text = new TextBlock
+            {
+                Text = label, Foreground = Brushes.WhiteSmoke, FontSize = 11, ToolTip = label,
+                Background = new SolidColorBrush(Color.FromRgb(25, 25, 46)), MaxWidth = 120,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            configureEdge?.Invoke(text, index);
+            text.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            canvas.Children.Add(text);
+        }
+        Update(points);
+        return Update;
+
+        void Update(Point[] route)
         {
-            Text = label, Foreground = Brushes.WhiteSmoke, FontSize = 11, ToolTip = label,
-            Background = new SolidColorBrush(Color.FromRgb(25, 25, 46)), MaxWidth = 120,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        configureEdge?.Invoke(text, index);
-        text.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        Put(canvas, text, Math.Max(2, (a.X + b.X - text.DesiredSize.Width) / 2),
-            Math.Max(2, (a.Y + b.Y - text.DesiredSize.Height) / 2));
+            var linePoints = new PointCollection(route);
+            linePoints.Freeze();
+            line.Points = linePoints;
+            if (hitTarget is not null) hitTarget.Points = linePoints;
+            var tip = route[^1];
+            var direction = tip - route[^2];
+            direction.Normalize();
+            var normal = new Vector(-direction.Y, direction.X);
+            var tail = tip - direction * 8;
+            arrow.Points = new PointCollection([tip, tail + normal * 4, tail - normal * 4]);
+            if (text is null) return;
+            var a = route[(route.Length - 1) / 2];
+            var b = route[route.Length / 2];
+            Canvas.SetLeft(text, Math.Max(2, (a.X + b.X - text.DesiredSize.Width) / 2));
+            Canvas.SetTop(text, Math.Max(2, (a.Y + b.Y - text.DesiredSize.Height) / 2));
+        }
     }
 
     private static void Put(Canvas canvas, UIElement child, double x, double y)

@@ -6,6 +6,7 @@ namespace ASPAssistant.Core.Services;
 
 public sealed class LineupShareService(IEnumerable<string> operators, IEnumerable<string> equipment)
 {
+    public const int MaxShareTextLength = 100_000;
     private const string LegacyHeader = "ASPA-LINEUP/1";
     private const string Header = "ASPA-LINEUP/2";
     private readonly HashSet<string> _operators = new(operators, StringComparer.Ordinal);
@@ -30,7 +31,7 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
     public Lineup Import(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) throw new FormatException("请先复制阵容分享文本。");
-        if (text.Length > 100_000) throw new FormatException("分享文本过长，请检查是否复制了完整且正确的阵容。");
+        if (text.Length > MaxShareTextLength) throw new FormatException("分享文本过长，请检查是否复制了完整且正确的阵容。");
         text = text.Trim().TrimStart('\uFEFF');
         var newline = text.IndexOf('\n');
         if (newline < 0 || text[..newline].TrimEnd('\r') is not (Header or LegacyHeader))

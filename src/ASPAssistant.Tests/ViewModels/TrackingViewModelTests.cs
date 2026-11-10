@@ -55,6 +55,39 @@ public class TrackingViewModelTests
     }
 
     [Fact]
+    public void ClearTracking_ClearsBothListsBeforeNotifyingOnce()
+    {
+        var vm = new TrackingViewModel();
+        vm.AddTracking("角峰", TrackingType.Operator);
+        vm.AddTracking("不屈弹射器", TrackingType.Equipment);
+        var snapshots = new List<int>();
+        vm.TrackingChanged += () => snapshots.Add(vm.AllEntries.Count);
+
+        vm.ClearTracking();
+        vm.ClearTracking();
+
+        vm.TrackedOperators.Should().BeEmpty();
+        vm.TrackedEquipment.Should().BeEmpty();
+        snapshots.Should().Equal(0);
+    }
+
+    [Fact]
+    public void TrackingEntries_ResolveCatalogIconsForSavedAndNewItems()
+    {
+        var vm = new TrackingViewModel(
+            [new Operator { Name = "角峰", IconPath = "icons/operators/matterhorn.png" }],
+            [new Equipment { Name = "不屈弹射器", IconPath = "icons/equipment/不屈弹射器.png" }]);
+        vm.LoadEntries([
+            new TrackingEntry { Name = "角峰", Type = TrackingType.Operator },
+            new TrackingEntry { Name = "旧装备", Type = TrackingType.Equipment }
+        ]);
+        vm.AddTracking("不屈弹射器", TrackingType.Equipment);
+
+        vm.TrackedOperators.Single().IconPath.Should().Be("icons/operators/matterhorn.png");
+        vm.TrackedEquipment.Select(entry => entry.IconPath).Should().Equal("", "icons/equipment/不屈弹射器.png");
+    }
+
+    [Fact]
     public void IsTracked_ReturnsTrueForTrackedItem()
     {
         var vm = new TrackingViewModel();

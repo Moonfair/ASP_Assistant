@@ -8,12 +8,6 @@ public partial class LineupPreviewView : UserControl
 {
     public LineupPreviewView() => InitializeComponent();
 
-    internal void EnableImport(Action edit)
-    {
-        ImportButton.Click += (_, _) => edit();
-        ImportButton.Visibility = System.Windows.Visibility.Visible;
-    }
-
     internal void ShowLineup(Lineup lineup, Func<bool, string, string?> findIcon)
     {
         LineupTitle.Text = lineup.Name;

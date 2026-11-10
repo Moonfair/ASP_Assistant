@@ -98,7 +98,7 @@ public partial class App : Application
         var equipmentVm = new EquipmentBrowseViewModel();
         equipmentVm.LoadEquipment(equipment, covenantNames, manualJobChangeEquipments);
 
-        var trackingVm = new TrackingViewModel();
+        var trackingVm = new TrackingViewModel(operators, equipment);
         trackingVm.LoadEntries(trackingEntries);
 
         var gameStateVm = new GameStateViewModel();
@@ -167,21 +167,22 @@ public partial class App : Application
             });
         };
 
+        void RefreshShopTracking(Core.GameState.GameState state, List<TrackingEntry> entries)
+        {
+            var shopItems = state.ShopItems;
+            Core.GameState.GameStateUpdater.UpdateShopTracking(shopItems, entries);
+            gameStateVm.UpdateFromGameState(state);
+            _overlay.UpdateShopItems(shopItems);
+        }
+
         // Wire OCR scanner → GameState → overlay markers
         _ocrScanner.GameStateUpdated += state =>
         {
             Dispatcher.Invoke(() =>
             {
-                Core.GameState.GameStateUpdater.UpdateShopTracking(
-                    state.ShopItems, trackingVm.AllEntries.ToList());
-
                 state.CovenantCounts = Core.GameState.GameStateUpdater.ComputeCovenantCounts(
                     [.. state.FieldOperators, .. state.BenchOperators], operators);
-
-                trackingVm.CovenantCounts = state.CovenantCounts;
-                gameStateVm.UpdateFromGameState(state);
-
-                _overlay.UpdateShopItems(state.ShopItems);
+                RefreshShopTracking(state, trackingVm.AllEntries.ToList());
             });
         };
 
@@ -212,9 +213,13 @@ public partial class App : Application
             Dispatcher.Invoke(() => _sidePanel.UpdateManualScanStatus(count));
 
 
-        // Auto-save tracking changes
+        // Save tracking changes and refresh markers even if the shop stays the same.
         trackingVm.TrackingChanged += () =>
-            _trackingSave = SaveTrackingAsync(_trackingSave, trackingVm.AllEntries.ToList());
+        {
+            var entries = trackingVm.AllEntries.ToList();
+            _trackingSave = SaveTrackingAsync(_trackingSave, entries);
+            RefreshShopTracking(gameState, entries);
+        };
 
         // Show windows and start services
         _sidePanel.Show();

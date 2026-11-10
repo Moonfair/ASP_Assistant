@@ -67,7 +67,6 @@ public partial class LineupEditorViewModel : ObservableObject
         ? _equipment.GetValueOrDefault(name)?.IconPath
         : _operators.FirstOrDefault(op => op.Name == name)?.IconPath;
     public string MemberCount => $"已选 {Members.Count} / 10";
-    public Guid LineupId => _id;
     public bool CanAddOperator => Members.Count < 10;
     public bool IsNameMissing => string.IsNullOrWhiteSpace(Name);
     public bool IsAuthorMissing => string.IsNullOrWhiteSpace(Author);

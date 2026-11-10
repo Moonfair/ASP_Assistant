@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using ASPAssistant.App.Controls;
+using ASPAssistant.App.Services;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.ViewModels;
 
@@ -164,15 +165,17 @@ public partial class LineupEditorWindow : Window
         finally { _saving = false; ((UIElement)Content).IsEnabled = true; }
     }
 
-    private void OnShare(object sender, RoutedEventArgs e)
+    private async void OnShare(object sender, RoutedEventArgs e)
     {
-        if (_savedLineup is not { } lineup) return;
+        if (_savedLineup is not { } lineup || !ShareButton.IsEnabled) return;
+        ShareButton.IsEnabled = false;
         try
         {
             var text = _vm.ExportLineup(lineup);
             try
             {
-                Clipboard.SetText(text);
+                _vm.Status = "正在复制分享文本…";
+                await LineupClipboard.CopyAsync(this, text);
                 ShareFallback.Visibility = Visibility.Collapsed;
                 _vm.Status = "分享文本已复制到剪切板。";
             }
@@ -182,10 +185,13 @@ public partial class LineupEditorWindow : Window
                 ShareFallback.Visibility = Visibility.Visible;
                 ShareFallback.Focus();
                 ShareFallback.SelectAll();
-                _vm.Status = "剪切板暂不可用，可以手动复制分享文本。";
+                _vm.Status = ex.HResult == LineupClipboard.CannotOpenClipboard
+                    ? "剪贴板仍被占用，可以手动复制分享文本。"
+                    : "无法写入剪贴板，可以手动复制分享文本。";
             }
         }
         catch (FormatException ex) { _vm.Status = ex.Message; }
+        finally { ShareButton.IsEnabled = true; }
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
@@ -195,7 +201,15 @@ public partial class LineupEditorWindow : Window
 
     internal void ApprovePanelClose() => _panelCloseApproved = true;
 
-    // The side panel checks all drafts before shutting down the application.
+    internal void BringForward(string? notice = null)
+    {
+        if (notice is not null)
+            _vm.Status = _saving ? "正在保存阵容，请稍候。" : notice;
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    // The side panel checks the active draft before shutting down the application.
     public bool ConfirmClose(Func<bool>? confirmDiscard = null)
     {
         if (_saving) { _vm.Status = "正在保存阵容，请稍候再关闭。"; return false; }
