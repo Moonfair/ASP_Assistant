@@ -9,6 +9,7 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
     public const int MaxShareTextLength = 100_000;
     private const string LegacyHeader = "ASPA-LINEUP/1";
     private const string Header = "ASPA-LINEUP/2";
+    private const string ShareComment = "# ASP Assistant · 明日方舟「卫戍协议」实时辅助工具 · 官网 https://aspa.moonfair.cn";
     private readonly HashSet<string> _operators = new(operators, StringComparer.Ordinal);
     private readonly HashSet<string> _equipment = new(equipment, StringComparer.Ordinal);
     internal static readonly JsonSerializerOptions JsonOptions = new()
@@ -24,7 +25,7 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
         Validate(lineup);
         // The share carries content and attribution, never the local identity.
         var description = lineup.Description.Length == 0 ? null : lineup.Description;
-        return (description is null ? LegacyHeader : Header) + "\n" +
+        return (description is null ? LegacyHeader : Header) + "\n" + ShareComment + "\n" +
             JsonSerializer.Serialize(new ShareContent(lineup.Name, lineup.Author, lineup.Members, description), JsonOptions);
     }
 
@@ -36,9 +37,15 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
         var newline = text.IndexOf('\n');
         if (newline < 0 || text[..newline].TrimEnd('\r') is not (Header or LegacyHeader))
             throw new FormatException("不支持的阵容格式或版本，请使用 ASP Assistant 导出的文本。");
+        var payloadStart = newline + 1;
+        if (text.AsSpan(payloadStart).StartsWith("# ", StringComparison.Ordinal))
+        {
+            var commentEnd = text.IndexOf('\n', payloadStart);
+            payloadStart = commentEnd < 0 ? text.Length : commentEnd + 1;
+        }
         try
         {
-            var content = JsonSerializer.Deserialize<ShareContent>(text[(newline + 1)..], JsonOptions)
+            var content = JsonSerializer.Deserialize<ShareContent>(text[payloadStart..], JsonOptions)
                 ?? throw new FormatException("分享文本中没有阵容。");
             var lineup = new Lineup
             {

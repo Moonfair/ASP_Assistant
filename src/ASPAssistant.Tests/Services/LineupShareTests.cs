@@ -20,7 +20,7 @@ public class LineupShareTests
     {
         var source = Example();
         var text = _service.Export(source);
-        text.Should().StartWith("ASPA-LINEUP/1\n");
+        text.Should().StartWith("ASPA-LINEUP/1\n# ASP Assistant · 明日方舟「卫戍协议」实时辅助工具 · 官网 https://aspa.moonfair.cn\n");
         text.Should().Contain("博士").And.Contain("能天使");
         var imported = _service.Import("\r\n" + text.Replace("\n", "\r\n") + "\n ");
         imported.Should().BeEquivalentTo(source with { IsImported = true }, o => o.Excluding(x => x.Id));
@@ -34,12 +34,22 @@ public class LineupShareTests
         var description = "- **输出** {{op:能天使}}\n```lineup\nA[{{op:能天使}}]\nnote A: 主力\n```";
         var lineup = Example() with { Description = description };
         var exported = _service.Export(lineup);
-        exported.Should().StartWith("ASPA-LINEUP/2\n");
+        exported.Should().StartWith("ASPA-LINEUP/2\n# ASP Assistant · 明日方舟「卫戍协议」实时辅助工具 · 官网 https://aspa.moonfair.cn\n");
         _service.Import(exported).Description.Should().Be(description);
         var full = Example() with { Description = new string('\u0001', Lineup.MaxDescriptionLength) };
         _service.Import(_service.Export(full)).Description.Should().Be(full.Description);
         var oversized = lineup with { Description = new string('x', Lineup.MaxDescriptionLength + 1) };
         ((Action)(() => _service.Export(oversized))).Should().Throw<FormatException>();
+    }
+
+    [Theory]
+    [InlineData("ASPA-LINEUP/1")]
+    [InlineData("ASPA-LINEUP/2")]
+    public void Import_AcceptsLegacyShareWithoutComment(string header)
+    {
+        var lineup = _service.Import(header + "\n{\"Name\":\"旧阵容\",\"Author\":\"博士\",\"Members\":[{\"OperatorName\":\"能天使\"}]}");
+        lineup.Name.Should().Be("旧阵容");
+        lineup.Members.Should().ContainSingle(member => member.OperatorName == "能天使");
     }
 
     [Theory]
