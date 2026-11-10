@@ -9,6 +9,8 @@ namespace ASPAssistant.App.Views;
 
 public partial class EquipmentBrowseView : UserControl
 {
+    public BrowseFilterPresenter Filters { get; }
+
     public event Action<string, TrackingType>? TrackingRequested;
     public event Action<string>? UntrackingRequested;
     public Func<string, bool>? IsTrackedCheck { get; set; }
@@ -16,6 +18,7 @@ public partial class EquipmentBrowseView : UserControl
     public EquipmentBrowseView()
     {
         InitializeComponent();
+        Filters = new(this, TopFilterHost, FilterContentPanel, FilterToggle, null, null, TierFilterList, TypeFilterList);
     }
 
     private void OnViewDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

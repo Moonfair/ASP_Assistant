@@ -283,6 +283,17 @@ def process_operators(
 
 # ── 装备处理 ──────────────────────────────────────────────────────────────────
 
+def covenant_icon_sources(season_data: dict, bond_info_dict: dict) -> dict[str, str]:
+    """Resolve the same original PNGs used by SPDatabase, scoped to the active season."""
+    return {
+        bond_info_dict[key]["name"]: get_prts_media_url(
+            f"卫戍协议：盟约_{bond_info_dict[key]['icon']}.png"
+        )
+        for key in season_data["bondInfoDict"]
+        if key in bond_info_dict and bond_info_dict[key].get("icon")
+    }
+
+
 def process_covenants(season_data: dict, bond_info_dict: dict) -> dict:
     """Include all season covenants, including those without a fixed operator roster."""
     season_bonds = season_data["bondInfoDict"]
@@ -590,6 +601,11 @@ def main():
             else:
                 dl_fail += 1
         print(f"  装备图标: {dl_new} 新下载, {dl_skip} 已存在, {dl_fail} 失败")
+        covenant_icon_dir = data_dir / "icons" / "covenants"
+        covenant_icon_dir.mkdir(parents=True, exist_ok=True)
+        print("下载盟约图标...")
+        for name, url in covenant_icon_sources(season_data, bond_info_dict).items():
+            download_image(url, covenant_icon_dir / f"{name}.png")
     else:
         print("跳过图标下载 (--skip-icons)")
 

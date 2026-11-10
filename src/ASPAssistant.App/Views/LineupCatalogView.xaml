@@ -1,0 +1,199 @@
+<UserControl x:Class="ASPAssistant.App.Views.LineupCatalogView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:ASPAssistant.App.Controls" xmlns:converters="clr-namespace:ASPAssistant.App.Converters" xmlns:views="clr-namespace:ASPAssistant.App.Views">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Resources/LineupStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <converters:NullToStringConverter x:Key="AllLabel" />
+            <converters:CovenantDisabledConverter x:Key="DisabledCovenant" />
+            <DataTemplate x:Key="FilterLabel">
+                <TextBlock Text="{Binding Content, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Converter={StaticResource AllLabel}}" />
+            </DataTemplate>
+            <Style x:Key="Chips" TargetType="ListBox" BasedOn="{StaticResource FilterChipListBox}">
+                <Setter Property="ItemTemplate" Value="{StaticResource FilterLabel}" />
+                <Setter Property="SelectedIndex" Value="0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBox">
+                            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                <ItemsPresenter />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="CoreChip" TargetType="ListBoxItem" BasedOn="{StaticResource FilterChipItem}">
+                <Style.Triggers>
+                    <DataTrigger Value="True">
+                        <DataTrigger.Binding>
+                            <MultiBinding Converter="{StaticResource DisabledCovenant}">
+                                <Binding />
+                                <Binding Path="DataContext.OperatorBrowser.CovenantAvailability.EnabledCore" RelativeSource="{RelativeSource AncestorType=views:LineupCatalogView}" />
+                            </MultiBinding>
+                        </DataTrigger.Binding>
+                        <Setter Property="Opacity" Value="0.5" />
+                        <Setter Property="ToolTip" Value="本局禁用" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="OtherChip" TargetType="ListBoxItem" BasedOn="{StaticResource FilterChipItem}">
+                <Style.Triggers>
+                    <DataTrigger Value="True">
+                        <DataTrigger.Binding>
+                            <MultiBinding Converter="{StaticResource DisabledCovenant}">
+                                <Binding />
+                                <Binding Path="DataContext.OperatorBrowser.CovenantAvailability.EnabledAdditional" RelativeSource="{RelativeSource AncestorType=views:LineupCatalogView}" />
+                            </MultiBinding>
+                        </DataTrigger.Binding>
+                        <Setter Property="Opacity" Value="0.5" />
+                        <Setter Property="ToolTip" Value="本局禁用" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="GridList" TargetType="ListBox">
+                <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+                <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="ItemContainerStyle">
+                    <Setter.Value>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="Padding" Value="4" />
+                            <Setter Property="Width" Value="76" />
+                            <Setter Property="Margin" Value="0,0,0,4" />
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="ItemsPanel">
+                    <Setter.Value>
+                        <ItemsPanelTemplate>
+                            <controls:VirtualizingTilePanel />
+                        </ItemsPanelTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="ItemTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <StackPanel ToolTip="{Binding Name}">
+                                <Border Width="58" Height="58" Background="#FF12122A" CornerRadius="5" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                    <Grid>
+                                        <TextBlock Text="?" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Image controls:DeferredIcon.Path="{Binding IconPath}" Stretch="Uniform" />
+                                        <Border Background="#DD12122A" HorizontalAlignment="Right" VerticalAlignment="Bottom" Padding="3,0">
+                                            <TextBlock Text="{Binding Tier}" Foreground="{StaticResource AccentBrush}" FontSize="10" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <TextBlock Text="{Binding Name}" FontSize="11" Margin="0,4,0,0" TextAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextPrimaryBrush}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <TabControl x:Name="CatalogTabs" Style="{StaticResource DarkTabControl}">
+        <TabItem Header="干员">
+            <DockPanel Margin="10">
+                <StackPanel DockPanel.Dock="Top" DataContext="{Binding OperatorBrowser}">
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}" ToolTip="搜索干员名称" AutomationProperties.Name="搜索干员" Margin="0,0,0,8" />
+                    <Expander x:Name="OperatorFilters" Header="完整筛选" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6">
+                        <ScrollViewer x:Name="OperatorFilterScroll" MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="0,8,8,0">
+                                <TextBlock Text="本局状态" Margin="0,0,0,4" />
+                                <ListBox x:Name="AvailabilityFilters" Style="{StaticResource Chips}" Tag="Availability" SelectionChanged="OnSingleFilterChanged">
+                                    <ListBoxItem Content="全部" />
+                                    <ListBoxItem Content="本局可用" />
+                                    <ListBoxItem Content="本局不可用" />
+                                </ListBox>
+                                <TextBlock Text="等阶" Margin="0,6,0,4" />
+                                <ListBox x:Name="TierFilters" Style="{StaticResource Chips}" Tag="Tier" ItemsSource="{Binding AvailableTiers}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" />
+                                <TextBlock Text="核心盟约" Margin="0,6,0,4" />
+                                <ListBox x:Name="CoreFilters" Style="{StaticResource Chips}" Tag="Core" ItemsSource="{Binding AvailableCoreCovenants}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" ItemContainerStyle="{StaticResource CoreChip}" />
+                                <TextBlock Text="附加盟约" Margin="0,6,0,4" />
+                                <ListBox x:Name="OtherFilters" Style="{StaticResource Chips}" Tag="Other" ItemsSource="{Binding AvailableOtherCovenants}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" ItemContainerStyle="{StaticResource OtherChip}" />
+                                <TextBlock Text="特质类型" Margin="0,6,0,4" />
+                                <ListBox x:Name="TraitFilters" Style="{StaticResource Chips}" Tag="Trait" ItemsSource="{Binding AvailableTraitTypes}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" />
+                                <TextBlock Text="叠层" Margin="0,6,0,4" />
+                                <ListBox x:Name="StackingFilters" Style="{StaticResource Chips}" Tag="Stacking" SelectionChanged="OnSingleFilterChanged">
+                                    <ListBoxItem Content="全部" />
+                                    <ListBoxItem Content="叠层" />
+                                    <ListBoxItem Content="非叠层" />
+                                </ListBox>
+                                <TextBlock Text="触发时机" Margin="0,6,0,4" />
+                                <ListBox x:Name="TimingFilters" Style="{StaticResource Chips}" Tag="Timing" ItemsSource="{Binding AvailableTriggerTimings}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Expander>
+                    <ItemsControl ItemsSource="{Binding ActiveFilterTags}" MaxHeight="64" Margin="0,0,0,6">
+                        <ItemsControl.Template>
+                            <ControlTemplate>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Content="{Binding Label}" Click="OnRemoveFilter" Padding="5,2" Margin="0,0,3,3" ToolTip="点击移除此筛选">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                <Button x:Name="AddOperatorButton" Content="＋ 加入阵容" DockPanel.Dock="Bottom" Click="OnAddOperator" Margin="0,6,0,0" />
+                <TextBlock DockPanel.Dock="Bottom" Text="拖到右侧加入 · 双击也可加入" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,6,0,0" />
+                <Grid>
+                    <TextBlock Text="没有匹配的未选干员" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding AvailableOperators.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ListBox x:Name="OperatorList" ItemsSource="{Binding AvailableOperators}" Style="{StaticResource GridList}" SelectionChanged="OnCatalogSelectionChanged" PreviewMouseLeftButtonDown="OnDragStart" PreviewMouseMove="OnDragMove" MouseDoubleClick="OnOperatorDoubleClick" KeyDown="OnOperatorKeyDown" />
+                </Grid>
+            </DockPanel>
+        </TabItem>
+        <TabItem Header="装备">
+            <DockPanel Margin="10" DataContext="{Binding EquipmentBrowser}">
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=150}" ToolTip="搜索装备名称" AutomationProperties.Name="搜索装备" Margin="0,0,0,8" />
+                    <Expander Header="装备筛选" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8">
+                        <StackPanel Margin="0,8,0,0">
+                            <TextBlock Text="等阶" Margin="0,0,0,4" />
+                            <ListBox x:Name="EquipmentTiers" Style="{StaticResource Chips}" Tag="Tier" ItemsSource="{Binding AvailableTiers}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnEquipmentFilterChanged" />
+                            <TextBlock Text="类型" Margin="0,6,0,4" />
+                            <ListBox x:Name="EquipmentTypes" Style="{StaticResource Chips}" Tag="Type" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnEquipmentFilterChanged" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+                <Button Content="装备给选中干员" DockPanel.Dock="Bottom" Click="OnEquipSelected" Margin="0,6,0,0" />
+                <TextBlock DockPanel.Dock="Bottom" Text="拖到干员头像装备 · 拖到小槽替换" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,6,0,0" />
+                <ListBox x:Name="EquipmentList" ItemsSource="{Binding FilteredEquipment}" Style="{StaticResource GridList}" SelectionChanged="OnCatalogSelectionChanged" PreviewMouseLeftButtonDown="OnDragStart" PreviewMouseMove="OnDragMove" MouseDoubleClick="OnEquipmentDoubleClick" KeyDown="OnEquipmentKeyDown" />
+            </DockPanel>
+        </TabItem>
+    </TabControl>
+</UserControl>

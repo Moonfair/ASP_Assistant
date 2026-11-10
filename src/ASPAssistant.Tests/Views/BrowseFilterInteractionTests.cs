@@ -6,12 +6,14 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using ASPAssistant.App.Controls;
 using ASPAssistant.App.Views;
+using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.ViewModels;
 using FluentAssertions;
 
 namespace ASPAssistant.Tests.Views;
 
+[Collection("WPF views")]
 public class BrowseFilterInteractionTests
 {
     [Fact]
@@ -149,8 +151,274 @@ public class BrowseFilterInteractionTests
             VerifyCenteredOperatorSurvivesTagRemoval(expanded: false);
             VerifyCenteredOperatorSurvivesTagRemoval(expanded: true);
             VerifyDuplicateLabelsAndEmptyResults();
+            VerifyDisabledCovenantsRemainFilterable();
+            VerifySideFilterLayout();
+            VerifyExpandedFiltersAvoidGameWindow();
+            VerifyCovenantIcons();
+            VerifyShortWindowAllowsFiltering();
+            RenderFilterPreviews();
         }
         finally { app.Shutdown(); }
+    }
+
+    private static void VerifySideFilterLayout()
+    {
+        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("/ASPAssistant.App;component/Resources/Logo.xaml", UriKind.Relative)
+        });
+        var vm = new OperatorBrowseViewModel();
+        vm.LoadOperators([
+            new() { Name = "甲", Tier = 1, CoreCovenants = ["炎"] },
+            new() { Name = "乙", Tier = 2, CoreCovenants = ["莱塔尼亚"] }
+        ]);
+        var gearVm = new EquipmentBrowseViewModel();
+        gearVm.LoadEquipment([new() { Name = "装备甲", Tier = 1 }, new() { Name = "装备乙", Tier = 2 }]);
+        var window = new ASPAssistant.App.Windows.SidePanelWindow(vm, gearVm, new(), new(), new())
+            { Left = 900, Top = 20, Height = 800 };
+        LayoutFilterWindow(window);
+        var toggle = window.FindName("LayoutToggle") as System.Windows.Controls.Primitives.ToggleButton;
+        toggle.Should().NotBeNull("a layout switch should select the new sidebar layout");
+        var view = (OperatorBrowseView)window.FindName("OperatorView");
+        var core = (ListBox)view.FindName("CoreCovenantFilterList");
+        var filterToggle = (System.Windows.Controls.Primitives.ToggleButton)view.FindName("FilterToggle");
+        core.Items.Cast<object>().Should().Contain("炎", "the catalog should be bound before interaction");
+        core.SelectedItems.Add("炎");
+        core.SelectedItems.Cast<string>().Should().Equal("炎");
+        filterToggle.IsChecked = true;
+        double right = window.Left + window.Width;
+        double listWidth = window.Width;
+        double contentWidth = ((FrameworkElement)window.FindName("MainSurface")).ActualWidth;
+        toggle!.IsChecked = true;
+        window.Width.Should().BeGreaterThan(listWidth);
+        LayoutFilterWindow(window);
+        var sidePanel = (FrameworkElement)window.FindName("SideFilterPanel");
+        var collapseButton = (Button)window.FindName("CollapseSideFiltersButton");
+        var filterTitle = VisualChildren<TextBlock>(sidePanel).First(text => text.Text == "筛选");
+        collapseButton.TranslatePoint(new Point(collapseButton.ActualWidth, 0), sidePanel).X
+            .Should().BeLessThan(filterTitle.TranslatePoint(new Point(), sidePanel).X);
+        ((FrameworkElement)window.FindName("MainSurface")).ActualWidth.Should().BeApproximately(contentWidth, 0.1);
+        (window.Left + window.Width).Should().BeApproximately(right, 0.1);
+        var scroll = (ScrollViewer)window.FindName("SideFilterScroll");
+        scroll.Content.Should().BeSameAs(view.FindName("FilterContentPanel"));
+        var tags = (ItemsControl)view.FindName("FilterTagsControl");
+        var tagsHost = (ContentControl)window.FindName("SideFilterTags");
+        var tagsScroll = (ScrollViewer)window.FindName("SideFilterTagScroll");
+        tagsHost.Content.Should().BeSameAs(tags);
+        tags.HorizontalAlignment.Should().Be(HorizontalAlignment.Left);
+        tagsScroll.Visibility.Should().Be(Visibility.Visible);
+        VisualChildren<Button>(tags).Single(button => Equals(button.Content, "炎"))
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        vm.ActiveFilterTags.Should().BeEmpty();
+        tagsScroll.Visibility.Should().Be(Visibility.Collapsed);
+        core.SelectedItems.Add("炎");
+        LayoutFilterWindow(window);
+        core.SelectedItems.Cast<string>().Should().Equal("炎");
+        vm.FilteredOperators.Select(o => o.Name).Should().Equal("甲");
+        var settingsPage = (FrameworkElement)window.FindName("SettingsPage");
+        settingsPage.Visibility.Should().Be(Visibility.Collapsed);
+        ((Button)window.FindName("SettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        LayoutFilterWindow(window);
+        settingsPage.Visibility.Should().Be(Visibility.Visible);
+        ((FrameworkElement)window.FindName("MainContent")).Visibility.Should().Be(Visibility.Collapsed);
+        ((TextBlock)window.FindName("SettingsVersion")).Text.Should().StartWith("当前版本 v");
+        ((Button)window.FindName("SettingsCheckUpdateButton")).Content.Should().Be("检查更新");
+        window.Width.Should().BeApproximately(listWidth, 0.1);
+        scroll.Content.Should().BeNull();
+        toggle.IsChecked.Should().BeTrue();
+        ((Button)window.FindName("BackFromSettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        settingsPage.Visibility.Should().Be(Visibility.Collapsed);
+        scroll.Content.Should().BeSameAs(view.FindName("FilterContentPanel"));
+        core.SelectedItems.Cast<string>().Should().Equal("炎");
+        (window.Left + window.Width).Should().BeApproximately(right, 0.1);
+        collapseButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        filterToggle.IsChecked.Should().BeFalse();
+        tagsHost.Content.Should().BeSameAs(tags);
+        ((TextBlock)window.FindName("FilterRailCount")).Text.Should().Be("1");
+        LayoutFilterWindow(window);
+        ((FrameworkElement)window.FindName("MainSurface")).ActualWidth.Should().BeApproximately(contentWidth, 0.1);
+        window.Width.Should().BeLessThan(listWidth + 100);
+        (window.Left + window.Width).Should().BeApproximately(right, 0.1);
+        core.SelectedItems.Cast<string>().Should().Equal("炎");
+        ((Button)window.FindName("ExpandSideFiltersButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        filterToggle.IsChecked.Should().BeTrue();
+        var tabs = (TabControl)window.FindName("MainTabs");
+        tabs.SelectedIndex = 1;
+        var gearView = (EquipmentBrowseView)window.FindName("EquipmentView");
+        var tiers = (ListBox)gearView.FindName("TierFilterList");
+        LayoutFilterWindow(window);
+        tiers.SelectedItems.Add(2);
+        tabs.SelectedIndex = 2;
+        window.Width.Should().BeApproximately(listWidth, 0.1);
+        tagsHost.Content.Should().BeNull();
+        tags.Parent.Should().NotBeNull();
+        tags.HorizontalAlignment.Should().Be(HorizontalAlignment.Right);
+        tabs.SelectedIndex = 0;
+        scroll.Content.Should().BeSameAs(view.FindName("FilterContentPanel"));
+        core.SelectedItems.Cast<string>().Should().Equal("炎");
+        for (int i = 0; i < 3; i++)
+        {
+            toggle.IsChecked = false;
+            window.Width.Should().BeApproximately(listWidth, 0.1);
+            toggle.IsChecked = true;
+            vm.FilteredOperators.Select(o => o.Name).Should().Equal("甲");
+        }
+        ((Button)window.FindName("ResetSideFiltersButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        vm.FilteredOperators.Should().HaveCount(2);
+        core.SelectedIndex.Should().Be(0);
+        tabs.SelectedIndex = 1;
+        tiers.SelectedItems.Cast<int>().Should().Equal(2);
+        gearVm.FilteredEquipment.Select(g => g.Name).Should().Equal("装备乙");
+        toggle.IsChecked = false;
+        (window.Left + window.Width).Should().BeApproximately(right, 0.1);
+    }
+
+    private static void VerifyExpandedFiltersAvoidGameWindow()
+    {
+        var window = new ASPAssistant.App.Windows.SidePanelWindow(new(), new(), new(), new(), new())
+            { UseSideFilters = true };
+        var expand = (Button)window.FindName("ExpandSideFiltersButton");
+        var collapse = (Button)window.FindName("CollapseSideFiltersButton");
+        var monitor = User32.GetMonitorRect(0, 0);
+        var game = new RECT
+        {
+            Left = monitor.Left + 680, Right = monitor.Right - 20,
+            Top = monitor.Top + 20, Bottom = monitor.Bottom - 60
+        };
+        window.UpdatePosition(game, attachInside: true, gameActuallyMoved: true);
+        expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        (window.Left + window.Width).Should().Be(game.Left, "the expanded window fits to the left of the game");
+        window.UpdatePosition(game, attachInside: true, gameActuallyMoved: false);
+        (window.Left + window.Width).Should().Be(game.Left, "the next tracking update must keep the expanded placement");
+
+        collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        game.Left = monitor.Left + 20;
+        game.Right = monitor.Right - 680;
+        window.UpdatePosition(game, attachInside: false, gameActuallyMoved: true);
+        expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.Left.Should().Be(game.Right, "both the list and the expanded filters fit outside the game on the right");
+
+        game.Right = monitor.Right - 180;
+        window.UpdatePosition(game, attachInside: true, gameActuallyMoved: true);
+        window.Left.Should().BeLessThan(game.Right);
+        (window.Left + window.Width).Should().BeLessThanOrEqualTo(monitor.Right, "the expanded window remains on screen when no side fits");
+        (window.Left + window.Width).Should().BeGreaterThan(game.Right, "the fallback uses the wider right margin");
+    }
+
+    private static void VerifyShortWindowAllowsFiltering()
+    {
+        var store = new ASPAssistant.Core.Data.JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
+        var vm = new OperatorBrowseViewModel();
+        vm.LoadOperators(store.LoadOperatorsAsync().GetAwaiter().GetResult());
+        var view = new OperatorBrowseView { DataContext = vm };
+        ((System.Windows.Controls.Primitives.ToggleButton)view.FindName("FilterToggle")).IsChecked = true;
+        view.Measure(new Size(310, 500));
+        view.Arrange(new Rect(0, 0, 310, 500));
+        view.UpdateLayout();
+        var results = VisualChildren<ScrollViewer>((ItemsControl)view.FindName("OperatorListControl")).Single();
+        results.ViewportHeight.Should().BeGreaterThan(100, "top filters must leave a usable results area in short windows");
+    }
+
+    private static void VerifyCovenantIcons()
+    {
+        var catalog = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "data", "covenants.json")));
+        foreach (var name in catalog.RootElement.GetProperty("coreCovenants").EnumerateArray()
+            .Concat(catalog.RootElement.GetProperty("additionalCovenants").EnumerateArray()))
+        {
+            var icon = new CovenantIcon { Covenant = name.GetString(), Width = 16, Height = 16, Foreground = Brushes.Cyan };
+            icon.Visibility.Should().Be(Visibility.Visible, $"{name} should have its offline icon");
+            icon.Measure(new Size(16, 16));
+            icon.Arrange(new Rect(0, 0, 16, 16));
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(16, 16, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(icon);
+            var pixels = new byte[16 * 16 * 4];
+            bitmap.CopyPixels(pixels, 16 * 4, 0);
+            Enumerable.Range(0, 256).Count(i => pixels[i * 4 + 3] > 0).Should().BeGreaterThan(0);
+        }
+        var brokenName = "broken-covenant-" + Guid.NewGuid().ToString("N");
+        var brokenPath = Path.Combine(AppContext.BaseDirectory, "data", "icons", "covenants", brokenName + ".png");
+        try
+        {
+            File.WriteAllBytes(brokenPath, [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82]);
+            var damaged = new CovenantIcon();
+            Action load = () => damaged.Covenant = brokenName;
+            load.Should().NotThrow("a corrupt optional icon must fall back to the text label");
+            damaged.Visibility.Should().Be(Visibility.Collapsed);
+            Action remove = () => File.Delete(brokenPath);
+            remove.Should().NotThrow("failed decoding must release the file handle");
+        }
+        finally
+        {
+            try { File.Delete(brokenPath); }
+            catch (IOException) { /* A failed decoder may retain its URI stream until collection. */ }
+        }
+        var missing = new CovenantIcon { Covenant = "不存在的盟约" };
+        missing.Visibility.Should().Be(Visibility.Collapsed);
+        missing.Covenant = new OperatorFilterTag(OperatorFilterKind.Trait, "炎", "炎");
+        missing.Visibility.Should().Be(Visibility.Collapsed, "non-covenant labels must not borrow a matching-name icon");
+        missing.Covenant = new OperatorFilterTag(OperatorFilterKind.CoreCovenant, "炎", "炎");
+        missing.Visibility.Should().Be(Visibility.Visible);
+        missing.Covenant = "../outside";
+        missing.Visibility.Should().Be(Visibility.Collapsed);
+    }
+
+    private static void RenderFilterPreviews()
+    {
+        var directory = Environment.GetEnvironmentVariable("ASPA_FILTER_PREVIEW_DIR");
+        if (string.IsNullOrWhiteSpace(directory)) return;
+        Directory.CreateDirectory(directory);
+        var store = new ASPAssistant.Core.Data.JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
+        var vm = new OperatorBrowseViewModel();
+        vm.LoadOperators(store.LoadOperatorsAsync().GetAwaiter().GetResult());
+        var gearVm = new EquipmentBrowseViewModel();
+        gearVm.LoadEquipment(store.LoadEquipmentAsync().GetAwaiter().GetResult().Item1);
+        var window = new ASPAssistant.App.Windows.SidePanelWindow(vm, gearVm, new(), new(), new())
+            { Left = 900, Top = 20, Height = 820 };
+        LayoutFilterWindow(window);
+        var view = (OperatorBrowseView)window.FindName("OperatorView");
+        ((ListBox)view.FindName("CoreCovenantFilterList")).SelectedItems.Add("莱塔尼亚");
+        var toggle = (System.Windows.Controls.Primitives.ToggleButton)view.FindName("FilterToggle");
+        window.UseSideFilters = true;
+        toggle.IsChecked = true;
+        Render("sidebar-expanded.png");
+        toggle.IsChecked = false;
+        Render("sidebar-collapsed.png");
+        window.UseSideFilters = false;
+        toggle.IsChecked = true;
+        Render("top-filters.png");
+        window.UseSideFilters = true;
+        ((TabControl)window.FindName("MainTabs")).SelectedIndex = 1;
+        ((System.Windows.Controls.Primitives.ToggleButton)((EquipmentBrowseView)window.FindName("EquipmentView")).FindName("FilterToggle")).IsChecked = true;
+        Render("equipment-sidebar.png");
+        ((Button)window.FindName("SettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Render("settings-page.png");
+        void Render(string name)
+        {
+            LayoutFilterWindow(window);
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (DateTime.UtcNow < deadline && VisualChildren<Image>((FrameworkElement)window.Content).Any(i => i.Name == "IconImage" && i.Source == null))
+            {
+                Thread.Sleep(10);
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+            }
+            ((FrameworkElement)window.Content).UpdateLayout();
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)(window.Width * 1.5), (int)(window.Height * 1.5), 144, 144, PixelFormats.Pbgra32);
+            bitmap.Render((FrameworkElement)window.Content);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+            using var file = File.Create(Path.Combine(directory, name));
+            encoder.Save(file);
+        }
+    }
+
+    private static void LayoutFilterWindow(Window window)
+    {
+        var root = (FrameworkElement)window.Content;
+        root.Measure(new Size(window.Width, window.Height));
+        root.Arrange(new Rect(0, 0, window.Width, window.Height));
+        root.UpdateLayout();
+        Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+        root.UpdateLayout();
     }
 
     private static void ClickAll(ListBox list)
@@ -162,6 +430,71 @@ public class BrowseFilterInteractionTests
             RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent,
             Source = item
         });
+    }
+
+    private static void VerifyDisabledCovenantsRemainFilterable()
+    {
+        var vm = new OperatorBrowseViewModel();
+        vm.LoadOperators([
+            new() { Name = "甲", Tier = 1, CoreCovenants = ["炎", "萨尔贡"], AdditionalCovenants = ["灵巧", "精准"] },
+            new() { Name = "乙", Tier = 2, CoreCovenants = ["炎"], AdditionalCovenants = ["灵巧"] }
+        ]);
+        var view = new OperatorBrowseView { DataContext = vm };
+        ((System.Windows.Controls.Primitives.ToggleButton)view.FindName("FilterToggle")).IsChecked = true;
+        LayoutView(view);
+        var core = (ListBox)view.FindName("CoreCovenantFilterList");
+        var other = (ListBox)view.FindName("OtherCovenantFilterList");
+        var coreChip = (ListBoxItem)core.ItemContainerGenerator.ContainerFromItem("萨尔贡");
+        var otherChip = (ListBoxItem)other.ItemContainerGenerator.ContainerFromItem("精准");
+        coreChip.Opacity.Should().Be(1);
+        otherChip.Opacity.Should().Be(1);
+
+        vm.CovenantAvailability = new(new HashSet<string> { "炎" }, new HashSet<string> { "灵巧" });
+        LayoutView(view);
+        coreChip.Opacity.Should().BeLessThan(1);
+        otherChip.Opacity.Should().BeLessThan(1);
+        coreChip.ToolTip.Should().Be("本局禁用");
+        coreChip.IsEnabled.Should().BeTrue();
+        ((ListBoxItem)core.ItemContainerGenerator.ContainerFromItem("炎")).Opacity.Should().Be(1);
+        ((ListBoxItem)core.ItemContainerGenerator.ContainerFromIndex(0)).Opacity.Should().Be(1);
+
+        core.SelectedItems.Add("萨尔贡");
+        other.SelectedItems.Add("精准");
+        LayoutView(view);
+        vm.FilteredOperators.Select(o => o.Name).Should().Equal("甲");
+        coreChip.IsSelected.Should().BeTrue();
+        coreChip.Opacity.Should().BeLessThan(1);
+        var tags = (ItemsControl)view.FindName("FilterTagsControl");
+        var coreTag = VisualChildren<Button>(tags).Single(b => Equals(b.Content, "萨尔贡"));
+        var otherTag = VisualChildren<Button>(tags).Single(b => Equals(b.Content, "精准"));
+        coreTag.Opacity.Should().BeLessThan(1);
+        otherTag.Opacity.Should().BeLessThan(1);
+        coreTag.ToolTip!.ToString().Should().Contain("本局禁用").And.Contain("点击移除");
+        var card = VisualChildren<OperatorCard>(view).Single();
+        var labels = VisualChildren<TextBlock>(card).Where(t => t.Text is "炎" or "萨尔贡" or "灵巧" or "精准")
+            .ToDictionary(t => t.Text, t => (Border)VisualTreeHelper.GetParent(VisualTreeHelper.GetParent(t)));
+        labels["萨尔贡"].Opacity.Should().BeLessThan(labels["炎"].Opacity);
+        labels["精准"].Opacity.Should().BeLessThan(labels["灵巧"].Opacity);
+
+        vm.CovenantAvailability = null;
+        LayoutView(view);
+        coreChip.Opacity.Should().Be(1);
+        otherChip.Opacity.Should().Be(1);
+        coreChip.ToolTip.Should().BeNull();
+        labels["萨尔贡"].Opacity.Should().Be(1);
+        labels["精准"].Opacity.Should().Be(1);
+        coreTag.Opacity.Should().Be(1);
+        otherTag.Opacity.Should().Be(1);
+        coreChip.IsSelected.Should().BeTrue();
+        vm.FilteredOperators.Select(o => o.Name).Should().Equal("甲");
+
+        vm.CovenantAvailability = new(new HashSet<string> { "炎" }, new HashSet<string> { "灵巧" });
+        ((System.Windows.Controls.Primitives.ToggleButton)view.FindName("FilterToggle")).IsChecked = false;
+        LayoutView(view);
+        coreTag.Opacity.Should().BeLessThan(1);
+        ClickTag(view, "萨尔贡", OperatorFilterKind.CoreCovenant);
+        core.SelectedIndex.Should().Be(0);
+        other.SelectedItems.Cast<string>().Should().Contain("精准");
     }
 
     private static void ClickTag(OperatorBrowseView view, string label, OperatorFilterKind? kind = null)

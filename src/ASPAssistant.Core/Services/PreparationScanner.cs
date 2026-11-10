@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Drawing;
 using System.Text.RegularExpressions;
 using ASPAssistant.Core.Models;
@@ -32,6 +33,9 @@ public sealed class PreparationScanner(
     private GroupedRound? _groupedRound;
     private bool _sessionStarted;
     private int _generation;
+    private CovenantAvailability? _covenantAvailability;
+    public CovenantAvailability? CovenantAvailability { get { lock (_stateLock) return _covenantAvailability; } }
+    public event Action<CovenantAvailability?>? CovenantAvailabilityChanged;
     public PreparationPhase Phase { get; private set; }
     private PreparationNotice _notice = new("自动 BP 检测已开启，等待准备界面", PreparationNoticeKind.Banner);
     public string Status => _notice.Text;
@@ -193,6 +197,7 @@ public sealed class PreparationScanner(
             {
                 _lastFingerprint = fingerprint;
                 _automaticCleared = false;
+                _covenantAvailability = new(enabledCore.ToFrozenSet(), enabledAdditional.ToFrozenSet());
                 var next = candidates.Where(c => ShouldBan(c, enabledCore, enabledAdditional)).Select(c => c.Name).ToHashSet();
                 next.UnionWith(_manualBanned);
                 next.ExceptWith(_manualAllowed);
@@ -203,6 +208,7 @@ public sealed class PreparationScanner(
             automaticCleared = _automaticCleared;
         }
         if (changed) BansChanged?.Invoke(BannedNames);
+        if (newResult) CovenantAvailabilityChanged?.Invoke(CovenantAvailability);
         if (automaticCleared)
         {
             SetStatus("自动禁用已清空 · 点击截屏录入可重扫盟约", PreparationNoticeKind.Dismiss);
@@ -242,8 +248,17 @@ public sealed class PreparationScanner(
 
     public void ClearBans()
     {
-        lock (_stateLock) { _generation++; _banned.Clear(); _manualAllowed.Clear(); _manualBanned.Clear(); _automaticCleared = true; }
+        lock (_stateLock)
+        {
+            _generation++;
+            _banned.Clear();
+            _manualAllowed.Clear();
+            _manualBanned.Clear();
+            _automaticCleared = true;
+            _covenantAvailability = null;
+        }
         BansChanged?.Invoke(BannedNames);
+        CovenantAvailabilityChanged?.Invoke(CovenantAvailability);
         SetStatus("禁用名单已清空 · 盟约变化后自动更新，或点击截屏录入重扫", PreparationNoticeKind.Dismiss);
     }
 

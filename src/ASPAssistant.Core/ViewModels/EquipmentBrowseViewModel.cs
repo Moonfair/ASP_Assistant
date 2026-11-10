@@ -44,6 +44,12 @@ public partial class EquipmentBrowseViewModel : ObservableObject
                    : EquipmentType.Normal;
         }
 
+        LoadEquipment(equipment);
+    }
+
+    /// <summary>Use an already-classified catalog without altering its equipment types.</summary>
+    public void LoadEquipment(List<Equipment> equipment)
+    {
         _allEquipment = equipment;
         AvailableTiers = [null, .. equipment.Select(e => (int?)e.Tier).Distinct().OrderBy(t => t)];
         OnPropertyChanged(nameof(AvailableTiers));
@@ -85,6 +91,8 @@ public partial class EquipmentBrowseViewModel : ObservableObject
             filtered = filtered.Where(e =>
                 e.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 
-        FilteredEquipment = new ObservableCollection<Equipment>(filtered);
+        var results = filtered.ToList();
+        if (!FilteredEquipment.SequenceEqual(results))
+            FilteredEquipment = new ObservableCollection<Equipment>(results);
     }
 }

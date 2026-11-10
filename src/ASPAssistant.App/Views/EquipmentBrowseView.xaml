@@ -13,7 +13,7 @@
                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                  Background="#FF2A2A40" Foreground="{StaticResource TextPrimaryBrush}"
                  BorderBrush="{StaticResource BorderBrush}" Padding="6,4" />
-        <StackPanel DockPanel.Dock="Top" Margin="8,0,8,4">
+        <StackPanel x:Name="TopFilterHost" DockPanel.Dock="Top" Margin="8,0,8,4">
             <ToggleButton x:Name="FilterToggle"
                           Foreground="{StaticResource TextSecondaryBrush}"
                           FontSize="12" Padding="0,4,12,4" Cursor="Hand">
@@ -42,17 +42,7 @@
                 </ToggleButton.Style>
             </ToggleButton>
 
-            <StackPanel Margin="0,6,0,2">
-                <StackPanel.Style>
-                    <Style TargetType="StackPanel">
-                        <Setter Property="Visibility" Value="Collapsed" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsChecked, ElementName=FilterToggle}" Value="True">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </StackPanel.Style>
+            <StackPanel x:Name="FilterContentPanel" Margin="0,6,0,2">
 
                 <TextBlock Text="等阶" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,0,0,4" />

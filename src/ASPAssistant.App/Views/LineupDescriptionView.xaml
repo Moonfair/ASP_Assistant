@@ -1,0 +1,116 @@
+<UserControl x:Class="ASPAssistant.App.Views.LineupDescriptionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <WrapPanel Margin="0,0,0,8">
+            <Button Content="粗体" Tag="bold" Click="OnFormat" Margin="0,0,4,4" />
+            <Button Content="斜体" Tag="italic" Click="OnFormat" Margin="0,0,4,4" />
+            <Button Content="下划线" Tag="underline" Click="OnFormat" Margin="0,0,4,4" />
+            <Button Content="高亮" Tag="mark" Click="OnFormat" Margin="0,0,4,4" />
+            <Button Content="项目列表" Tag="bullet" Click="OnFormat" Margin="0,0,4,4" />
+            <Button Content="编号列表" Tag="number" Click="OnFormat" Margin="0,0,4,4" />
+            <Button Content="语法说明" Click="OnToggleHelp" Margin="0,0,0,4" />
+        </WrapPanel>
+        <StackPanel Grid.Row="1" Margin="0,0,0,10">
+            <WrapPanel>
+                <ComboBox x:Name="OperatorPicker" Width="150" IsEditable="True" IsTextSearchEnabled="True"
+                          DisplayMemberPath="Name" TextSearch.TextPath="Name"
+                          AutomationProperties.Name="选择干员图标" Margin="0,0,4,4" />
+                <Button Content="插入干员图标" Tag="op" Click="OnInsertIcon" Margin="0,0,12,4" />
+                <ComboBox x:Name="EquipmentPicker" Width="150" IsEditable="True" IsTextSearchEnabled="True"
+                          AutomationProperties.Name="选择装备图标" Margin="0,0,4,4" />
+                <Button Content="插入装备图标" Tag="gear" Click="OnInsertIcon" Margin="0,0,0,4" />
+            </WrapPanel>
+            <TextBlock x:Name="EditorHint" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="左边编辑阵容说明。右边独立编辑流程图，可切换画布和源码。" />
+            <Border x:Name="SyntaxHelp" Visibility="Collapsed" Margin="0,6,0,0" Padding="8"
+                    Background="{DynamicResource CardBackgroundBrush}">
+                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}">
+                    <Run Text="**粗体**　*斜体*　&lt;u&gt;下划线&lt;/u&gt;　==高亮==　- 项目　1. 编号" />
+                    <LineBreak />
+                    <Run Text="说明中的图标使用 {{op:干员名}} 或 {{gear:装备名}}。流程图源码在右侧编辑。" />
+                    <LineBreak />
+                    <Run Text="A --&gt;|连线文字| B 连接节点，highlight A 高亮节点，note A: 注释 添加说明。" />
+                </TextBlock>
+            </Border>
+        </StackPanel>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="阵容说明 · Markdown" Margin="0,0,0,6" />
+                <TextBox x:Name="IntroductionEditor"
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         VerticalContentAlignment="Top" TextChanged="OnIntroductionChanged"
+                         AutomationProperties.Name="阵容说明 Markdown" />
+            </DockPanel>
+            <DockPanel Grid.Column="2">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <Button x:Name="DiagramModeButton" Content="源码" DockPanel.Dock="Right" Click="OnToggleDiagramMode"
+                            AutomationProperties.Name="切换流程图画布和源码" Padding="8,3" />
+                    <Button Content="图模板" DockPanel.Dock="Right" Click="OnInsertDiagram" Padding="8,3" Margin="0,0,5,0" />
+                    <TextBlock Text="流程图编辑" VerticalAlignment="Center" />
+                </DockPanel>
+                <Grid>
+                <DockPanel x:Name="DiagramCanvasHost">
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <DockPanel Margin="0,0,0,5" LastChildFill="False">
+                        <ComboBox x:Name="DiagramPicker" DockPanel.Dock="Right" Width="100"
+                                  IsEditable="True" IsReadOnly="True" Visibility="Collapsed"
+                                  AutomationProperties.Name="选择流程图" SelectionChanged="OnDiagramChanged" />
+                        <Slider x:Name="DiagramZoom" DockPanel.Dock="Right" Width="75" Margin="6,0"
+                                Minimum="0.35" Maximum="1.5" Value="1" SmallChange="0.1"
+                                ValueChanged="OnDiagramZoomChanged" AutomationProperties.Name="流程图缩放"
+                                ToolTip="缩放流程图" />
+                        <TextBlock Text="缩放" DockPanel.Dock="Right" VerticalAlignment="Center" />
+                        <Button Content="回到原位" x:Name="ResetDiagramViewButton" Click="OnResetDiagramView"
+                                DockPanel.Dock="Left" Padding="6,2" />
+                    </DockPanel>
+                    <WrapPanel>
+                        <Button x:Name="AddOperatorNode" Content="＋ 干员节点" Tag="op" Click="OnAddNode" Margin="0,0,4,4" />
+                        <Button x:Name="AddEquipmentNode" Content="＋ 装备节点" Tag="gear" Click="OnAddNode" Margin="0,0,4,4" />
+                        <Button x:Name="ConnectNodesButton" Content="连线" Click="OnConnectNodes" IsEnabled="False" Margin="0,0,4,4" />
+                        <Button x:Name="DeleteGraphItemButton" Content="删除" Click="OnDeleteGraphItem" IsEnabled="False" Margin="0,0,4,4" />
+                        <Button x:Name="ResetLayoutButton" Content="自动布局" Click="OnResetDiagramLayout" IsEnabled="False" Margin="0,0,0,4" />
+                    </WrapPanel>
+                    <TextBlock x:Name="GraphHint" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+                <StackPanel x:Name="GraphInspector" DockPanel.Dock="Bottom" Visibility="Collapsed" Margin="0,6,0,0">
+                    <DockPanel Margin="0,0,0,4">
+                        <CheckBox x:Name="HighlightNode" DockPanel.Dock="Right" Content="高亮节点" />
+                        <TextBlock x:Name="GraphSelectionTitle" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                    <DockPanel>
+                        <Button x:Name="ApplyGraphPropertiesButton" Content="应用" DockPanel.Dock="Right" Margin="5,0,0,0" Click="OnApplyGraphProperties" />
+                        <TextBox x:Name="GraphPropertyText" KeyDown="OnGraphPropertyKeyDown" AutomationProperties.Name="节点注释或连线文字" />
+                    </DockPanel>
+                </StackPanel>
+                <Border x:Name="DiagramDropZone" Background="#FF12122A" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                        AllowDrop="True" PreviewDragEnter="OnDiagramDragOver" PreviewDragOver="OnDiagramDragOver"
+                        PreviewDragLeave="OnDiagramDragLeave" PreviewDrop="OnDiagramDrop">
+                    <ScrollViewer x:Name="DiagramSurface" Background="Transparent" CanContentScroll="False" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  PreviewMouseDown="OnDiagramPanStart" PreviewMouseMove="OnDiagramPanMove"
+                                  PreviewMouseUp="OnDiagramPanEnd" LostMouseCapture="OnDiagramPanLostCapture" />
+                </Border>
+                </DockPanel>
+                <DockPanel x:Name="DiagramSourceHost" Visibility="Collapsed">
+                    <TextBlock DockPanel.Dock="Top" Text="流程图源码 · 可输入图定义或使用图模板"
+                               Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <TextBox x:Name="SourceEditor" AcceptsReturn="True" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                             TextChanged="OnSourceChanged" AutomationProperties.Name="流程图源码" />
+                </DockPanel>
+                </Grid>
+            </DockPanel>
+        </Grid>
+    </Grid>
+</UserControl>

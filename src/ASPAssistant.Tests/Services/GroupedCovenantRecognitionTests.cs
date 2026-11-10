@@ -18,6 +18,7 @@ public class GroupedCovenantRecognitionTests
         await scanner.ProcessAsync(Frame("top"));
         scanner.Status.Should().Contain("向下").And.Contain("莱塔尼亚");
         scanner.BannedNames.Should().BeEmpty();
+        scanner.CovenantAvailability.Should().BeNull();
         notices[^1].Kind.Should().Be(PreparationNoticeKind.ScrollRequired);
 
         // The core groups can be entirely off screen when the player reveals the lower row.
@@ -30,6 +31,8 @@ public class GroupedCovenantRecognitionTests
         notices[^1].IsNewResult.Should().BeTrue();
         scanner.BannedNames.Should().Contain("乌萨斯干员").And.NotContain("莱塔尼亚干员");
         scanner.BannedNames.Should().Contain("无核心迅捷").And.NotContain("无核心精准");
+        scanner.CovenantAvailability!.EnabledCore.Should().Contain("莱塔尼亚").And.NotContain("乌萨斯");
+        scanner.CovenantAvailability.EnabledAdditional.Should().Contain("精准").And.NotContain("迅捷");
 
         await scanner.ProcessAsync(Frame("scrolled"));
         notices.Count(notice => notice.IsNewResult).Should().Be(1);
@@ -54,10 +57,13 @@ public class GroupedCovenantRecognitionTests
             graphics.FillRectangle(Brushes.Black, 22, 342, 423, 8);
         }));
         scanner.BannedNames.Should().NotContain("乌萨斯干员").And.Contain("莱塔尼亚干员");
+        scanner.CovenantAvailability!.EnabledCore.Should().Contain("乌萨斯").And.NotContain("莱塔尼亚");
         scanner.BannedNames.Should().Contain("无核心迅捷").And.NotContain("无核心精准");
 
         ocr.Heading = "确定自选编队";
+        var selectedCovenants = scanner.CovenantAvailability;
         await scanner.ProcessAsync(Frame("scrolled"));
+        scanner.CovenantAvailability.Should().BeSameAs(selectedCovenants);
         scanner.BannedNames.Should().Contain("莱塔尼亚干员");
         ocr.Heading = "确认本局信息";
         await scanner.ProcessAsync(Frame("scrolled"));

@@ -1,0 +1,46 @@
+<UserControl x:Class="ASPAssistant.App.Views.LineupMemberStrip"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ASPAssistant.App.Controls"
+             PreviewMouseMove="OnIconMouseMove" PreviewMouseLeftButtonUp="OnIconMouseUp"
+             LostMouseCapture="OnIconLostCapture">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="RoleVisibility" />
+    </UserControl.Resources>
+    <ItemsControl ItemsSource="{Binding}">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <Border Width="71" Padding="4" Margin="0,0,5,5" CornerRadius="5"
+                        Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                    <StackPanel>
+                        <Grid Height="36" Background="Transparent" Tag="op" PreviewMouseLeftButtonDown="OnIconMouseDown">
+                            <Image Width="36" Stretch="Uniform" controls:DeferredIcon.Path="{Binding IconPath}" />
+                            <TextBlock Text="叠" HorizontalAlignment="Left" VerticalAlignment="Top" FontSize="10" Padding="2"
+                                       Foreground="White" Background="#FF277770" ToolTip="叠层核心"
+                                       Visibility="{Binding IsStackingCore, Converter={StaticResource RoleVisibility}}" />
+                            <TextBlock Text="攻" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="10" Padding="2"
+                                       Foreground="White" Background="#FF99542C" ToolTip="输出核心"
+                                       Visibility="{Binding IsDamageCore, Converter={StaticResource RoleVisibility}}" />
+                        </Grid>
+                        <TextBlock Text="{Binding OperatorName}" ToolTip="{Binding OperatorName}" FontSize="11"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,2" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Border Width="17" Height="17" Background="#FF12122A" CornerRadius="2" ToolTip="{Binding Equipment1}"
+                                    Tag="gear1" PreviewMouseLeftButtonDown="OnIconMouseDown">
+                                <Image controls:DeferredIcon.Path="{Binding Equipment1IconPath}" />
+                            </Border>
+                            <Border Width="17" Height="17" Background="#FF12122A" CornerRadius="2" ToolTip="{Binding Equipment2}" Margin="4,0,0,0"
+                                    Tag="gear2" PreviewMouseLeftButtonDown="OnIconMouseDown">
+                                <Image controls:DeferredIcon.Path="{Binding Equipment2IconPath}" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

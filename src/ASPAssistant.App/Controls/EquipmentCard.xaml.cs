@@ -1,8 +1,6 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using ASPAssistant.App.Views;
 using ASPAssistant.Core.Models;
 
@@ -90,18 +88,7 @@ public partial class EquipmentCard : UserControl
 
     private void LoadIcon(string iconPath)
     {
-        if (string.IsNullOrEmpty(iconPath))
-            return;
-        var fullPath = Path.Combine(AppContext.BaseDirectory, "data", iconPath);
-        if (File.Exists(fullPath))
-        {
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = new Uri(fullPath, UriKind.Absolute);
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.EndInit();
-            IconImage.Source = bitmap;
-        }
+        DeferredIcon.SetPath(IconImage, iconPath);
     }
 
     public void RefreshTrackedState(bool isTracked)

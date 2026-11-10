@@ -29,14 +29,14 @@ public class UpdateService
         Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0);
 
     /// <summary>
-    /// 返回 true 表示当前是开发构建（版本号为 0.0.0），不进行更新检查。
+    /// 返回 true 表示当前是开发构建（版本号为 0.0.0），跳过自动更新检查。
     /// </summary>
-    public bool IsDevBuild => CurrentVersion == new Version(0, 0, 0);
+    public bool IsDevBuild => CurrentVersion <= new Version(0, 0, 0, 0);
 
-    public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct = default)
+    public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct = default, bool userInitiated = false)
     {
         // Skip update check in dev / IDE builds where no real version is embedded
-        if (IsDevBuild) return null;
+        if (IsDevBuild && !userInitiated) return null;
 
         try
         {
@@ -57,7 +57,7 @@ public class UpdateService
                 asset.BrowserDownloadUrl,
                 asset.Name);
         }
-        catch
+        catch when (!userInitiated)
         {
             return null;
         }

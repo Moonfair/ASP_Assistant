@@ -12,6 +12,8 @@ namespace ASPAssistant.App.Views;
 
 public partial class OperatorBrowseView : UserControl
 {
+    public BrowseFilterPresenter Filters { get; }
+
     public event Action<string, TrackingType>? TrackingRequested;
     public event Action<string>? UntrackingRequested;
     public event Action<string, bool>? BanToggleRequested;
@@ -32,6 +34,16 @@ public partial class OperatorBrowseView : UserControl
     public OperatorBrowseView()
     {
         InitializeComponent();
+        Filters = new(this, TopFilterScroll, FilterContentPanel, FilterToggle, FilterActionsPanel, FilterTagsControl,
+            AvailabilityFilterList, TierFilterList, CoreCovenantFilterList, OtherCovenantFilterList, TraitFilterList, StackingFilterList, TriggerTimingFilterList);
+        SizeChanged += (_, _) => TopFilterScroll.MaxHeight = Math.Max(80, ActualHeight * 0.45);
+        Filters.Changed += () =>
+        {
+            if (!Filters.IsSideLayout) return;
+            CancelPendingScrollRestore();
+            FilterContentRow.Height = GridLength.Auto;
+            _filterContentHeight = 0;
+        };
         DataContextChanged += OnViewDataContextChanged;
         FilterToggle.Checked += OnFilterToggleChecked;
         FilterToggle.Click += OnFilterToggleClick;
@@ -78,7 +90,7 @@ public partial class OperatorBrowseView : UserControl
         // ExtentHeightChange != 0: operator list was rebuilt by a filter/search change and
         //   WPF adjusted the offset — also not user input.
         // Responding to either would create a feedback loop (height → viewport → scroll → height …).
-        if (_restoringScrollAnchor || _pendingScrollRestore != null
+        if (Filters.IsSideLayout || _restoringScrollAnchor || _pendingScrollRestore != null
             || FilterToggle.IsChecked != true
             || e.VerticalChange == 0
             || e.ViewportHeightChange != 0
@@ -88,7 +100,7 @@ public partial class OperatorBrowseView : UserControl
         if (_filterContentHeight <= 0)
         {
             if (FilterContentPanel.ActualHeight <= 0) return;
-            _filterContentHeight = FilterContentPanel.ActualHeight;
+            _filterContentHeight = TopFilterScroll.ActualHeight;
             // Anchor = position BEFORE this event so the first pixel of scroll begins collapsing.
             _scrollAnchorOffset = e.VerticalOffset - e.VerticalChange;
         }

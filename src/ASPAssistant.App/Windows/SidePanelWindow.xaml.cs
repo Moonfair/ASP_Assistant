@@ -1,9 +1,11 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using ASPAssistant.Core;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
+using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.App.Windows;
 
@@ -21,8 +23,14 @@ public partial class SidePanelWindow : Window
 
     private UpdateService? _updateService;
     private UpdateInfo? _pendingUpdate;
+    private bool _checkingForUpdates;
+    private bool _updateCheckAttempted;
     private readonly DispatcherTimer _preparationResultTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private bool _waitingForScroll;
+    private LineupLibraryViewModel? _lineupLibrary;
+    private List<Operator> _lineupOperators = [];
+    private List<Equipment> _lineupEquipment = [];
+    private readonly Dictionary<Guid, LineupEditorWindow> _lineupEditors = [];
 
     // 用户意图追踪
     private bool _isUserPositioned;       // 用户手动移动过窗口
@@ -32,6 +40,7 @@ public partial class SidePanelWindow : Window
     private WindowState _previousWindowState;
     // WPF 初始 Show() 会触发 SizeChanged/LocationChanged，在首次 UpdatePosition 前清除误设的标志
     private bool _layoutInitialized;
+    private (RECT Bounds, bool AttachInside)? _trackedGame;
 
     public SidePanelWindow(
         OperatorBrowseViewModel operatorVm,
@@ -47,8 +56,25 @@ public partial class SidePanelWindow : Window
         BanVm = banVm;
 
         InitializeComponent();
+        InitializeFilterLayout();
         _preparationResultTimer.Tick += (_, _) => HidePreparationOverlay();
         Closed += (_, _) => _preparationResultTimer.Stop();
+        Closing += (_, args) =>
+        {
+            foreach (var editor in _lineupEditors.Values.ToArray())
+            {
+                if (editor.ConfirmClose()) continue;
+                args.Cancel = true;
+                editor.Activate();
+                break;
+            }
+        };
+        Closed += (_, _) =>
+        {
+            foreach (var editor in _lineupEditors.Values)
+                editor.ApprovePanelClose();
+            Application.Current.Shutdown();
+        };
 
         LocationChanged += OnLocationChanged;
         SizeChanged     += OnSizeChanged;
@@ -84,16 +110,100 @@ public partial class SidePanelWindow : Window
             });
         };
 
-        trackingVm.TrackedOperators.CollectionChanged += (_, _) =>
+        trackingVm.TrackingChanged += () =>
         {
             OperatorView.RefreshTrackingStates();
             EquipmentView.RefreshTrackingStates();
         };
-        trackingVm.TrackedEquipment.CollectionChanged += (_, _) =>
+    }
+
+    public void ConfigureLineups(LineupLibraryViewModel library, List<Operator> operators, List<Equipment> equipment)
+    {
+        _lineupLibrary = library;
+        _lineupOperators = operators;
+        _lineupEquipment = equipment;
+        LineupView.DataContext = library;
+        LineupView.ShareService = new LineupShareService(operators.Select(o => o.Name), equipment.Select(e => e.Name));
+        LineupView.NewRequested += () => OpenLineupEditor(null);
+        LineupView.EditRequested += lineup => OpenLineupEditor(lineup);
+        LineupView.PreviewRequested += lineup => OpenLineupPreview(lineup, importing: false);
+        LineupView.ImportPreviewRequested += lineup => OpenLineupPreview(lineup, importing: true);
+        LineupView.TrackRequested += lineup =>
         {
-            OperatorView.RefreshTrackingStates();
-            EquipmentView.RefreshTrackingStates();
+            var added = TrackingVm.TrackLineup(lineup);
+            library.Status = added > 0 ? $"已加入 {added} 项干员或装备追踪。" : "这个阵容的干员和装备已全部在追踪列表中。";
         };
+    }
+
+    private void OpenLineupPreview(Lineup lineup, bool importing)
+    {
+        var preview = new ASPAssistant.App.Views.LineupPreviewView { Margin = new Thickness(18) };
+        preview.ShowLineup(lineup, (equipment, name) => equipment
+            ? _lineupEquipment.FirstOrDefault(item => item.Name == name)?.IconPath
+            : _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath);
+        var window = new Window
+        {
+            Title = importing ? "导入阵容预览 · ASP Assistant" : "阵容预览 · ASP Assistant",
+            Content = preview,
+            Width = 860, Height = 680, MinWidth = 480, MinHeight = 420,
+            Background = (System.Windows.Media.Brush)preview.FindResource("PanelBackgroundBrush"),
+            WindowStartupLocation = WindowStartupLocation.CenterScreen
+        };
+        if (importing)
+            preview.EnableImport(() =>
+            {
+                OpenLineupEditor(lineup);
+                window.Close();
+            });
+        window.Show();
+    }
+
+    private void OpenLineupEditor(Lineup? lineup)
+    {
+        if (_lineupLibrary is null) return;
+        if (lineup is not null && _lineupEditors.TryGetValue(lineup.Id, out var existing))
+        {
+            if (existing.IsComplete)
+                existing.Close();
+            else
+            {
+                existing.WindowState = WindowState.Normal;
+                existing.Activate();
+                return;
+            }
+        }
+        var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup);
+        vm.OperatorBrowser.SetBanChecker(BanVm.IsBanned);
+        vm.OperatorBrowser.CovenantAvailability = OperatorBrowseVm.CovenantAvailability;
+        void RefreshEditorBans() => Dispatcher.Invoke(() => vm.OperatorBrowser.NotifyBansChanged());
+        void RefreshEditorAvailability(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(OperatorBrowseViewModel.CovenantAvailability))
+                vm.OperatorBrowser.CovenantAvailability = OperatorBrowseVm.CovenantAvailability;
+        }
+        if (lineup is not null && !_lineupLibrary.Lineups.Any(x => x.Id == lineup.Id)) vm.IsDirty = true;
+        var editor = new LineupEditorWindow(vm, async saved =>
+        {
+            var success = await _lineupLibrary.SaveAsync(saved);
+            vm.Status = _lineupLibrary.Status;
+            if (success)
+            {
+                MainTabs.SelectedItem = LineupTab;
+                LineupView.RevealSavedLineup(saved);
+            }
+            return success;
+        });
+        var editorKey = vm.LineupId;
+        BanVm.BansChanged += RefreshEditorBans;
+        OperatorBrowseVm.PropertyChanged += RefreshEditorAvailability;
+        editor.Closed += (_, _) =>
+        {
+            BanVm.BansChanged -= RefreshEditorBans;
+            OperatorBrowseVm.PropertyChanged -= RefreshEditorAvailability;
+            _lineupEditors.Remove(editorKey);
+        };
+        _lineupEditors.Add(editorKey, editor);
+        editor.Show();
     }
 
     public void UpdateManualScanStatus(int pending)
@@ -141,25 +251,68 @@ public partial class SidePanelWindow : Window
     public void StartUpdateCheck(UpdateService updateService)
     {
         _updateService = updateService;
-        _ = CheckForUpdatesAsync();
+        RefreshVersionLabel(updateService);
+        _ = CheckAfterStartupAsync();
     }
 
-    private async Task CheckForUpdatesAsync()
+    private void OnOpenSettings(object sender, RoutedEventArgs e)
     {
-        if (_updateService is null) return;
+        RefreshVersionLabel(_updateService ??= new UpdateService());
+        SetSettingsVisible(SettingsPage.Visibility != Visibility.Visible);
+    }
 
-        // Delay slightly so the main window has time to show first
+    private void OnCloseSettings(object sender, RoutedEventArgs e) => SetSettingsVisible(false);
+
+    private void SetSettingsVisible(bool visible)
+    {
+        SettingsPage.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        MainContent.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
+        UpdateFilterHost();
+    }
+
+    private void RefreshVersionLabel(UpdateService service)
+        => SettingsVersion.Text = $"当前版本 v{service.CurrentVersion.ToString(3)}";
+
+    private async Task CheckAfterStartupAsync()
+    {
         await Task.Delay(3000);
+        if (!_updateCheckAttempted) await CheckForUpdatesAsync();
+    }
 
-        var info = await _updateService.CheckForUpdateAsync();
-        if (info is null) return;
+    private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(userInitiated: true);
 
-        _pendingUpdate = info;
-        Dispatcher.Invoke(() =>
+    private async Task CheckForUpdatesAsync(bool userInitiated = false)
+    {
+        if (_checkingForUpdates) return;
+        var service = _updateService ??= new UpdateService();
+        _updateCheckAttempted = true;
+        if (service.IsDevBuild && !userInitiated)
         {
-            UpdateBannerText.Text = $"发现新版本 {info.TagName}";
-            UpdateBanner.Visibility = Visibility.Visible;
-        });
+            SettingsUpdateStatus.Text = "开发构建未自动检查更新。";
+            return;
+        }
+
+        _checkingForUpdates = true;
+        SettingsCheckUpdateButton.IsEnabled = false;
+        SettingsUpdateStatus.Text = "正在检查更新…";
+        try
+        {
+            var info = await service.CheckForUpdateAsync(userInitiated: userInitiated);
+            _pendingUpdate = info;
+            UpdateBanner.Visibility = SettingsViewUpdateButton.Visibility = info is null ? Visibility.Collapsed : Visibility.Visible;
+            if (info is not null) UpdateBannerText.Text = $"发现新版本 {info.TagName}";
+            SettingsUpdateStatus.Text = info is null ? "未发现可安装的更新。" : $"发现新版本 {info.TagName}。";
+        }
+        catch (Exception ex)
+        {
+            SettingsUpdateStatus.Text = "检查更新失败，请检查网络后重试。";
+            AppLogger.Error("Update", "Could not check for updates", ex);
+        }
+        finally
+        {
+            SettingsCheckUpdateButton.IsEnabled = true;
+            _checkingForUpdates = false;
+        }
     }
 
     private void OnShowUpdateDialog(object sender, RoutedEventArgs e)
@@ -174,6 +327,7 @@ public partial class SidePanelWindow : Window
 
     public void UpdatePosition(RECT gameRect, bool attachInside, bool gameActuallyMoved)
     {
+        _trackedGame = (gameRect, attachInside);
         _isProgrammaticChange = true;
         try
         {
@@ -188,26 +342,48 @@ public partial class SidePanelWindow : Window
             if (gameActuallyMoved)
                 _isUserPositioned = false;
 
-            var monitorRight = Core.Interop.User32.GetMonitorRect(gameRect.Right - 1, gameRect.Top).Right;
-            var targetLeft = attachInside
-                ? monitorRight - Width
-                : (double)gameRect.Right;
-            var targetTop  = (double)gameRect.Top;
-            var targetHeight = (double)gameRect.Height;
-
+            var game = ToWindowCoordinates(gameRect);
             if (!_isUserPositioned)
             {
-                Left = targetLeft;
-                Top  = targetTop;
+                Left = GetAttachedLeft(gameRect, game, attachInside);
+                Top = game.Top;
             }
 
             if (!_isUserSized)
-                Height = targetHeight;
+                Height = game.Height;
         }
         finally
         {
             _isProgrammaticChange = false;
         }
+    }
+
+    public void ClearGamePosition() => _trackedGame = null;
+
+    private Rect ToWindowCoordinates(RECT bounds)
+    {
+        var rect = new Rect(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+        return PresentationSource.FromVisual(this)?.CompositionTarget is { } target
+            ? Rect.Transform(rect, target.TransformFromDevice)
+            : rect;
+    }
+
+    private double GetAttachedLeft(RECT gameRect, Rect game, bool attachInside)
+    {
+        if (_sidebarWidth != ExpandedSidebarWidth && !attachInside)
+            return game.Right - _sidebarWidth;
+
+        var monitor = ToWindowCoordinates(User32.GetMonitorRect(gameRect.Right - 1, gameRect.Top));
+        if (_sidebarWidth != ExpandedSidebarWidth)
+            return monitor.Right - Width;
+
+        var rightSpace = monitor.Right - game.Right;
+        var leftSpace = game.Left - monitor.Left;
+        if (rightSpace >= Width) return game.Right;
+        if (leftSpace >= Width) return game.Left - Width;
+
+        // Keep the panel visible and use the side with less overlap when neither side fits.
+        return leftSpace > rightSpace ? monitor.Left : Math.Max(monitor.Left, monitor.Right - Width);
     }
 
     private void OnLocationChanged(object? sender, EventArgs e)
@@ -251,6 +427,6 @@ public partial class SidePanelWindow : Window
 
     private void OnClose(object sender, RoutedEventArgs e)
     {
-        Application.Current.Shutdown();
+        Close();
     }
 }

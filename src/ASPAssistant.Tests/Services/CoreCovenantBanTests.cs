@@ -20,6 +20,41 @@ public class CoreCovenantBanTests
     internal static byte[] Frame => PreparationScannerTests.Frame("preparation-core-bans.png");
 
     [Fact]
+    public async Task CompletedRecognitionPublishesCovenantsEvenWhenNoOperatorBansChange()
+    {
+        var ocr = new CoreOcr();
+        var scanner = new PreparationScanner(ocr, [], covenantCatalog: new CovenantCatalog
+        {
+            CoreCovenants = Names.ToList(),
+            AdditionalCovenants = AdditionalCovenantRecognitionTests.Names.ToList()
+        });
+        var changes = new List<CovenantAvailability?>();
+        scanner.CovenantAvailabilityChanged += changes.Add;
+        await scanner.ProcessAsync(Frame);
+        scanner.BannedNames.Should().BeEmpty();
+        scanner.CovenantAvailability.Should().NotBeNull();
+        scanner.CovenantAvailability!.EnabledCore.Should().Contain("炎").And.NotContain("萨尔贡");
+        scanner.CovenantAvailability.EnabledAdditional.Should().Contain("灵巧").And.NotContain("精准");
+        changes.Should().ContainSingle();
+
+        var previous = scanner.CovenantAvailability;
+        ocr.Row = [];
+        await scanner.ProcessAsync(Frame);
+        scanner.CovenantAvailability.Should().BeSameAs(previous);
+        ocr.Row = Labels;
+        await scanner.ProcessAsync(Frame);
+        changes.Should().ContainSingle();
+
+        scanner.ClearBans();
+        scanner.CovenantAvailability.Should().BeNull();
+        changes.Last().Should().BeNull();
+        await scanner.ProcessAsync(Frame);
+        scanner.CovenantAvailability.Should().BeNull();
+        await scanner.ProcessAsync(Frame, force: true);
+        scanner.CovenantAvailability.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task AnyMissingCoreAlsoBansOperatorsWithMultipleCoreCovenants()
     {
         var scanner = new PreparationScanner(new CoreOcr(), Candidates.Where(c => c.AdditionalCovenants.Count == 0).ToList());
@@ -270,6 +305,7 @@ public class CoreCovenantBanTests
         ocr.Release.SetResult();
         await task;
         scanner.BannedNames.Should().BeEmpty();
+        scanner.CovenantAvailability.Should().BeNull();
     }
 
     [Fact]
@@ -292,6 +328,7 @@ public class CoreCovenantBanTests
         ocr.Title = "确认本局信息";
         await scanner.ProcessAsync(Frame);
         scanner.BannedNames.Should().BeEmpty();
+        scanner.CovenantAvailability.Should().BeNull();
     }
 
     private sealed class ManualClock : TimeProvider

@@ -4,6 +4,7 @@ using ASPAssistant.App.Windows;
 using ASPAssistant.Core;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.GameModes.GarrisonProtocol;
+using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
 
@@ -16,6 +17,7 @@ public partial class App : Application
     private SidePanelWindow? _sidePanel;
     private OverlayWindow? _overlay;
     private SettingsManager? _settingsManager;
+    private Task _trackingSave = Task.CompletedTask;
 
     public App()
     {
@@ -100,6 +102,8 @@ public partial class App : Application
         trackingVm.LoadEntries(trackingEntries);
 
         var gameStateVm = new GameStateViewModel();
+        var lineupVm = new LineupLibraryViewModel(new LineupStore(settingsDir));
+        await lineupVm.LoadAsync();
 
         // GameState
         var gameState = new Core.GameState.GameState();
@@ -123,6 +127,13 @@ public partial class App : Application
 
         // Windows
         _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm, banVm);
+        _sidePanel.UseSideFilters = _settingsManager.LoadSideFilterLayout();
+        _sidePanel.FilterLayoutChanged += side =>
+        {
+            try { _settingsManager.SaveSideFilterLayout(side); }
+            catch (Exception ex) { AppLogger.Error("Settings", "Could not save filter layout", ex); }
+        };
+        _sidePanel.ConfigureLineups(lineupVm, operators, equipment);
         _overlay = new OverlayWindow();
 
         // Wire window tracker → window positioning
@@ -151,6 +162,7 @@ public partial class App : Application
         {
             Dispatcher.Invoke(() =>
             {
+                _sidePanel.ClearGamePosition();
                 _overlay.Hide();
             });
         };
@@ -181,6 +193,8 @@ public partial class App : Application
                 banVm.SetBans(_ocrScanner.DetectedBans);
             });
         };
+        _ocrScanner.CovenantAvailabilityChanged += _ =>
+            Dispatcher.Invoke(() => operatorVm.CovenantAvailability = _ocrScanner.CovenantAvailability);
 
         // Manual screenshot scan: button in the operator browse view triggers a one-off scan.
         _sidePanel.ManualScanRequested += () => _ocrScanner!.EnqueueManualScan();
@@ -199,16 +213,8 @@ public partial class App : Application
 
 
         // Auto-save tracking changes
-        trackingVm.TrackedOperators.CollectionChanged += async (_, _) =>
-        {
-            try { await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList()); }
-            catch (Exception ex) { AppLogger.Error("Settings", "Failed to save tracking", ex); }
-        };
-        trackingVm.TrackedEquipment.CollectionChanged += async (_, _) =>
-        {
-            try { await _settingsManager.SaveTrackingEntriesAsync(trackingVm.AllEntries.ToList()); }
-            catch (Exception ex) { AppLogger.Error("Settings", "Failed to save tracking", ex); }
-        };
+        trackingVm.TrackingChanged += () =>
+            _trackingSave = SaveTrackingAsync(_trackingSave, trackingVm.AllEntries.ToList());
 
         // Show windows and start services
         _sidePanel.Show();
@@ -221,11 +227,22 @@ public partial class App : Application
         _sidePanel.StartUpdateCheck(new UpdateService());
     }
 
+    private async Task SaveTrackingAsync(Task previousSave, List<TrackingEntry> entries)
+    {
+        try
+        {
+            await previousSave.ConfigureAwait(false);
+            await _settingsManager!.SaveTrackingEntriesAsync(entries).ConfigureAwait(false);
+        }
+        catch (Exception ex) { AppLogger.Error("Settings", "Failed to save tracking", ex); }
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         AppLogger.Info("App", "Shutting down");
         _ocrScanner?.Dispose();
         _windowTracker?.Dispose();
+        _trackingSave.GetAwaiter().GetResult();
         base.OnExit(e);
     }
 }

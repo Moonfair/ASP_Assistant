@@ -20,6 +20,9 @@
             <Border DockPanel.Dock="Top" Background="#FF12122A" MouseLeftButtonDown="OnTitleBarDrag">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="SettingsButton" Content="⚙" FontFamily="Segoe UI Symbol"
+                                Click="OnOpenSettings" ToolTip="设置" AutomationProperties.Name="设置"
+                                Style="{StaticResource TitleBarButton}" />
                         <Button Content="─" Click="OnMinimize"
                                 Style="{StaticResource TitleBarButton}" />
                         <Button Content="✕" Click="OnClose"
@@ -34,6 +37,51 @@
             </Border>
 
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="SidebarColumn" Width="0" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="SideFilterPanel" Grid.Column="0" Visibility="Collapsed"
+                        Background="#FF202039" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                    <DockPanel Margin="8">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,5,0,12">
+                            <Button x:Name="CollapseSideFiltersButton" DockPanel.Dock="Left" Content="› 收起" Click="OnCollapseSideFilters"
+                                    Style="{StaticResource TrackingButton}" Margin="0,0,6,0" Padding="5,3" />
+                            <Button x:Name="ResetSideFiltersButton" DockPanel.Dock="Right" Content="重置"
+                                    Click="OnResetSideFilters" Style="{StaticResource TrackingButton}" Margin="5,0,0,0" Padding="5,3" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="筛选" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="SideFilterCount" Foreground="{StaticResource AccentBrush}" FontSize="13" Margin="6,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+                        <ScrollViewer x:Name="SideFilterTagScroll" DockPanel.Dock="Top" MaxHeight="90" Margin="0,0,0,6"
+                                      Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ContentControl x:Name="SideFilterTags" />
+                        </ScrollViewer>
+                        <ContentControl x:Name="SideFilterActions" DockPanel.Dock="Bottom" />
+                        <ScrollViewer x:Name="SideFilterScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" />
+                    </DockPanel>
+                </Border>
+                <Border x:Name="FilterRail" Grid.Column="0" Visibility="Collapsed" Background="{StaticResource PanelBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                    <Button x:Name="ExpandSideFiltersButton" Click="OnExpandSideFilters" VerticalAlignment="Stretch" VerticalContentAlignment="Top"
+                            Style="{StaticResource TrackingButton}" Padding="2,12" BorderThickness="0" ToolTip="展开筛选">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{StaticResource PanelBackgroundBrush}" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Top" />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel>
+                            <TextBlock Text="‹" FontSize="22" HorizontalAlignment="Center" />
+                            <TextBlock Text="筛" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            <TextBlock Text="选" FontSize="11" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="FilterRailCount" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Button>
+                </Border>
+                <Grid x:Name="MainSurface" Grid.Column="1">
+            <Grid x:Name="MainContent">
                 <DockPanel>
                     <!-- Update notification banner (hidden until a new version is found) -->
                     <Border x:Name="UpdateBanner" DockPanel.Dock="Top"
@@ -72,7 +120,7 @@
                         <TextBlock x:Name="PreparationStatusText" Text="自动 BP 检测已开启，等待准备界面"
                                    Foreground="#FF8CDDE5" FontSize="11" TextWrapping="Wrap" />
                     </Border>
-                    <TabControl Style="{StaticResource DarkTabControl}">
+                    <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}">
                         <TabItem Header="干员">
                             <views:OperatorBrowseView x:Name="OperatorView" />
                         </TabItem>
@@ -81,6 +129,9 @@
                         </TabItem>
                         <TabItem Header="追踪">
                             <views:TrackingView x:Name="TrackingView" />
+                        </TabItem>
+                        <TabItem x:Name="LineupTab" Header="阵容">
+                            <views:LineupView x:Name="LineupView" />
                         </TabItem>
                     </TabControl>
                 </DockPanel>
@@ -97,6 +148,43 @@
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
+            </Grid>
+            <DockPanel x:Name="SettingsPage" Visibility="Collapsed" Margin="12">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                    <Button x:Name="BackFromSettingsButton" Content="返回" DockPanel.Dock="Right" Click="OnCloseSettings"
+                            Style="{StaticResource TrackingButton}" Padding="8,4" />
+                    <TextBlock Text="设置" FontSize="18" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                </DockPanel>
+                <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                    <StackPanel>
+                        <TextBlock x:Name="SettingsUpdateStatus" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,6" />
+                        <Button x:Name="SettingsViewUpdateButton" Content="查看更新" Click="OnShowUpdateDialog"
+                                Style="{StaticResource TrackingButton}" HorizontalAlignment="Right" Visibility="Collapsed" Margin="0,0,0,6" />
+                        <DockPanel>
+                            <Button x:Name="SettingsCheckUpdateButton" Content="检查更新" DockPanel.Dock="Right"
+                                    Click="OnCheckForUpdates" Style="{StaticResource TrackingButton}" Padding="8,5" />
+                            <TextBlock x:Name="SettingsVersion" Foreground="{StaticResource TextPrimaryBrush}"
+                                       FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,6,0" />
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="7" Padding="10" VerticalAlignment="Top">
+                        <StackPanel>
+                            <TextBlock Text="筛选布局" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,9" />
+                            <CheckBox x:Name="LayoutToggle" Content="在侧边显示筛选"
+                                      Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="开启时，干员和装备筛选显示在侧边。关闭后，筛选回到列表顶部。"
+                                       Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                </ScrollViewer>
+            </DockPanel>
+                </Grid>
             </Grid>
         </DockPanel>
     </Border>

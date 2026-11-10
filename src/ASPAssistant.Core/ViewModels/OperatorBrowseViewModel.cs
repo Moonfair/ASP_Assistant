@@ -18,6 +18,9 @@ public partial class OperatorBrowseViewModel : ObservableObject
     private Func<string, bool>? _isBannedCheck;
 
     [ObservableProperty]
+    private CovenantAvailability? _covenantAvailability;
+
+    [ObservableProperty]
     private ObservableCollection<Operator> _filteredOperators = [];
 
     [ObservableProperty]
@@ -218,7 +221,9 @@ public partial class OperatorBrowseViewModel : ObservableObject
             filtered = filtered.Where(o =>
                 o.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
 
-        FilteredOperators = new ObservableCollection<Operator>(filtered.OrderBy(o => o.Tier));
+        var results = filtered.OrderBy(o => o.Tier).ToList();
+        if (!FilteredOperators.SequenceEqual(results))
+            FilteredOperators = new ObservableCollection<Operator>(results);
         OnPropertyChanged(nameof(ActiveFilterTags));
     }
 }

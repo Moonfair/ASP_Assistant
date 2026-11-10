@@ -39,6 +39,8 @@ public class OcrScannerService : IDisposable
     public event Action<IReadOnlyList<string>>? BansDetected;
     public event Action<PreparationNotice>? PreparationStatusChanged;
     public IReadOnlyList<string> DetectedBans => _preparation?.BannedNames ?? [];
+    public event Action<CovenantAvailability?>? CovenantAvailabilityChanged;
+    public CovenantAvailability? CovenantAvailability => _preparation?.CovenantAvailability;
 
     /// <summary>
     /// Raised when the number of pending manual screenshot scans changes.
@@ -67,6 +69,7 @@ public class OcrScannerService : IDisposable
         {
             _preparation = new PreparationScanner(ocrEngine, getAllOperators(), covenantCatalog: covenantCatalog);
             _preparation.BansChanged += names => BansDetected?.Invoke(names);
+            _preparation.CovenantAvailabilityChanged += state => CovenantAvailabilityChanged?.Invoke(state);
             _preparation.StatusChanged += notice => PreparationStatusChanged?.Invoke(notice);
         }
         _scanTimer = new Timer(intervalMs);
