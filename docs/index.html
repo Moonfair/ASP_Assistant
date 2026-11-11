@@ -100,6 +100,14 @@
     .center { text-align: center; }
     .center .section-sub { margin: 0 auto; }
 
+    .lineup-hub {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 18px 32px; padding-block: 28px; scroll-margin-top: 60px;
+      background: rgba(61,110,245,.08); border-top: 1px solid var(--border);
+    }
+    .lineup-hub h2 { font-size: 1.2rem; margin-bottom: 4px; }
+    .lineup-hub p { color: var(--muted); }
+
     /* ── FEATURES ── */
     .features { background: var(--surface); }
     .features-grid {
@@ -211,6 +219,7 @@
   </div>
   <div class="nav-links">
     <a href="#features">功能</a>
+    <a href="#lineup-hub">阵容库</a>
     <a href="#screenshot">截图</a>
     <a href="#howto">使用方法</a>
     <a href="#download">下载</a>
@@ -282,6 +291,14 @@
     </a>
   </div>
   <div class="version-badge">当前版本：<span id="hero-ver">加载中…</span></div>
+</section>
+
+<section class="lineup-hub" id="lineup-hub" aria-labelledby="lineup-hub-title">
+  <div>
+    <h2 id="lineup-hub-title">卫戍阵容库</h2>
+    <p>按干员、装备或核心盟约查找玩家阵容，也可以在线组建、发布并讨论你的搭配。</p>
+  </div>
+  <a class="btn btn-outline" href="https://aspa.moonfair.cn/">前往卫戍阵容库</a>
 </section>
 
 <!-- FEATURES -->
