@@ -11,6 +11,8 @@ namespace ASPAssistant.Core.Services;
 public class OcrScannerService : IDisposable
 {
     private readonly ScreenCaptureService _captureService;
+    private readonly GameTargetSelection _selection;
+    private GameTarget? _recognitionTarget;
     private readonly IOcrStrategy _ocrStrategy;
     private readonly ShopRecognizer _shopRecognizer;
     private readonly IOcrEngine _ocrEngine;
@@ -27,19 +29,20 @@ public class OcrScannerService : IDisposable
 
 
     // Manual screenshot scan queue — button-triggered scans execute sequentially.
-    private readonly Channel<(byte[] Screenshot, int Generation)> _manualScanChannel = Channel.CreateUnbounded<(byte[], int)>();
+    private readonly Channel<ManualScan> _manualScanChannel = Channel.CreateUnbounded<ManualScan>();
+    private int _manualGeneration;
     private int _pendingManualScans;
 
-    public event Action<GameState.GameState>? GameStateUpdated;
+    public event Action<GameTarget?, GameState.GameState>? GameStateUpdated;
 
     /// <summary>
     /// Raised when covenant recognition or a manual override changes the bans.
     /// The argument is the current full list of banned operator names.
     /// </summary>
-    public event Action<IReadOnlyList<string>>? BansDetected;
-    public event Action<PreparationNotice>? PreparationStatusChanged;
+    public event Action<GameTarget?, IReadOnlyList<string>>? BansDetected;
+    public event Action<GameTarget?, PreparationNotice>? PreparationStatusChanged;
     public IReadOnlyList<string> DetectedBans => _preparation?.BannedNames ?? [];
-    public event Action<CovenantAvailability?>? CovenantAvailabilityChanged;
+    public event Action<GameTarget?, CovenantAvailability?>? CovenantAvailabilityChanged;
     public CovenantAvailability? CovenantAvailability => _preparation?.CovenantAvailability;
 
     /// <summary>
@@ -50,6 +53,7 @@ public class OcrScannerService : IDisposable
 
     public OcrScannerService(
         ScreenCaptureService captureService,
+        GameTargetSelection selection,
         IOcrStrategy ocrStrategy,
         IOcrEngine ocrEngine,
         GameState.GameState gameState,
@@ -60,6 +64,7 @@ public class OcrScannerService : IDisposable
         IReadOnlyList<string>? shopNames = null)
     {
         _captureService = captureService;
+        _selection = selection;
         _ocrStrategy = ocrStrategy;
         _shopRecognizer = new ShopRecognizer(ocrEngine, shopNames);
         _ocrEngine = ocrEngine;
@@ -68,9 +73,18 @@ public class OcrScannerService : IDisposable
         if (getAllOperators != null)
         {
             _preparation = new PreparationScanner(ocrEngine, getAllOperators(), covenantCatalog: covenantCatalog);
-            _preparation.BansChanged += names => BansDetected?.Invoke(names);
-            _preparation.CovenantAvailabilityChanged += state => CovenantAvailabilityChanged?.Invoke(state);
-            _preparation.StatusChanged += notice => PreparationStatusChanged?.Invoke(notice);
+            _preparation.BansChanged += names =>
+            {
+                if (IsCurrentTarget) BansDetected?.Invoke(_recognitionTarget, names);
+            };
+            _preparation.CovenantAvailabilityChanged += state =>
+            {
+                if (IsCurrentTarget) CovenantAvailabilityChanged?.Invoke(_recognitionTarget, state);
+            };
+            _preparation.StatusChanged += notice =>
+            {
+                if (IsCurrentTarget) PreparationStatusChanged?.Invoke(_recognitionTarget, notice);
+            };
         }
         _scanTimer = new Timer(intervalMs);
         _scanTimer.Elapsed += OnScanTick;
@@ -90,7 +104,7 @@ public class OcrScannerService : IDisposable
             return;
         }
 
-        if (_disposed || !await _recognitionGate.WaitAsync(0))
+        if (_disposed || Volatile.Read(ref _pendingManualScans) != 0 || !await _recognitionGate.WaitAsync(0))
         {
             Interlocked.Increment(ref _skippedTicks);
             Interlocked.Exchange(ref _scanning, 0);
@@ -100,22 +114,31 @@ public class OcrScannerService : IDisposable
         long captureMs = 0, preparationMs = 0, targetMs = 0, shopMs = 0, publishMs = 0;
         try
         {
-            var screenshot = _captureService.CaptureScreen();
+            var target = _selection.Current;
+            UseTarget(target);
+            var screenshot = target == null ? null : await _captureService.CaptureAsync(target, _selection);
             captureMs = timing.ElapsedMilliseconds;
+            if (!IsCurrentTarget) return;
             if (screenshot == null)
             {
                 _preparation?.NotifyCaptureUnavailable();
+                if (target is { Kind: not GameTargetKind.Windows } && _gameState.ShopItems.Count > 0)
+                {
+                    _stabilizer.Reset();
+                    _gameState.ShopItems = [];
+                    if (IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
+                }
                 return;
             }
 
-            var (imgWidth, imgHeight) = GetPngDimensions(screenshot);
+            var (imgWidth, imgHeight) = ScreenCaptureService.GetPngSize(screenshot);
             if (imgWidth <= 0 || imgHeight <= 0) return;
             // Preparation is independent of the shop tracking selection.
             if (_preparation != null)
             {
                 await _preparation.ProcessAsync(screenshot);
                 preparationMs = timing.ElapsedMilliseconds - captureMs;
-                if (_preparation.Phase != PreparationPhase.None) return;
+                if (!IsCurrentTarget || _preparation.Phase != PreparationPhase.None) return;
             }
 
             var regions = _ocrStrategy.GetScanRegions();
@@ -129,12 +152,13 @@ public class OcrScannerService : IDisposable
             var rawItems = await _shopRecognizer.RecognizeAsync(
                 screenshot, imgWidth, imgHeight, trackedNames, shopRegion);
             shopMs = timing.ElapsedMilliseconds - captureMs - preparationMs - targetMs;
+            if (!IsCurrentTarget) return;
 
             // Only raise GameStateUpdated when the stable operator set actually changes.
             if (_stabilizer.TryUpdate(rawItems, out var stableItems))
             {
                 _gameState.ShopItems = stableItems.ToList();
-                GameStateUpdated?.Invoke(_gameState);
+                GameStateUpdated?.Invoke(target, _gameState);
             }
             publishMs = timing.ElapsedMilliseconds - captureMs - preparationMs - targetMs - shopMs;
         }
@@ -164,18 +188,23 @@ public class OcrScannerService : IDisposable
     /// Captures the current game window screenshot and enqueues it for ban-screen matching.
     /// The scan runs on a background consumer thread so multiple calls queue up sequentially.
     /// </summary>
-    public void EnqueueManualScan()
+    public async void EnqueueManualScan()
     {
-        var screenshot = _captureService.CaptureScreen();
-        if (screenshot == null)
-        {
-            AppLogger.Warn("OcrScanner", "EnqueueManualScan: screenshot capture returned null");
-            return;
-        }
+        var target = _selection.Current;
+        if (_disposed || target == null) return;
+        int generation = Volatile.Read(ref _manualGeneration);
         var pending = Interlocked.Increment(ref _pendingManualScans);
-        AppLogger.Info("OcrScanner", $"Manual scan enqueued (pending={pending}, png={screenshot.Length} bytes)");
         ManualScanQueueChanged?.Invoke(pending);
-        _manualScanChannel.Writer.TryWrite((screenshot, _preparation?.Generation ?? 0));
+        bool queued = false;
+        try
+        {
+            var screenshot = await _captureService.CaptureAsync(target, _selection);
+            if (screenshot != null && ReferenceEquals(target, _selection.Current))
+                queued = _manualScanChannel.Writer.TryWrite(new ManualScan(target, screenshot, generation));
+        }
+        catch (OperationCanceledException) when (_disposed) { }
+        catch (Exception ex) { AppLogger.Error("OcrScanner", "Manual screenshot failed", ex); }
+        finally { if (!queued) FinishManualScan(); }
     }
 
     private async Task ProcessManualScansAsync()
@@ -186,12 +215,16 @@ public class OcrScannerService : IDisposable
             await _recognitionGate.WaitAsync();
             try
             {
-                if (_disposed) continue;
+                if (_disposed || !ReferenceEquals(request.Target, _selection.Current) ||
+                    request.Generation != Volatile.Read(ref _manualGeneration)) continue;
+                UseTarget(request.Target);
+                int? preparationGeneration = _preparation?.Generation;
+                if (!IsCurrentTarget || request.Generation != Volatile.Read(ref _manualGeneration)) continue;
                 var screenshot = request.Screenshot;
-                var (w, h) = GetPngDimensions(screenshot);
+                var (w, h) = ScreenCaptureService.GetPngSize(screenshot);
                 AppLogger.Info("OcrScanner", $"Manual scan started (img={w}x{h})");
                 if (_preparation != null)
-                    await _preparation.ProcessAsync(screenshot, force: true, expectedGeneration: request.Generation);
+                    await _preparation.ProcessAsync(screenshot, force: true, expectedGeneration: preparationGeneration);
                 AppLogger.Info("OcrScanner", $"Manual scan completed in {sw.ElapsedMilliseconds}ms");
             }
             catch (Exception ex)
@@ -201,32 +234,45 @@ public class OcrScannerService : IDisposable
             finally
             {
                 _recognitionGate.Release();
-                var remaining = Interlocked.Decrement(ref _pendingManualScans);
-                ManualScanQueueChanged?.Invoke(remaining);
+                FinishManualScan();
             }
         }
     }
 
-    /// <summary>
-    /// Reads width and height from a PNG file's IHDR chunk (bytes 16–23).
-    /// No dependencies beyond the raw byte array.
-    /// </summary>
-    private static (int Width, int Height) GetPngDimensions(byte[] png)
+    private void FinishManualScan()
     {
-        int w = (png[16] << 24) | (png[17] << 16) | (png[18] << 8) | png[19];
-        int h = (png[20] << 24) | (png[21] << 16) | (png[22] << 8) | png[23];
-        return (w, h);
+        var remaining = Interlocked.Decrement(ref _pendingManualScans);
+        ManualScanQueueChanged?.Invoke(remaining);
+    }
+
+    private bool IsCurrentTarget => ReferenceEquals(_recognitionTarget, _selection.Current);
+
+    private void UseTarget(GameTarget? target)
+    {
+        if (ReferenceEquals(_recognitionTarget, target)) return;
+        _recognitionTarget = target;
+        _stabilizer.Reset();
+        _preparation?.ResetTarget();
+        _gameState.ShopItems = [];
+        if (IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
     }
 
     public void SetManualBan(string name, bool banned) => _preparation?.SetManualBan(name, banned);
-    public void ClearBans() => _preparation?.ClearBans();
+    public void ClearBans()
+    {
+        Interlocked.Increment(ref _manualGeneration);
+        _preparation?.ClearBans();
+    }
+
+    private sealed record ManualScan(GameTarget Target, byte[] Screenshot, int Generation);
 
     public void Dispose()
     {
+        _disposed = true;
         _scanTimer.Stop();
         _scanTimer.Dispose();
         _manualScanChannel.Writer.TryComplete();
-        _disposed = true;
+        _captureService.Dispose();
         // Let in-flight OCR finish before releasing its native taskers.
         _ = Task.Run(async () =>
         {

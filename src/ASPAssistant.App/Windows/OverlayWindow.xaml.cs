@@ -6,6 +6,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Services;
 
 namespace ASPAssistant.App.Windows;
 
@@ -24,11 +25,15 @@ public partial class OverlayWindow : Window
 
     // The full-screen instruction layer shown at the start of ban detection.
     private FrameworkElement? _banInstructionLayer;
+    private GameTarget? _target;
+    private RECT? _bounds;
+    private IReadOnlyList<ShopItem> _shopItems = [];
 
     public OverlayWindow()
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        SizeChanged += (_, _) => UpdateShopItems(_shopItems);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -39,12 +44,26 @@ public partial class OverlayWindow : Window
             exStyle | User32.WS_EX_TRANSPARENT | User32.WS_EX_TOOLWINDOW);
     }
 
+    public void SetTarget(GameTarget? target)
+    {
+        if (ReferenceEquals(_target, target)) return;
+        _target = target;
+        _shopItems = [];
+        _markerPool.Clear();
+        _banMarkerPool.Clear();
+        HideBanInstructionOverlay();
+        OverlayCanvas.Children.Clear();
+    }
+
     public void UpdatePosition(RECT gameClientRect)
     {
-        Left = gameClientRect.Left;
-        Top = gameClientRect.Top;
-        Width = gameClientRect.Width;
-        Height = gameClientRect.Height;
+        if (IsVisible && _bounds is { } bounds && bounds.Equals(gameClientRect)) return;
+        if (!IsVisible) Show();
+        var hwnd = new WindowInteropHelper(this).Handle;
+        const uint noZOrderOrActivation = 0x0004 | 0x0010;
+        if (User32.SetWindowPos(hwnd, 0, gameClientRect.Left, gameClientRect.Top,
+                gameClientRect.Width, gameClientRect.Height, noZOrderOrActivation))
+            _bounds = gameClientRect;
     }
 
     /// <summary>
@@ -54,6 +73,7 @@ public partial class OverlayWindow : Window
     /// </summary>
     public void UpdateShopItems(IReadOnlyList<ShopItem> shopItems)
     {
+        _shopItems = shopItems;
         var nowTracked = shopItems
             .Where(s => s.IsTracked)
             .ToDictionary(s => s.Id);
@@ -286,7 +306,7 @@ public partial class OverlayWindow : Window
         HideBanInstructionOverlay();
 
         // Forward the scroll to the game window so the player's first scroll is not swallowed.
-        var gameHwnd = User32.FindArknightsWindow();
+        var gameHwnd = _target is { Kind: GameTargetKind.Windows } target ? target.Window : 0;
         if (gameHwnd != IntPtr.Zero)
         {
             User32.GetCursorPos(out var cursorPos);

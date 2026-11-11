@@ -183,6 +183,18 @@
                                            Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
                             </StackPanel>
                         </Border>
+                        <Border Background="{StaticResource CardBackgroundBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="7" Padding="10" Margin="0,10,0,0">
+                            <StackPanel>
+                                <TextBlock Text="游戏来源" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                                <TextBlock x:Name="GameSourceStatus" Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" Margin="0,0,0,8" />
+                                <Button Content="选择游戏来源" Click="OnSelectGameSource"
+                                        Style="{StaticResource TrackingButton}" HorizontalAlignment="Left" Padding="8,5" />
+                            </StackPanel>
+                        </Border>
                         <Border x:Name="SettingsLineupAccountCard" Background="{StaticResource CardBackgroundBrush}"
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="10"
                                 Margin="0,10,0,0" Visibility="Collapsed">

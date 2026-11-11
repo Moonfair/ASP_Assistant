@@ -6,8 +6,9 @@ namespace ASPAssistant.Core.Services;
 
 public class WindowTrackerService : IDisposable
 {
-    private IntPtr _gameWindowHandle;
+    private readonly GameTargetSelection _selection;
     private readonly Timer _pollTimer;
+    private int _polling;
 
     public event Action<RECT>? GameWindowMoved;
     public event Action? GameWindowLost;
@@ -15,20 +16,19 @@ public class WindowTrackerService : IDisposable
     public event Action<RECT>? GameWindowPolled;
 
     public RECT? CurrentGameRect { get; private set; }
+    public GameTarget? CurrentTarget { get; private set; }
     public bool IsGameFocused { get; private set; }
-    public bool IsGameFound => _gameWindowHandle != IntPtr.Zero
-                                && User32.IsWindow(_gameWindowHandle);
     public bool ShouldAttachInside { get; private set; }
 
-    public WindowTrackerService(int pollIntervalMs = 100)
+    public WindowTrackerService(GameTargetSelection selection, int pollIntervalMs = 100)
     {
+        _selection = selection;
         _pollTimer = new Timer(pollIntervalMs);
         _pollTimer.Elapsed += OnPollTick;
     }
 
     public void Start()
     {
-        _gameWindowHandle = User32.FindArknightsWindow();
         _pollTimer.Start();
     }
 
@@ -39,31 +39,30 @@ public class WindowTrackerService : IDisposable
 
     private void OnPollTick(object? sender, ElapsedEventArgs e)
     {
-        if (!IsGameFound)
-        {
-            _gameWindowHandle = User32.FindArknightsWindow();
-            if (_gameWindowHandle == IntPtr.Zero)
-            {
-                if (CurrentGameRect != null)
-                {
-                    CurrentGameRect = null;
-                    GameWindowLost?.Invoke();
-                }
-                return;
-            }
-        }
+        if (Interlocked.Exchange(ref _polling, 1) != 0) return;
+        try { Poll(); }
+        finally { Volatile.Write(ref _polling, 0); }
+    }
 
-        var foreground = User32.GetForegroundWindow();
+    private void Poll()
+    {
+        var target = _selection.Current;
+        var window = target?.Window ?? 0;
         var wasFocused = IsGameFocused;
-        IsGameFocused = foreground == _gameWindowHandle;
+        IsGameFocused = window != 0 && User32.GetRootWindow(User32.GetForegroundWindow()) == window;
         if (wasFocused != IsGameFocused)
             GameWindowFocusChanged?.Invoke(IsGameFocused);
 
-        if (!User32.GetWindowRect(_gameWindowHandle, out var windowRect))
+        bool changedTarget = !ReferenceEquals(CurrentTarget, target);
+        CurrentTarget = target;
+        if (target == null || !target.HasLiveWindow() || User32.IsIconic(window) || !User32.IsWindowVisible(window) ||
+            !User32.GetWindowRect(window, out var windowRect))
         {
-            CurrentGameRect = null;
-            GameWindowLost?.Invoke();
-            _gameWindowHandle = IntPtr.Zero;
+            if (CurrentGameRect != null)
+            {
+                CurrentGameRect = null;
+                GameWindowLost?.Invoke();
+            }
             return;
         }
 
@@ -73,7 +72,7 @@ public class WindowTrackerService : IDisposable
         var rightSpace = monitorRect.Right - windowRect.Right;
         var shouldAttachInside = rightSpace < 320 || IsFullscreen(windowRect, monitorRect);
 
-        var changed = IsGameWindowChanged(CurrentGameRect, ShouldAttachInside,
+        var changed = changedTarget || IsGameWindowChanged(CurrentGameRect, ShouldAttachInside,
             windowRect, shouldAttachInside);
         ShouldAttachInside = shouldAttachInside;
         CurrentGameRect = windowRect;

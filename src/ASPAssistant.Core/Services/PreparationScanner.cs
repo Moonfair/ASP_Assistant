@@ -265,6 +265,17 @@ public sealed class PreparationScanner(
     public void NotifyCaptureUnavailable() =>
         SetStatus($"自动 BP 检测中 · 已录入 {BannedNames.Count} 名禁用干员", PreparationNoticeKind.Dismiss);
 
+    internal void ResetTarget()
+    {
+        _awaySince = null;
+        _lastPreparationSeen = null;
+        _lastPreparationPhase = PreparationPhase.None;
+        _sessionStarted = false;
+        Phase = PreparationPhase.None;
+        ResetRound();
+        SetStatus("自动 BP 检测已开启，等待准备界面");
+    }
+
     private void SetStatus(string text, PreparationNoticeKind kind = PreparationNoticeKind.Banner, bool newResult = false)
     {
         var notice = new PreparationNotice(text, kind, newResult);

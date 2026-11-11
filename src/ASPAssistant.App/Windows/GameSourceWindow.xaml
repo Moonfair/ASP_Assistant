@@ -1,0 +1,40 @@
+<Window x:Class="ASPAssistant.App.Windows.GameSourceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="选择游戏来源" Width="455" SizeToContent="Height" ResizeMode="NoResize"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        Background="{StaticResource CardBackgroundBrush}" Foreground="{StaticResource TextPrimaryBrush}">
+    <StackPanel Margin="18">
+        <DockPanel Margin="0,0,0,7">
+            <Button x:Name="RefreshButton" Content="刷新" Click="OnRefresh" DockPanel.Dock="Right"
+                    Style="{StaticResource TrackingButton}" Padding="8,4" Margin="8,0,0,0" />
+            <ComboBox x:Name="Sources" DisplayMemberPath="Label" SelectionChanged="OnSourceChanged"
+                      AutomationProperties.Name="游戏来源" />
+        </DockPanel>
+        <TextBlock Text="请先启动模拟器和游戏。MuMu 或雷电未出现在列表时，确认模拟器窗口已打开，再刷新。"
+                   TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+        <StackPanel x:Name="ManualBinding" Visibility="Collapsed">
+            <Label Content="模拟器窗口" Target="{Binding ElementName=WindowsList}" Padding="0,6,0,4"
+                   Foreground="{StaticResource TextPrimaryBrush}" />
+            <ComboBox x:Name="WindowsList" DisplayMemberPath="Label" />
+            <Label Content="ADB 程序" Target="{Binding ElementName=AdbPath}" Padding="0,6,0,4"
+                   Foreground="{StaticResource TextPrimaryBrush}" />
+            <DockPanel>
+                <Button Content="浏览" Click="OnBrowseAdb" DockPanel.Dock="Right"
+                        Style="{StaticResource TrackingButton}" Padding="8,4" Margin="8,0,0,0" />
+                <TextBox x:Name="AdbPath" VerticalContentAlignment="Center" />
+            </DockPanel>
+            <Label Content="ADB 序列号" Target="{Binding ElementName=Serial}" Padding="0,6,0,4"
+                   Foreground="{StaticResource TextPrimaryBrush}" />
+            <TextBox x:Name="Serial" VerticalContentAlignment="Center" MinHeight="25" />
+            <TextBlock Text="请填入 adb devices 显示的本机序列号，例如 emulator-5554 或 127.0.0.1:5555。"
+                       TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,6,0,0" />
+        </StackPanel>
+        <TextBlock x:Name="Status" TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,9,0,0" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="取消" IsCancel="True" Style="{StaticResource TrackingButton}" Padding="12,5" Margin="0,0,8,0" />
+            <Button x:Name="ApplyButton" Content="应用" IsDefault="True" Click="OnApply"
+                    Style="{StaticResource TrackingButton}" Padding="12,5" />
+        </StackPanel>
+    </StackPanel>
+</Window>

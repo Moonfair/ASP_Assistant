@@ -159,7 +159,7 @@ public partial class App : Application
         var captureService = new ScreenCaptureService();
         var ocrEngine = new MaaOcrEngine(dataDir);
         _ocrScanner = new OcrScannerService(
-            captureService, garrisonMode.OcrStrategy, ocrEngine, gameState,
+            captureService, _gameTarget, garrisonMode.OcrStrategy, ocrEngine, gameState,
             () => Dispatcher.Invoke(() => trackingVm.AllEntries.Select(o => o.Name).ToList()),
             getAllOperators: () => operators.Select(o =>
                 new BanCandidate(o.Name, o.CoreCovenants, o.AdditionalCovenants, [])).ToList(),
@@ -167,7 +167,7 @@ public partial class App : Application
             intervalMs: 500,
             shopNames: operators.Select(o => o.Name).Concat(equipment.Select(e => e.Name)).ToList());
 
-        _windowTracker = new WindowTrackerService();
+        _windowTracker = new WindowTrackerService(_gameTarget);
 
         // Windows
         _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm, banVm);
@@ -180,28 +180,38 @@ public partial class App : Application
         _sidePanel.ConfigureLineups(lineupVm, operators, equipment, strategies);
         _sidePanel.ConfigureLineupSite(_lineupSite);
         _overlay = new OverlayWindow();
+        ConfigureGameSource();
+        bool hasCurrentGameState = false;
+        _gameTarget.Changed += () =>
+        {
+            hasCurrentGameState = false;
+            _sidePanel.ClearGamePosition();
+            _overlay.SetTarget(_gameTarget.Current);
+            _overlay.Hide();
+            gameStateVm.UpdateFromGameState(new Core.GameState.GameState());
+            banVm.SetBans([]);
+            operatorVm.CovenantAvailability = null;
+            _sidePanel.UpdatePreparationStatus(new PreparationNotice("自动 BP 检测已开启，等待准备界面",
+                PreparationNoticeKind.Dismiss));
+        };
 
-        // Wire window tracker → window positioning
-        _windowTracker.GameWindowMoved += rect =>
+        void PositionGameWindows(Core.Interop.RECT rect, bool moved)
         {
             Dispatcher.Invoke(() =>
             {
-                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: true);
-
-                var clientRect = Core.Interop.User32.GetClientRectScreen(
-                    Core.Interop.User32.FindArknightsWindow());
-                if (clientRect.HasValue)
-                    _overlay.UpdatePosition(clientRect.Value);
+                var target = _windowTracker.CurrentTarget;
+                if (target == null || !ReferenceEquals(target, _gameTarget.Current)) return;
+                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: moved);
+                _overlay.SetTarget(target);
+                var viewport = captureService.GetViewport(target);
+                if (viewport == null || (target.Kind != GameTargetKind.Windows && !_windowTracker.IsGameFocused))
+                    _overlay.Hide();
+                else
+                    _overlay.UpdatePosition(viewport.Value);
             });
-        };
-
-        _windowTracker.GameWindowPolled += rect =>
-        {
-            Dispatcher.Invoke(() =>
-            {
-                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: false);
-            });
-        };
+        }
+        _windowTracker.GameWindowMoved += rect => PositionGameWindows(rect, moved: true);
+        _windowTracker.GameWindowPolled += rect => PositionGameWindows(rect, moved: false);
 
         _windowTracker.GameWindowLost += () =>
         {
@@ -221,10 +231,13 @@ public partial class App : Application
         }
 
         // Wire OCR scanner → GameState → overlay markers
-        _ocrScanner.GameStateUpdated += state =>
+        _ocrScanner.GameStateUpdated += (target, state) =>
         {
             Dispatcher.Invoke(() =>
             {
+                if (!ReferenceEquals(target, _gameTarget.Current)) return;
+                _overlay.SetTarget(target);
+                hasCurrentGameState = true;
                 state.CovenantCounts = Core.GameState.GameStateUpdater.ComputeCovenantCounts(
                     [.. state.FieldOperators, .. state.BenchOperators], operators);
                 RefreshShopTracking(state, trackingVm.AllEntries.ToList());
@@ -232,21 +245,25 @@ public partial class App : Application
         };
 
         // Wire ban detection: manual screenshot scan results → update operator ban state.
-        _ocrScanner.BansDetected += names =>
+        _ocrScanner.BansDetected += (target, names) =>
         {
             Dispatcher.Invoke(() =>
             {
-                banVm.SetBans(_ocrScanner.DetectedBans);
+                if (ReferenceEquals(target, _gameTarget.Current)) banVm.SetBans(names);
             });
         };
-        _ocrScanner.CovenantAvailabilityChanged += _ =>
-            Dispatcher.Invoke(() => operatorVm.CovenantAvailability = _ocrScanner.CovenantAvailability);
+        _ocrScanner.CovenantAvailabilityChanged += (target, availability) => Dispatcher.Invoke(() =>
+        {
+            if (ReferenceEquals(target, _gameTarget.Current)) operatorVm.CovenantAvailability = availability;
+        });
 
         // Manual screenshot scan: button in the operator browse view triggers a one-off scan.
         _sidePanel.ManualScanRequested += () => _ocrScanner!.EnqueueManualScan();
         _sidePanel.ClearBansRequested += () => _ocrScanner!.ClearBans();
-        _ocrScanner.PreparationStatusChanged += notice =>
-            Dispatcher.InvokeAsync(() => _sidePanel.UpdatePreparationStatus(notice));
+        _ocrScanner.PreparationStatusChanged += (target, notice) => Dispatcher.InvokeAsync(() =>
+        {
+            if (ReferenceEquals(target, _gameTarget.Current)) _sidePanel.UpdatePreparationStatus(notice);
+        });
 
         // Manual ban/unban from operator card button.
         _sidePanel.BanToggleRequested += (name, banned) =>
@@ -263,12 +280,11 @@ public partial class App : Application
         {
             var entries = trackingVm.AllEntries.ToList();
             _trackingSave = SaveTrackingAsync(_trackingSave, entries);
-            RefreshShopTracking(gameState, entries);
+            if (hasCurrentGameState) RefreshShopTracking(gameState, entries);
         };
 
         // Show windows and start services
         _sidePanel.Show();
-        _overlay.Show();
         _windowTracker.Start();
         _ocrScanner.Start();
         _readyForActivation.SetResult(_sidePanel);
@@ -294,6 +310,7 @@ public partial class App : Application
         _readyForActivation.TrySetCanceled();
         _activation?.Dispose();
         _lineupSite?.Dispose();
+        StopGameSource();
         _ocrScanner?.Dispose();
         _windowTracker?.Dispose();
         _trackingSave.GetAwaiter().GetResult();

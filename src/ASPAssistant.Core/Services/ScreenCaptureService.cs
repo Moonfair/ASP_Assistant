@@ -1,67 +1,187 @@
+using System.Buffers.Binary;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using ASPAssistant.Core.Interop;
+using MaaFramework.Binding;
+using MaaFramework.Binding.Buffers;
 
 namespace ASPAssistant.Core.Services;
 
-public class ScreenCaptureService
+public sealed class ScreenCaptureService : IDisposable
 {
-    /// <summary>
-    /// Captures the Arknights game window by reading pixels directly from the screen
-    /// via BitBlt (Graphics.CopyFromScreen). This works with hardware-accelerated
-    /// renderers (DirectX/Vulkan) that do not honour PrintWindow/GDI capture.
-    /// Requires the window to be visible and not fully occluded.
-    /// Returns PNG bytes, or null if the window is not found.
-    /// </summary>
-    public byte[]? CaptureScreen()
+    private readonly SemaphoreSlim _captureGate = new(1, 1);
+    private readonly CancellationTokenSource _shutdown = new();
+    private readonly AdbScreenCapture _adb = new();
+    private GameTarget? _active;
+    private MaaWin32Controller? _windowCapture;
+    private DateTimeOffset _windowRetryAfter;
+    private FrameGeometry? _geometry;
+
+    public RECT? GetViewport(GameTarget target)
     {
-        var hwnd = User32.FindArknightsWindow();
-        if (hwnd == IntPtr.Zero)
-        {
-            AppLogger.Warn("ScreenCapture", "Arknights window not found");
-            return null;
-        }
+        if (target.GetRenderRect() is not { } rect) return null;
+        var geometry = Volatile.Read(ref _geometry);
+        if (target.Kind == GameTargetKind.Windows) return rect;
+        if (geometry == null || !ReferenceEquals(geometry.Target, target)) return null;
+        if (geometry.RenderChild != 0 && User32.GetRootWindow(geometry.RenderChild) == target.Window &&
+            User32.IsWindowVisible(geometry.RenderChild) &&
+            User32.GetClientRectScreen(geometry.RenderChild) is { Width: > 0, Height: > 0 } child)
+            rect = child;
+        return GameViewport.Fit(rect, geometry.Width, geometry.Height);
+    }
 
-        // Skip minimized windows: ClientToScreen returns (-32000,-32000) for them,
-        // which causes CopyFromScreen to throw Win32Exception(6) ERROR_INVALID_HANDLE.
-        if (User32.IsIconic(hwnd))
-        {
-            AppLogger.Warn("ScreenCapture", "Arknights window is minimized — skipping capture");
-            return null;
-        }
-
-        var screenRect = User32.GetClientRectScreen(hwnd);
-        if (screenRect == null)
-        {
-            AppLogger.Warn("ScreenCapture", "GetClientRectScreen returned null");
-            return null;
-        }
-
-        var rect = screenRect.Value;
-        int width = rect.Width;
-        int height = rect.Height;
-        if (width <= 0 || height <= 0)
-        {
-            AppLogger.Warn("ScreenCapture", $"Invalid client rect size: {width}x{height}");
-            return null;
-        }
-
+    public async Task<byte[]?> CaptureAsync(GameTarget target, GameTargetSelection? selection = null)
+    {
+        await _captureGate.WaitAsync(_shutdown.Token).ConfigureAwait(false);
         try
         {
-            using var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-            using var g = Graphics.FromImage(bmp);
-            g.CopyFromScreen(rect.Left, rect.Top, 0, 0, new System.Drawing.Size(width, height));
+            if (selection != null && !ReferenceEquals(selection.Current, target)) return null;
+            if (!ReferenceEquals(_active, target))
+            {
+                _adb.Dispose();
+                _windowCapture?.Dispose();
+                _windowCapture = null;
+                _windowRetryAfter = default;
+                Volatile.Write(ref _geometry, null);
+                _active = target;
+            }
+            if (target.GetRenderRect() == null)
+            {
+                Volatile.Write(ref _geometry, null);
+                return null;
+            }
 
-            using var ms = new MemoryStream();
-            bmp.Save(ms, ImageFormat.Png);
-            return ms.ToArray();
+            byte[]? image = null;
+            if (target.Kind != GameTargetKind.Windows)
+                image = await _adb.CaptureAsync(target, _shutdown.Token).ConfigureAwait(false);
+            if (selection != null && !ReferenceEquals(selection.Current, target)) return null;
+            bool fromAdb = image != null;
+
+            image ??= await Task.Run(() =>
+            {
+                if (target.GetRenderRect() is not { } rect) return null;
+                if (target.Kind != GameTargetKind.Windows)
+                {
+                    var captured = CaptureWindow(target, rect);
+                    if (captured != null) return captured;
+                    if (User32.GetRootWindow(User32.GetForegroundWindow()) != target.Window) return null;
+                }
+                return CopyScreen(rect);
+            }, _shutdown.Token).ConfigureAwait(false);
+
+            var (width, height) = GetPngSize(image);
+            if (selection != null && !ReferenceEquals(selection.Current, target)) return null;
+            if (width <= 0)
+            {
+                Volatile.Write(ref _geometry, null);
+                return null;
+            }
+            nint child = fromAdb && target.Kind == GameTargetKind.Adb && target.GetRenderRect() is { } bounds
+                ? User32.FindRenderChild(target.Window, bounds, width, height) : 0;
+            Volatile.Write(ref _geometry, new FrameGeometry(target, width, height, child));
+            return image;
         }
-        catch (System.ComponentModel.Win32Exception ex)
+        finally { _captureGate.Release(); }
+    }
+
+    private byte[]? CaptureWindow(GameTarget target, RECT render)
+    {
+        if (DateTimeOffset.UtcNow < _windowRetryAfter ||
+            !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 18362)) return null;
+        try
         {
-            // Window state changed between the geometry query and the capture
-            // (e.g. minimized mid-capture). Treat as no screenshot available.
-            AppLogger.Warn("ScreenCapture", $"Win32Exception during capture (code={ex.NativeErrorCode}): {ex.Message}");
+            if (_windowCapture == null)
+            {
+                _windowCapture = new MaaWin32Controller(target.Window, Win32ScreencapMethod.FramePool,
+                    Win32InputMethod.SendMessage, Win32InputMethod.SendMessage);
+                _windowCapture.SetOption(ControllerOption.ScreenshotUseRawSize, true);
+            }
+
+            using var buffer = new MaaImageBuffer();
+            if (_windowCapture.Screencap().Wait() != MaaJobStatus.Succeeded || !_windowCapture.GetCachedImage(buffer) ||
+                !buffer.TryGetEncodedData(out byte[]? png) || png == null)
+                return DisableWindowCapture();
+            if (target.RenderWindow == target.Window) return png;
+
+            if (target.GetRenderRect() is not { } after || !render.Equals(after) ||
+                User32.GetClientRectScreen(target.Window) is not { } client)
+                return null;
+
+            // FramePool returns the outer window's client image. A rounded border can cost a pixel.
+            var (width, height) = GetPngSize(png);
+            if (Math.Abs(width - client.Width) > 2 || Math.Abs(height - client.Height) > 2) return null;
+            var area = Rectangle.Intersect(new Rectangle(0, 0, width, height),
+                new Rectangle(render.Left - client.Left, render.Top - client.Top, render.Width, render.Height));
+            if (area.Width < render.Width - 2 || area.Height < render.Height - 2 || area.IsEmpty) return null;
+
+            using var source = new MemoryStream(png);
+            using var bitmap = new Bitmap(source);
+            using var cropped = bitmap.Clone(area, bitmap.PixelFormat);
+            return Encode(cropped);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or MaaJobStatusException)
+        {
+            AppLogger.Warn("ScreenCapture", $"Window capture unavailable for {target.Name}: {ex.Message}");
+            return DisableWindowCapture();
+        }
+    }
+
+    private byte[]? DisableWindowCapture()
+    {
+        _windowCapture?.Dispose();
+        _windowCapture = null;
+        _windowRetryAfter = DateTimeOffset.UtcNow.AddSeconds(3);
+        return null;
+    }
+
+    private static byte[]? CopyScreen(RECT rect)
+    {
+        try
+        {
+            using var bitmap = new Bitmap(rect.Width, rect.Height, PixelFormat.Format32bppArgb);
+            using var graphics = Graphics.FromImage(bitmap);
+            graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, bitmap.Size);
+            return Encode(bitmap);
+        }
+        catch (Win32Exception ex)
+        {
+            AppLogger.Warn("ScreenCapture", $"Screen copy failed ({ex.NativeErrorCode}): {ex.Message}");
             return null;
         }
     }
+
+    private static byte[] Encode(Bitmap bitmap)
+    {
+        using var output = new MemoryStream();
+        bitmap.Save(output, ImageFormat.Png);
+        return output.ToArray();
+    }
+
+    internal static (int Width, int Height) GetPngSize(ReadOnlySpan<byte> bytes)
+    {
+        ReadOnlySpan<byte> pngHeader = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82];
+        if (bytes.Length < 33 || !bytes[..16].SequenceEqual(pngHeader)) return default;
+        int width = BinaryPrimitives.ReadInt32BigEndian(bytes[16..20]);
+        int height = BinaryPrimitives.ReadInt32BigEndian(bytes[20..24]);
+        return width > 0 && height > 0 ? (width, height) : default;
+    }
+
+    public void Dispose()
+    {
+        _shutdown.Cancel();
+        // Native capture may still be returning. Its owner releases it after the current call.
+        _ = Task.Run(async () =>
+        {
+            await _captureGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                _adb.Dispose();
+                _windowCapture?.Dispose();
+            }
+            finally { _captureGate.Release(); }
+        });
+    }
+
+    private sealed record FrameGeometry(GameTarget Target, int Width, int Height, nint RenderChild);
 }

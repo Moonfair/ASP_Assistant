@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Services;
 
 namespace ASPAssistant.Core.Data;
 
@@ -48,6 +49,35 @@ public class SettingsManager
     }
 
     private sealed record LayoutPreferences(bool SideFilters = true);
+
+    public GameTargetPreference LoadGameTarget()
+    {
+        try
+        {
+            var path = Path.Combine(_settingsDir, "game-target.json");
+            if (File.Exists(path) &&
+                JsonSerializer.Deserialize<GameTargetPreference>(File.ReadAllText(path), JsonOptions) is { } saved &&
+                !string.IsNullOrWhiteSpace(saved.Id))
+                return saved;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            AppLogger.Error("Settings", "Could not read game target preference", ex);
+        }
+        return new GameTargetPreference();
+    }
+
+    public void SaveGameTarget(GameTargetPreference preference)
+    {
+        Directory.CreateDirectory(_settingsDir);
+        var temporary = Path.Combine(_settingsDir, $"game-target.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(preference, JsonOptions));
+            File.Move(temporary, Path.Combine(_settingsDir, "game-target.json"), overwrite: true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
 
     public async Task SaveTrackingEntriesAsync(List<TrackingEntry> entries)
     {
