@@ -11,6 +11,24 @@ namespace ASPAssistant.Tests.Views;
 public class LineupDescriptionTests
 {
     [Fact]
+    public void SharedDiagram_RestoresManualCoordinatesInDesktopPreview()
+    {
+        var source = string.Join("\n", "```lineup", "flowchart LR", "A[{{op:地灵}}]", "B[{{gear:长剑}}]",
+            "A -->|装备| B", "highlight A", "note A: 核心", "%% aspa-layout A 211 88", "%% aspa-layout B 419 132", "```");
+        var block = LineupDiagramSource.FindBlocks(source, out _).Single();
+        LineupDiagram.TryParse(block.Lines, out var graph, out var error).Should().BeTrue(error);
+        LineupDiagramSource.Format(graph, block.Kind, "\n").Should().Be(source);
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var document = LineupMarkdown.Render(source, (_, _) => null);
+            var scroll = (ScrollViewer)document.Blocks.OfType<BlockUIContainer>().Single().Child;
+            var cards = ((Canvas)scroll.Content).Children.OfType<Border>().ToArray();
+            new Point(Canvas.GetLeft(cards[0]), Canvas.GetTop(cards[0])).Should().Be(new Point(211, 88));
+            new Point(Canvas.GetLeft(cards[1]), Canvas.GetTop(cards[1])).Should().Be(new Point(419, 132));
+        });
+    }
+
+    [Fact]
     public void SplitDescription_SeparatesLegacyDiagramsAndKeepsProseCodeExamples()
     {
         const string prose = "先上场\n\n```text\n一般示例\n```";

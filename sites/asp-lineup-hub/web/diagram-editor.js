@@ -81,9 +81,9 @@ function diagramEditorMarkup() {
     <div data-diagram-source hidden>
       <label>流程图源码<textarea class="field" id="diagram-source" rows="8" spellcheck="false" maxlength="${DESCRIPTION_LIMIT}"></textarea></label>
     </div>
+    <label id="diagram-picker-label" hidden>流程图<select id="diagram-select" class="field"></select></label>
     <div data-diagram-editor hidden>
       <div class="diagram-tools">
-        <label>流程图<select id="diagram-select" class="field"></select></label>
         <label>方向<select id="diagram-direction" class="field"><option value="TD">从上到下</option><option value="LR">从左到右</option></select></label>
       </div>
       <div class="diagram-tools diagram-add">
@@ -102,6 +102,7 @@ function diagramEditorMarkup() {
         <button type="button" class="button secondary compact" data-diagram="fit">适应画布</button>
         <button type="button" class="button secondary compact" data-diagram="reset">自动布局</button>
       </div>
+      <p class="editor-feedback">拖动节点调整位置，拖动画布空白处平移，双指可缩放。</p>
       <label id="diagram-edge-picker" hidden>选择连线<select class="field" id="diagram-edges"></select></label>
       <div class="diagram-inspector" id="diagram-inspector" hidden>
         <p id="diagram-selection"></p>
@@ -227,10 +228,11 @@ function mountDiagramEditor(form, catalog, draft) {
     if (!block && unclosed) report('请先补全流程图代码块的结束标记。', true);
     const sourceMode = !queryDiagram('[data-diagram-source]').hidden;
     editor.hidden = !graph || sourceMode;
-    if (!graph) return;
+    queryDiagram('#diagram-picker-label').hidden = !blocks.length || sourceMode;
     picker.innerHTML = blocks.slice(0, DIAGRAM_LIMITS.diagrams).map((_, n) =>
       `<option value="${n}">流程图 ${n + 1}</option>`).join('');
     picker.value = String(index);
+    if (!graph) return;
     direction.value = graph.horizontal ? 'LR' : 'TD';
     positions = arrangeDiagram(graph);
     renderInspector();
@@ -258,6 +260,7 @@ function mountDiagramEditor(form, catalog, draft) {
       selected = { edge: graph.edges.length - 1 };
       report('连线已添加。');
       commit();
+      if (!graph.positions.size) fit();
       return;
     }
     connectFrom = null;
@@ -409,6 +412,8 @@ function mountDiagramEditor(form, catalog, draft) {
   svg.addEventListener('pointerdown', event => {
     if (!graph || pointers.size >= 2 || (event.button !== 0 && event.button !== 1)) return;
     event.preventDefault();
+    const target = event.button === 1 ? null : hitTarget(event.target);
+    if (document.activeElement === property) property.blur();
     svg.setPointerCapture(event.pointerId);
     const point = { x: event.clientX, y: event.clientY };
     pointers.set(event.pointerId, point);
@@ -421,7 +426,6 @@ function mountDiagramEditor(form, catalog, draft) {
       drawSoon();
       return;
     }
-    const target = event.button === 1 ? null : hitTarget(event.target);
     const node = connectFrom ? null : target?.node;
     gesture = { start: point, target, node, origin: node ? { ...positions.get(node) } : { x: view.x, y: view.y }, moved: false };
   });
@@ -491,10 +495,35 @@ function mountDiagramEditor(form, catalog, draft) {
   };
 }
 
-async function renderPublishedDiagrams(container, description) {
+function renderStrategyProse(prose, strategies) {
+  const tokens = /`[^`\r\n]+`|\\\{\{|\{\{strategy:([^{}\r\n]{1,100})\}\}/g;
+  let inCodeBlock = false, imageCount = 0;
+  return prose.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (inCodeBlock || trimmed.startsWith('```')) {
+      inCodeBlock = inCodeBlock ? trimmed !== '```' : true;
+      return escape(line);
+    }
+    let rendered = '', cursor = 0;
+    for (const match of line.matchAll(tokens)) {
+      const name = match[1]?.trim();
+      const image = name && Object.hasOwn(strategies, name) && strategies[name].image;
+      rendered += escape(line.slice(cursor, match.index));
+      if (image && imageCount++ < 160) {
+        rendered += `<img class="description-strategy" src="${escape(image)}" alt="${escape(name)}" title="${escape(name)}" loading="lazy">`;
+      } else {
+        rendered += name ? '[' + escape(name) + ']' : escape(match[0]);
+      }
+      cursor = match.index + match[0].length;
+    }
+    return rendered + escape(line.slice(cursor));
+  }).join('\n');
+}
+
+async function renderPublishedDescription(container, description) {
   const { prose, diagrams } = splitDiagramDescription(description);
   const { blocks } = findDiagramBlocks(diagrams);
-  if (!blocks.length) return;
+  if (!blocks.length && !prose.includes('{{strategy:')) return;
   const catalog = await getEditorCatalog();
   if (!container.isConnected) return;
   const plots = blocks.slice(0, DIAGRAM_LIMITS.diagrams).map((block, index) => {
@@ -511,5 +540,5 @@ async function renderPublishedDiagrams(container, description) {
       return `<p class="form-error">${escape(error.message)}</p><pre class="description">${escape(diagrams.slice(block.start, block.end))}</pre>`;
     }
   });
-  container.innerHTML = (prose ? `<p class="description">${escape(prose)}</p>` : '') + plots.join('');
+  container.innerHTML = (prose ? `<p class="description">${renderStrategyProse(prose, catalog.strategies ?? {})}</p>` : '') + plots.join('');
 }

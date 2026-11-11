@@ -157,7 +157,7 @@ public partial class LineupEditorWindow : Window
                 _savedLineup = lineup;
                 _vm.IsDirty = false;
                 _vm.Status = "";
-                CompletedPreview.ShowLineup(lineup, _vm.FindIcon);
+                CompletedPreview.ShowLineup(lineup, _vm.FindIcon, _vm.FindStrategyIcon);
                 ShowStep(Step.Completed);
             }
         }

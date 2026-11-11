@@ -50,6 +50,16 @@ public class LineupShareTests
         var lineup = _service.Import(header + "\n{\"Name\":\"旧阵容\",\"Author\":\"博士\",\"Members\":[{\"OperatorName\":\"能天使\"}]}");
         lineup.Name.Should().Be("旧阵容");
         lineup.Members.Should().ContainSingle(member => member.OperatorName == "能天使");
+        lineup.AvailableStrategies.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ExportImport_PreservesAvailableStrategiesWithoutDescription()
+    {
+        var source = Example() with { AvailableStrategies = ["众志合一", "旧赛季策略"] };
+        var share = _service.Export(source);
+        share.Should().StartWith("ASPA-LINEUP/2\n");
+        _service.Import(share).AvailableStrategies.Should().Equal(source.AvailableStrategies);
     }
 
     [Theory]
@@ -60,6 +70,7 @@ public class LineupShareTests
     [InlineData("ASPA-LINEUP/1\n{\"Name\":\"a\",\"Author\":\"b\",\"Members\":null}")]
     [InlineData("ASPA-LINEUP/1\n{\"Name\":\"a\",\"Author\":\"b\",\"Members\":[null]}")]
     [InlineData("ASPA-LINEUP/1\n{\"Name\":\"a\",\"Author\":\"b\",\"Members\":[{\"OperatorName\":\"能天使\",\"IsDamageCore\":\"yes\"}]}")]
+    [InlineData("ASPA-LINEUP/2\n{\"Name\":\"a\",\"Author\":\"b\",\"Members\":[{\"OperatorName\":\"能天使\"}],\"AvailableStrategies\":[\"众志合一\",\"众志合一\"]}")]
     public void Import_RejectsMalformedOrUnsupportedText(string text)
         => ((Action)(() => _service.Import(text))).Should().Throw<FormatException>();
 

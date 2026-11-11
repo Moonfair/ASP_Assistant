@@ -40,6 +40,7 @@ function parseShare(value) {
   });
   return {
     title: data.Name, author: data.Author, description: data.Description ?? '', members,
+    strategies: data.AvailableStrategies ?? [],
     covenants: [...factions].sort((a, b) => b[1] - a[1]).map(pair => pair[0]),
     search: [data.Name, data.Author, ...members.flatMap(member => [member.name, ...member.equipment]), ...factions.keys()]
       .join(' ').normalize('NFKC').toLowerCase(),
@@ -57,6 +58,24 @@ const demos = EXAMPLES.map(([id, title, author, description, names], index) => {
 });
 const demoJson = JSON.stringify(demos);
 const validTarget = (id) => validId(id) || demos.some(demo => demo.id === id);
+
+function shortToken(id) {
+  if (!validId(id)) return id;
+  const bytes = id.replaceAll('-', '').match(/../g).map(byte => parseInt(byte, 16));
+  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+function idFromShortToken(token) {
+  if (demos.some(demo => demo.id === token)) return token;
+  if (!/^[A-Za-z0-9_-]{22}$/.test(token)) throw new HttpError(404, '找不到这个阵容短链接。');
+  const hex = [...atob(token.replaceAll('-', '+').replaceAll('_', '/') + '==')]
+    .map(byte => byte.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+  const id = [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
+  if (shortToken(id) !== token) throw new HttpError(404, '找不到这个阵容短链接。');
+  return id;
+}
+
+const shortPathFor = id => '/s/' + shortToken(id);
 const visible = `WITH visible AS (
   SELECT id, created_at, data, account_id, revision FROM lineups
   UNION ALL
@@ -68,13 +87,18 @@ const summary = `id, created_at, data,
   (SELECT AVG(score) FROM ratings WHERE lineup_id = visible.id) AS rating`;
 
 function lineupFromRow(row, detail = false) {
-  const { title, author, description, covenants, members, sample, share } = JSON.parse(row.data);
+  const { title, author, description, covenants, members, strategies = [], sample, share } = JSON.parse(row.data);
+  const visibleStrategies = detail ? strategies : strategies.slice(0, 5);
+  const strategyPortraits = visibleStrategies.map(name => ({
+    name,
+    image: Object.hasOwn(catalog.strategies, name) ? catalog.strategies[name].image : null
+  }));
   return {
     id: row.id, createdAt: row.created_at, title, author,
     description: detail ? description : description.slice(0, 160),
-    covenants, members, sample, commentCount: row.comment_count,
+    covenants, members, strategyPortraits, strategyCount: strategies.length, sample, commentCount: row.comment_count,
     ratingCount: row.rating_count, rating: row.rating === null ? null : Math.round(row.rating * 10) / 10,
-    ...(detail ? { share } : {})
+    shortPath: shortPathFor(row.id), ...(detail ? { strategies, share } : {})
   };
 }
 
@@ -176,6 +200,20 @@ async function api(request, url, env) {
   const path = url.pathname;
   if (path.startsWith('/api/auth/')) return authApi(request, url, env);
   const method = request.method;
+  if (method === 'POST' && path === '/api/share') return createShareSnapshot(request, env);
+  const short = /^\/api\/share\/([A-Za-z0-9_-]{1,32})$/.exec(path);
+  if (method === 'GET' && short) {
+    const token = short[1];
+    if (SNAPSHOT_TOKEN.test(token)) {
+      const data = await readShareSnapshot(env, token);
+      const shortPath = '/s/' + token;
+      if (url.searchParams.get('preview') !== '1') return reply({ share: data.share, shortPath });
+      const lineup = lineupFromRow({ id: token, data: JSON.stringify(data), rating: null }, true);
+      return reply({ lineup: { ...lineup, shortPath } });
+    }
+    const { lineup } = await findLineup(db, idFromShortToken(short[1]));
+    return reply({ share: lineup.share, shortPath: lineup.shortPath });
+  }
   if (method === 'GET' && path === '/api/catalog') return reply({ covenants: catalog.covenants });
   if (method === 'GET' && path === '/api/editor-catalog') return reply(catalog);
   if (method === 'GET' && path === '/api/lineups') return reply(await listLineups(db, url.searchParams));
@@ -207,7 +245,7 @@ async function api(request, url, env) {
     const id = crypto.randomUUID();
     await db.prepare('INSERT INTO lineups (id, created_at, data, account_id) VALUES (?, ?, ?, ?)')
       .bind(id, Date.now(), JSON.stringify(data), user.id).run();
-    return reply({ id }, 201);
+    return reply({ id, shortPath: shortPathFor(id) }, 201);
   }
   const route = /^\/api\/lineups\/([a-z0-9-]+)(?:\/(comments|rating))?$/.exec(path);
   if (route) {
@@ -280,13 +318,29 @@ export default {
       }
       if (path.startsWith('/api/')) return await api(request, url, env);
       if (request.method === 'GET' || request.method === 'HEAD') {
+        const short = /^\/s\/([A-Za-z0-9_-]{1,32})$/.exec(path);
+        if (short) {
+          const token = short[1];
+          let location;
+          if (SNAPSHOT_TOKEN.test(token)) {
+            await readShareSnapshot(env, token);
+            location = '/?share=' + token;
+          } else {
+            const id = idFromShortToken(token);
+            await findLineup(env.DB, id);
+            location = '/?lineup=' + id;
+          }
+          return new Response(null, { status: 302, headers: { Location: location, 'Cache-Control': 'no-store' } });
+        }
         const isHead = request.method === 'HEAD';
         if (hasOwn(pages, path)) return new Response(isHead ? null : pages[path], { headers: {
           ...security, 'Content-Type': contentTypes[path], 'Cache-Control': 'no-cache'
         } });
         const portrait = /^\/portraits\/([a-z0-9]+)\.webp$/.exec(path)?.[1];
         const gear = /^\/gear-icons\/([a-f0-9]{16})\.png$/.exec(path)?.[1];
-        const asset = portrait && hasOwn(portraits, portrait) ? portraits[portrait] : gear && gearIcons[gear];
+        const strategy = /^\/strategy-icons\/([a-f0-9]{16})\.png$/.exec(path)?.[1];
+        const asset = portrait && hasOwn(portraits, portrait) ? portraits[portrait]
+          : gear ? gearIcons[gear] : strategy && strategyIcons[strategy];
         if (asset) {
           return new Response(isHead ? null : Uint8Array.from(atob(asset), c => c.charCodeAt(0)), {
             headers: { ...security, 'Content-Type': portrait ? 'image/webp' : 'image/png', 'Cache-Control': 'public, max-age=86400' }

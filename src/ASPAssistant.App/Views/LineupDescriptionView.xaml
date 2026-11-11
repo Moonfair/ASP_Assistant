@@ -67,6 +67,11 @@
                 <ComboBox x:Name="EquipmentPicker" Width="150" IsEditable="True" IsTextSearchEnabled="True"
                           AutomationProperties.Name="选择装备图标" Margin="0,0,4,4" />
                 <Button Content="插入装备图标" Tag="gear" Click="OnInsertIcon" Margin="0,0,0,4" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <ComboBox x:Name="StrategyPicker" Width="150" IsEditable="True" IsTextSearchEnabled="True"
+                              AutomationProperties.Name="选择策略头像" Margin="0,0,4,0" />
+                    <Button Content="插入策略头像" Click="OnInsertStrategy" />
+                </StackPanel>
             </WrapPanel>
             <TextBlock x:Name="EditorHint" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"
                        Text="左边编辑阵容说明。右边独立编辑流程图，可切换画布和源码。" />
@@ -75,7 +80,7 @@
                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}">
                     <Run Text="**粗体**　*斜体*　&lt;u&gt;下划线&lt;/u&gt;　==高亮==　- 项目　1. 编号" />
                     <LineBreak />
-                    <Run Text="说明中的图标使用 {{op:干员名}} 或 {{gear:装备名}}。流程图源码在右侧编辑。" />
+                    <Run Text="正文图标：{{op:干员名}}、{{gear:装备名}}、{{strategy:策略名}}。流程图源码在右侧编辑。" />
                     <LineBreak />
                     <Run Text="A --&gt;|连线文字| B 连接节点，highlight A 高亮节点，note A: 注释 添加说明。" />
                 </TextBlock>

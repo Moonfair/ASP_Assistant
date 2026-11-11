@@ -13,7 +13,6 @@ namespace ASPAssistant.App.Views;
 public partial class LineupDescriptionView
 {
     private const double MaxDiagramCoordinate = 8000;
-    private readonly Dictionary<int, Dictionary<string, Point>> _draggedPositions = [];
     private List<LineupDiagramSource.Block> _graphBlocks = [];
     private LineupDiagram.Graph? _graph;
     private string? _graphSource;
@@ -27,7 +26,7 @@ public partial class LineupDescriptionView
     private readonly TranslateTransform _diagramPan = new();
     private Point? _panStart;
     private Vector _panOffset;
-    private Dictionary<string, Point>? CurrentDraggedPositions => _draggedPositions.GetValueOrDefault(_graphIndex);
+    private Dictionary<string, Point>? CurrentDraggedPositions => _graph?.Positions;
     private FrameworkElement DiagramViewport =>
         DiagramSurface.Template?.FindName("PART_ScrollContentPresenter", DiagramSurface) as FrameworkElement ?? DiagramSurface;
 
@@ -37,7 +36,6 @@ public partial class LineupDescriptionView
         if (!keepSelection && !string.Equals(source, _graphSource, StringComparison.Ordinal))
         {
             ClearGraphSelection();
-            _draggedPositions.Clear();
             ResetDiagramView();
         }
         _graphSource = source;
@@ -225,8 +223,8 @@ public partial class LineupDescriptionView
 
     private Dictionary<string, Point> BeginManualLayout()
     {
-        if (CurrentDraggedPositions is { Count: > 0 } existing) return existing;
-        var positions = new Dictionary<string, Point>(StringComparer.Ordinal);
+        var positions = _graph!.Positions;
+        if (positions.Count > 0) return positions;
         var inset = GetCanvasCenteringOffset();
         // Centering is a viewport offset. Carry it into the temporary positions before anchoring the canvas.
         if (_canvas is not null && inset.LengthSquared > 0)
@@ -235,7 +233,6 @@ public partial class LineupDescriptionView
                 if (node.Tag is string id)
                     positions[id] = new Point(Canvas.GetLeft(node), Canvas.GetTop(node)) + inset;
         }
-        _draggedPositions[_graphIndex] = positions;
         return positions;
     }
 
@@ -256,11 +253,15 @@ public partial class LineupDescriptionView
                     if (card.Tag is string nodeId)
                         positions.TryAdd(nodeId, new Point(Canvas.GetLeft(card), Canvas.GetTop(card)));
             }
-            foreach (var key in positions.Keys.ToArray()) positions[key] += shift;
+            foreach (var key in positions.Keys.ToArray()) positions[key] = PortablePosition(positions[key] + shift);
             SetDiagramPan(new Vector(_diagramPan.X, _diagramPan.Y) - shift * DiagramZoom.Value);
         }
-        positions[id] = position + shift;
+        positions[id] = PortablePosition(position + shift);
     }
+
+    private static Point PortablePosition(Point position) => new(
+        Math.Clamp(Math.Round(position.X), 0, LineupDiagram.MaxPosition),
+        Math.Clamp(Math.Round(position.Y), 0, LineupDiagram.MaxPosition));
 
     private void OnAddNode(object sender, RoutedEventArgs e)
     {
@@ -472,10 +473,11 @@ public partial class LineupDescriptionView
 
     private void OnResetDiagramLayout(object sender, RoutedEventArgs e)
     {
-        if (GetCurrentGraph() is null || !_draggedPositions.Remove(_graphIndex)) return;
+        if (GetCurrentGraph() is not { Positions.Count: > 0 } graph) return;
+        graph.Positions.Clear();
         _connectFrom = null;
         ResetDiagramView();
-        RenderDiagram(keepSelection: true);
+        CommitGraph(graph);
     }
 
     private void OnApplyGraphProperties(object sender, RoutedEventArgs e) => TryApplyPendingGraphProperties();
@@ -575,8 +577,7 @@ public partial class LineupDescriptionView
             if (moved && GetCurrentGraph() is { } graph && graph.Nodes.ContainsKey(node.Id))
             {
                 var position = ClampDiagramPosition(new Point(Canvas.GetLeft(card), Canvas.GetTop(card)) + GetCanvasCenteringOffset());
-                PlaceDiagramNode(node.Id, position);
-                RenderDiagram(keepSelection: true, revealNode: true);
+                CommitGraph(graph, revealNode: true, placement: position);
             }
             e.Handled = true;
         };
@@ -683,9 +684,11 @@ public partial class LineupDescriptionView
         var start = block?.Start ?? source.Length;
         var end = block?.End ?? start;
         var prefix = block is null && source.Length > 0 ? newline + newline : "";
+        if (placement is { } position && _selectedNode is { } id) PlaceDiagramNode(id, position);
         var replacement = prefix + LineupDiagramSource.Format(graph, block?.Kind ?? "lineup", newline);
         if (!FitsDescription(IntroductionEditor.Text, source[..start] + replacement + source[end..]))
         {
+            ResetDiagramView();
             RenderDiagram();
             GraphHint.Text = DescriptionLimitMessage;
             return false;
@@ -702,7 +705,6 @@ public partial class LineupDescriptionView
         }
         finally { SourceEditor.EndChange(); }
         _previewTimer.Stop();
-        if (placement is { } position && _selectedNode is { } id) PlaceDiagramNode(id, position);
         RenderDiagram(keepSelection: true, revealNode: revealNode);
         return true;
     }

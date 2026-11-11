@@ -7,16 +7,17 @@ using System.Windows.Media;
 
 namespace ASPAssistant.App.Controls;
 
-internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIcon)
+internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIcon, Func<string, string?>? findStrategyIcon)
 {
-    private readonly Dictionary<(bool Equipment, string Name), string?> _icons = new();
+    private readonly Dictionary<(string Kind, string Name), string?> _icons = new();
     private int _imageCount;
 
     internal static FlowDocument Render(string source, Func<bool, string, string?> findIcon,
-        string emptyMessage = "在左侧写下阵容思路、装备搭配或操作顺序。")
-        => new LineupMarkdown(findIcon).Build(source, emptyMessage);
+        string emptyMessage = "在左侧写下阵容思路、装备搭配或操作顺序。",
+        Func<string, string?>? findStrategyIcon = null, IReadOnlyList<string>? availableStrategies = null)
+        => new LineupMarkdown(findIcon, findStrategyIcon).Build(source, emptyMessage, availableStrategies);
 
-    private FlowDocument Build(string source, string emptyMessage)
+    private FlowDocument Build(string source, string emptyMessage, IReadOnlyList<string>? availableStrategies)
     {
         var document = new FlowDocument
         {
@@ -44,7 +45,8 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
                         document.Blocks.Add(Message("关系图缺少结束标记 ```。"));
                     else if (++diagramCount > LineupDiagram.MaxDiagrams)
                         document.Blocks.Add(Message($"每篇介绍最多预览 {LineupDiagram.MaxDiagrams} 张关系图。"));
-                    else if (LineupDiagram.TryBuild(body, MakeIcon, out var diagram, out var error))
+                    else if (LineupDiagram.TryBuild(body, (equipment, name, size) =>
+                        MakeIcon(equipment ? "gear" : "op", name, size), out var diagram, out var error))
                     {
                         if (diagram is not null)
                             document.Blocks.Add(new BlockUIContainer(diagram) { Margin = new Thickness(0, 6, 0, 10) });
@@ -111,6 +113,22 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
             {
                 Foreground = Brushes.LightSlateGray
             });
+        if (availableStrategies is { Count: > 0 })
+        {
+            var strategies = new Paragraph(new Bold(new Run("可用策略　"))) { Margin = new Thickness(0, 0, 0, 10) };
+            for (var i = 0; i < availableStrategies.Count; i++)
+            {
+                var name = availableStrategies[i];
+                if (i > 0) strategies.Inlines.Add(new Run(" · "));
+                if (MakeImage("strategy", name, 23) is { } image)
+                {
+                    strategies.Inlines.Add(new InlineUIContainer(image) { BaselineAlignment = BaselineAlignment.Center });
+                    strategies.Inlines.Add(new Run("\u00A0"));
+                }
+                strategies.Inlines.Add(new Run(name));
+            }
+            document.Blocks.InsertBefore(document.Blocks.FirstBlock, strategies);
+        }
         return document;
     }
 
@@ -125,7 +143,7 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
             if (match.Groups["kind"].Success)
             {
                 var name = match.Groups["name"].Value.Trim();
-                var icon = MakeIcon(match.Groups["kind"].Value == "gear", name, 23);
+                var icon = MakeIcon(match.Groups["kind"].Value, name, 23);
                 inlines.Add(new InlineUIContainer(icon) { BaselineAlignment = BaselineAlignment.Center });
                 continue;
             }
@@ -153,12 +171,17 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
         if (end < text.Length) inlines.Add(new Run(text[end..]));
     }
 
-    private FrameworkElement MakeIcon(bool equipment, string name, int size)
+    private FrameworkElement MakeIcon(string kind, string name, int size)
+        => (FrameworkElement?)MakeImage(kind, name, size)
+           ?? new TextBlock { Text = $"[{name}]", Foreground = Brushes.LightSkyBlue, ToolTip = name };
+
+    private Image? MakeImage(string kind, string name, int size)
     {
-        var key = (equipment, name);
-        if (!_icons.TryGetValue(key, out var path)) _icons[key] = path = findIcon(equipment, name);
+        var key = (kind, name);
+        if (!_icons.TryGetValue(key, out var path))
+            _icons[key] = path = kind == "strategy" ? findStrategyIcon?.Invoke(name) : findIcon(kind == "gear", name);
         if (string.IsNullOrEmpty(path) || _imageCount >= 160)
-            return new TextBlock { Text = $"[{name}]", Foreground = Brushes.LightSkyBlue, ToolTip = name };
+            return null;
 
         _imageCount++;
         var image = new Image { Width = size, Height = size, Stretch = Stretch.Uniform, ToolTip = name };
@@ -175,6 +198,6 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
     [GeneratedRegex(@"^(#{1,3})\s+(.+)$")]
     private static partial Regex HeadingPattern();
 
-    [GeneratedRegex(@"\\(?<literal>[\\*_`={<>])|`(?<code>[^`]+)`|\{\{(?<kind>op|gear):(?<name>[^{}]{1,100})\}\}|\*\*\*(?<both>.+?)\*\*\*|\*\*(?<bold>.+?)\*\*|__(?<bold>.+?)__|\*(?<italic>[^*]+)\*|_(?<italic>[^_]+)_|<u>(?<underline>.+?)</u>|==(?<mark>.+?)==")]
+    [GeneratedRegex(@"\\(?<literal>[\\*_`={<>])|`(?<code>[^`]+)`|\{\{(?<kind>op|gear|strategy):(?<name>[^{}]{1,100})\}\}|\*\*\*(?<both>.+?)\*\*\*|\*\*(?<bold>.+?)\*\*|__(?<bold>.+?)__|\*(?<italic>[^*]+)\*|_(?<italic>[^_]+)_|<u>(?<underline>.+?)</u>|==(?<mark>.+?)==")]
     private static partial Regex InlinePattern();
 }

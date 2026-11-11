@@ -115,6 +115,7 @@ public partial class App : Application
         AppLogger.Info("App", "Loading operators...");
         var operators = await dataStore.LoadOperatorsAsync();
         var covenantCatalog = await dataStore.LoadCovenantCatalogAsync();
+        var strategies = await dataStore.LoadStrategiesAsync();
         AppLogger.Info("App", $"Loaded {operators.Count} operators");
 
         var (equipment, manualJobChangeEquipments) = await dataStore.LoadEquipmentAsync();
@@ -176,7 +177,7 @@ public partial class App : Application
             try { _settingsManager.SaveSideFilterLayout(side); }
             catch (Exception ex) { AppLogger.Error("Settings", "Could not save filter layout", ex); }
         };
-        _sidePanel.ConfigureLineups(lineupVm, operators, equipment);
+        _sidePanel.ConfigureLineups(lineupVm, operators, equipment, strategies);
         _sidePanel.ConfigureLineupSite(_lineupSite);
         _overlay = new OverlayWindow();
 

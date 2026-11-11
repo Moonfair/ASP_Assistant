@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,6 +17,7 @@ internal static partial class LineupDiagram
     internal const int MaxNodes = 20;
     internal const int MaxEdges = 40;
     internal const int MaxDiagrams = 8;
+    internal const int MaxPosition = 16000;
     internal sealed record Node(string Id, bool Equipment, string Name);
     internal sealed record Edge(string From, string To, string Label);
 
@@ -26,6 +28,7 @@ internal static partial class LineupDiagram
         public HashSet<string> Highlights { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Notes { get; } = new(StringComparer.Ordinal);
         public List<string> Comments { get; } = [];
+        public Dictionary<string, Point> Positions { get; } = new(StringComparer.Ordinal);
         public bool Horizontal { get; set; }
 
         public IEnumerable<string> ToLines()
@@ -40,6 +43,9 @@ internal static partial class LineupDiagram
                 if (Highlights.Contains(id)) yield return $"highlight {id}";
                 if (Notes.TryGetValue(id, out var note)) yield return $"note {id}: {note}";
             }
+            foreach (var id in Nodes.Keys)
+                if (Positions.TryGetValue(id, out var point))
+                    yield return FormattableString.Invariant($"%% aspa-layout {id} {point.X:0} {point.Y:0}");
         }
     }
 
@@ -66,6 +72,25 @@ internal static partial class LineupDiagram
         {
             var line = lines[i].Trim();
             if (line.Length == 0) continue;
+            var position = PositionPattern().Match(line);
+            if (position.Success)
+            {
+                var id = position.Groups[1].Value;
+                if (!int.TryParse(position.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var x)
+                    || !int.TryParse(position.Groups[3].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var y)
+                    || x > MaxPosition || y > MaxPosition || !graph.Positions.TryAdd(id, new Point(x, y)))
+                {
+                    error = $"关系图第 {i + 1} 行：节点坐标无效或重复。";
+                    return false;
+                }
+                references.Add((id, i + 1));
+                continue;
+            }
+            if (line == "%% aspa-layout" || line.StartsWith("%% aspa-layout ", StringComparison.Ordinal))
+            {
+                error = $"关系图第 {i + 1} 行：节点坐标无效。";
+                return false;
+            }
             if (line.StartsWith("%%", StringComparison.Ordinal))
             {
                 if (!LineupDiagramSource.IsLegacyPositionLine(line)) graph.Comments.Add(line);
@@ -137,6 +162,7 @@ internal static partial class LineupDiagram
     {
         var canvas = new Canvas { Background = new SolidColorBrush(Color.FromRgb(25, 25, 46)) };
         if (graph.Nodes.Count == 0) return canvas;
+        manualPositions ??= graph.Positions;
         var horizontal = graph.Horizontal;
         var positions = Arrange(graph.Nodes.Keys, graph.Edges, horizontal);
         if (manualPositions is { Count: > 0 })
@@ -337,4 +363,6 @@ internal static partial class LineupDiagram
     private static partial Regex HighlightPattern();
     [GeneratedRegex(@"^note\s+" + Id + @"\s*:\s*(.{1,60})$")]
     private static partial Regex NotePattern();
+    [GeneratedRegex(@"^%% aspa-layout\s+" + Id + @"\s+([0-9]{1,5})\s+([0-9]{1,5})$")]
+    private static partial Regex PositionPattern();
 }

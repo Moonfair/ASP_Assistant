@@ -127,6 +127,17 @@ public partial class LineupDescriptionView : UserControl
         return name.Length > 0 && Vm?.FindIcon(equipment, name) is not null ? name : null;
     }
 
+    private void OnInsertStrategy(object sender, RoutedEventArgs e)
+    {
+        var name = StrategyPicker.Text.Trim();
+        if (string.IsNullOrEmpty(Vm?.FindStrategyIcon(name)))
+        {
+            EditorHint.Text = "请先选择目录里的策略。";
+            return;
+        }
+        Insert("{{strategy:" + name + "}}");
+    }
+
     internal void RefreshIconPickers()
     {
         if (Vm is not { } vm) return;
@@ -134,11 +145,15 @@ public partial class LineupDescriptionView : UserControl
         var equipment = vm.Members.SelectMany(member => new[] { member.Equipment1, member.Equipment2 }).ToHashSet(StringComparer.Ordinal);
         var operatorText = OperatorPicker.Text;
         var equipmentText = EquipmentPicker.Text;
+        var strategyText = StrategyPicker.Text;
         OperatorPicker.ItemsSource = vm.CatalogOperators.OrderBy(item => !operators.Contains(item.Name)).ToArray();
         EquipmentPicker.ItemsSource = vm.EquipmentNames.Where(name => name.Length > 0)
             .OrderBy(name => !equipment.Contains(name)).ToArray();
         OperatorPicker.Text = operatorText;
         EquipmentPicker.Text = equipmentText;
+        StrategyPicker.ItemsSource = vm.StrategyOptions.Where(option => option.Strategy.IconPath.Length > 0)
+            .OrderBy(option => !option.IsSelected).Select(option => option.Strategy.Name).ToArray();
+        StrategyPicker.Text = strategyText;
     }
 
     private void OnInsertDiagram(object sender, RoutedEventArgs e)

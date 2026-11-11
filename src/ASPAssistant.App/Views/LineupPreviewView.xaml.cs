@@ -8,14 +8,15 @@ public partial class LineupPreviewView : UserControl
 {
     public LineupPreviewView() => InitializeComponent();
 
-    internal void ShowLineup(Lineup lineup, Func<bool, string, string?> findIcon)
+    internal void ShowLineup(Lineup lineup, Func<bool, string, string?> findIcon, Func<string, string?>? findStrategyIcon = null)
     {
         LineupTitle.Text = lineup.Name;
         AuthorLabel.Text = $"作者：{lineup.Author}";
         MemberStrip.DataContext = lineup.Members.Select(member => new PreviewMember(
             member.OperatorName, member.IsStackingCore, member.IsDamageCore, member.Equipment1, member.Equipment2,
             findIcon(false, member.OperatorName), findIcon(true, member.Equipment1), findIcon(true, member.Equipment2))).ToArray();
-        Introduction.Document = LineupMarkdown.Render(lineup.Description, findIcon, "作者尚未填写阵容介绍。");
+        Introduction.Document = LineupMarkdown.Render(lineup.Description, findIcon, "作者尚未填写阵容介绍。",
+            findStrategyIcon, lineup.AvailableStrategies);
     }
 
     private sealed record PreviewMember(string OperatorName, bool IsStackingCore, bool IsDamageCore,

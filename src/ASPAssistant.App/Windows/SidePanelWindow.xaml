@@ -171,17 +171,31 @@
                     </StackPanel>
                 </Border>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1" CornerRadius="7" Padding="10" VerticalAlignment="Top">
-                        <StackPanel>
-                            <TextBlock Text="筛选布局" FontSize="14" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,9" />
-                            <CheckBox x:Name="LayoutToggle" Content="在侧边显示筛选"
-                                      Foreground="{StaticResource TextPrimaryBrush}" />
-                            <TextBlock Text="开启时，干员和装备筛选显示在侧边。关闭后，筛选回到列表顶部。"
-                                       Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                        </StackPanel>
-                    </Border>
+                    <StackPanel>
+                        <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="7" Padding="10">
+                            <StackPanel>
+                                <TextBlock Text="筛选布局" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,9" />
+                                <CheckBox x:Name="LayoutToggle" Content="在侧边显示筛选"
+                                          Foreground="{StaticResource TextPrimaryBrush}" />
+                                <TextBlock Text="开启时，干员和装备筛选显示在侧边。关闭后，筛选回到列表顶部。"
+                                           Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="SettingsLineupAccountCard" Background="{StaticResource CardBackgroundBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="10"
+                                Margin="0,10,0,0" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="卫戍阵容库" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                                <TextBlock x:Name="SettingsLineupAccountStatus" Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" Margin="0,0,0,8" />
+                                <Button x:Name="SettingsLineupAccountButton" Click="OnSettingsLineupAccount"
+                                        Style="{StaticResource TrackingButton}" HorizontalAlignment="Left" Padding="8,5" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </ScrollViewer>
             </DockPanel>
                 </Grid>

@@ -15,8 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="LICENSE-FontAwesome.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Ship active catalogues and UI icons only. Legacy avatar/template matching is no longer used. -->
-    <Content Include="..\..\data\operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\source_metadata.json"
+    <Content Include="..\..\data\operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\strategies.json;..\..\data\source_metadata.json"
              Link="data\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -30,6 +31,10 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
     <Content Include="..\..\data\icons\equipment\*.png" Link="data\icons\equipment\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\data\icons\strategies\*.png" Link="data\icons\strategies\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

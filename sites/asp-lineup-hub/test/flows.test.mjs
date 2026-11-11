@@ -11,6 +11,7 @@ const share = 'ASPA-LINEUP/2\n' + JSON.stringify({
 function setup() {
   const DB = openDatabase(':memory:');
   const delivered = [];
+  const SHARE_SECRET = crypto.getRandomValues(new Uint8Array(32));
   const AUTH = { secret: crypto.getRandomValues(new Uint8Array(32)),
     sendCode: async (email, code) => { delivered.push({ email, code }); } };
   function browser() {
@@ -25,7 +26,7 @@ function setup() {
       if (token) headers.set('Authorization', 'Bearer ' + token);
       const response = await worker.fetch(new Request('https://lineup.example.test' + path, {
         headers, method, body: body && JSON.stringify(body)
-      }), { DB, AUTH, clientIp: '192.0.2.1' });
+      }), { DB, AUTH, SHARE_SECRET, clientIp: '192.0.2.1' });
       const cookie = response.headers.get('Set-Cookie');
       if (cookie) {
         const [name, value] = cookie.split(';')[0].split('=');
@@ -54,8 +55,49 @@ function setup() {
     }
     return { request, challenge, send, login };
   }
-  return { DB, delivered, browser };
+  return { DB, SHARE_SECRET, delivered, browser };
 }
+
+test('访客可创建和打开加密分享快照，快照不会发布到阵容列表', async (t) => {
+  const { DB, SHARE_SECRET, browser } = setup();
+  t.after(() => DB.close());
+  const sender = browser(), recipient = browser();
+  const list = await recipient.request('/api/lineups');
+  const created = await sender.request('/api/share', { share }, null);
+  assert.equal(created.status, 201);
+  const { shortPath } = created.data;
+  assert.match(shortPath, /^\/s\/u-[A-Za-z0-9_-]{22}$/);
+  const apiPath = shortPath.replace('/s/', '/api/share/');
+  assert.deepEqual((await recipient.request(apiPath)).data, { share, shortPath });
+  const preview = (await recipient.request(apiPath + '?preview=1')).data.lineup;
+  assert.equal(preview.title, '测试银灰阵容');
+  assert.equal(preview.members[0].name, '凛御银灰');
+  assert.equal(preview.shortPath, shortPath);
+  const page = await worker.fetch(new Request('https://lineup.example.test' + shortPath), { DB, SHARE_SECRET });
+  assert.equal(page.status, 302);
+  assert.equal(page.headers.get('location'), '/?share=' + shortPath.slice(3));
+  assert.equal((await recipient.request('/api/lineups')).data.total, list.data.total);
+
+  const stored = await DB.prepare('SELECT payload FROM share_snapshots WHERE token = ?').bind(shortPath.slice(3)).first();
+  assert.ok(stored.payload instanceof Uint8Array);
+  assert.ok(!Buffer.from(stored.payload).includes(Buffer.from('测试银灰阵容')));
+  const wrongKey = await worker.fetch(new Request('https://lineup.example.test' + apiPath),
+    { DB, SHARE_SECRET: crypto.getRandomValues(new Uint8Array(32)) });
+  assert.equal(wrongKey.status, 404);
+  await DB.prepare('UPDATE share_snapshots SET expires_at = 0').run();
+  assert.equal((await recipient.request(apiPath)).status, 404);
+});
+
+test('分享接口校验内容、限制创建频率，并拒绝跨站创建', async (t) => {
+  const { DB, browser } = setup();
+  t.after(() => DB.close());
+  const guest = browser();
+  assert.equal((await guest.request('/api/share', { share: 'bad' })).status, 400);
+  assert.equal((await guest.request('/api/share', { share }, 'https://other.test')).status, 403);
+  let status;
+  for (let i = 0; i < 32 && status !== 429; i++) status = (await guest.request('/api/share', { share })).status;
+  assert.equal(status, 429);
+});
 
 test('邮箱首次验证注册，重复登录用同一账号，验证码和退出会话都不可重用', async () => {
   const { DB, delivered, browser } = setup();
@@ -177,7 +219,8 @@ test('发布校验使用侧边栏目录，保留装备槽位置、两个核心�
   const player = browser();
   await player.login('player@example.test');
   const content = {
-    Name: '双核心', Author: '测试', Description: '说明\n\n```lineup\n干员 凛御银灰\n```',
+    Name: '双核心', Author: '测试', Description: '说明 {{strategy:众志合一}}\n\n```lineup\nA[{{op:凛御银灰}}]\n%% aspa-layout A 211 88\n```',
+    AvailableStrategies: ['众志合一', '旧赛季策略', '坚不可摧', '加急调派', '幻画为真', '全力熔铸'],
     Members: [{ OperatorName: '凛御银灰', IsStackingCore: true, IsDamageCore: true,
       Equipment1: '', Equipment2: '坚守盾牌' }]
   };
@@ -190,6 +233,28 @@ test('发布校验使用侧边栏目录，保留装备槽位置、两个核心�
   assert.equal(result.status, 201);
   const { lineup } = (await player.request('/api/lineups/' + result.data.id)).data;
   assert.deepEqual(JSON.parse(lineup.share.split('\n')[1]), content);
+  assert.deepEqual(lineup.strategies, content.AvailableStrategies);
+  assert.deepEqual(lineup.strategyPortraits.map(({ name }) => name), content.AvailableStrategies);
+  assert.match(lineup.strategyPortraits[0].image, /^\/strategy-icons\/[a-f0-9]{16}\.png$/);
+  assert.equal(lineup.strategyPortraits[1].image, null);
+  const { items } = (await player.request('/api/lineups?q=' + encodeURIComponent(content.Name))).data;
+  assert.equal(items[0].strategyCount, 6);
+  assert.deepEqual(items[0].strategyPortraits, lineup.strategyPortraits.slice(0, 5));
+});
+
+test('发布后生成可匿名解析的短链接，并兼容示例阵容', async () => {
+  const { browser } = setup();
+  const player = browser(), guest = browser();
+  await player.login('links@example.test');
+  const posted = await player.request('/api/lineups', { share, captcha: await player.challenge('publish') });
+  const { id, shortPath } = posted.data;
+  assert.match(shortPath, /^\/s\/[A-Za-z0-9_-]{22}$/);
+  assert.deepEqual((await guest.request(shortPath.replace('/s/', '/api/share/'))).data, { share, shortPath });
+  assert.equal((await guest.request('/api/lineups/' + id)).data.lineup.shortPath, shortPath);
+  const demo = (await guest.request('/api/share/demo-kjerag')).data;
+  assert.equal(demo.shortPath, '/s/demo-kjerag');
+  assert.match(demo.share, /^ASPA-LINEUP\/2/);
+  assert.equal((await guest.request('/api/share/AAAAAAAAAAAAAAAAAAAAAA')).status, 404);
 });
 
 test('客户端邮箱登录后可一键发布，重复上传不会创建副本，退出后凭据失效', async () => {

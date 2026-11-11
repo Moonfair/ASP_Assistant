@@ -4,6 +4,7 @@
   "versionCode": "V3_1",
   "operatorCount": 141,
   "equipmentCount": 70,
+  "strategyCount": 61,
   "sources": [
     {
       "url": "https://torappu.prts.wiki/gamedata/latest/excel/character_table.json",

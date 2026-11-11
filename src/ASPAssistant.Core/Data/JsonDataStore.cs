@@ -46,6 +46,13 @@ public class JsonDataStore
         return JsonSerializer.Deserialize<CovenantCatalog>(await File.ReadAllTextAsync(path), JsonOptions) ?? new();
     }
 
+    public async Task<List<Strategy>> LoadStrategiesAsync()
+    {
+        var path = Path.Combine(_dataDirectory, "strategies.json");
+        if (!File.Exists(path)) return [];
+        return JsonSerializer.Deserialize<StrategyDataFile>(await File.ReadAllTextAsync(path), JsonOptions)?.Strategies ?? [];
+    }
+
     /// <summary>
     /// Loads the skin avatar map produced by <c>fetch_spdatabase.py --download-skins</c>.
     /// Returns a dictionary of { filename → operator name }, e.g.
@@ -73,4 +80,5 @@ public class JsonDataStore
         public List<string> ManualJobChangeEquipments { get; set; } = [];
     }
 
+    private sealed record StrategyDataFile(List<Strategy> Strategies);
 }

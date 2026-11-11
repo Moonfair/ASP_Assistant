@@ -6,8 +6,16 @@ export function isWindowsDesktop(browser) {
   return /\bWindows NT\b/i.test(browser.userAgent) && !/\b(?:Windows Phone|Android|Mobile)\b/i.test(browser.userAgent);
 }
 
-export async function desktopImportUri(share) {
-  const bytes = new TextEncoder().encode(share.replace(/\r\n?/g, '\n'));
+export function shortLinkPath(value, origin) {
+  let url;
+  try { url = new URL(value.trim()); }
+  catch { return null; }
+  if (url.origin !== origin || url.username || url.password || url.search || url.hash) return null;
+  return /^\/s\/(?:u-[A-Za-z0-9_-]{22}|[A-Za-z0-9_-]{22}|demo-[a-z]{1,20})$/.test(url.pathname) ? url.pathname : null;
+}
+
+export async function desktopImportUri(text) {
+  const bytes = new TextEncoder().encode(text.replace(/\r\n?/g, '\n'));
   const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
   const hex = Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('');
   return 'aspassistant://import-lineup/?sha256=' + hex;
@@ -34,13 +42,13 @@ function openDesktopProtocol(uri) {
   });
 }
 
-async function copyDesktopShare(share) {
-  // Start the clipboard operation in the click gesture, including for cards that need to fetch text.
+async function copyPendingShortLink(link) {
+  // Start the clipboard operation in the click gesture while the site creates the link.
   if (typeof ClipboardItem === 'function' && navigator.clipboard?.write) {
     await navigator.clipboard.write([new ClipboardItem({
-      'text/plain': share.then(text => new Blob([text], { type: 'text/plain' }))
+      'text/plain': link.then(text => new Blob([text], { type: 'text/plain' }))
     })]);
     return;
   }
-  await navigator.clipboard.writeText(await share);
+  await navigator.clipboard.writeText(await link);
 }

@@ -195,5 +195,34 @@
                 <ListBox x:Name="EquipmentList" ItemsSource="{Binding FilteredEquipment}" Style="{StaticResource GridList}" SelectionChanged="OnCatalogSelectionChanged" PreviewMouseLeftButtonDown="OnDragStart" PreviewMouseMove="OnDragMove" MouseDoubleClick="OnEquipmentDoubleClick" KeyDown="OnEquipmentKeyDown" />
             </DockPanel>
         </TabItem>
+        <TabItem Header="可用策略">
+            <DockPanel Margin="10">
+                <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" AutomationProperties.Name="搜索策略"
+                         ToolTip="搜索策略名称或发起人"
+                         Text="{Binding StrategyQuery, UpdateSourceTrigger=PropertyChanged, Delay=150}" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding FilteredStrategyOptions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,6"
+                                          AutomationProperties.Name="{Binding Strategy.Name}">
+                                    <CheckBox.ToolTip>
+                                        <TextBlock Text="{Binding Strategy.Description}" TextWrapping="Wrap" MaxWidth="420" />
+                                    </CheckBox.ToolTip>
+                                    <DockPanel LastChildFill="True">
+                                        <Image Width="36" Height="36" Margin="0,0,8,0"
+                                               controls:DeferredIcon.Path="{Binding Strategy.IconPath}" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Strategy.Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Strategy.Sponsor}" Foreground="{StaticResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </CheckBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </TabItem>
     </TabControl>
 </UserControl>

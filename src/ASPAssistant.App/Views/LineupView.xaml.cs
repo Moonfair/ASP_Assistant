@@ -6,8 +6,8 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using ASPAssistant.App.Controls;
+using ASPAssistant.App.Converters;
 using ASPAssistant.App.Services;
-using ASPAssistant.App.Windows;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
@@ -33,9 +33,11 @@ public partial class LineupView : UserControl
 
     public LineupView() => InitializeComponent();
 
-    internal void ConfigurePortraits(Func<string, string?> findOperatorIcon, Func<string, bool> isBanned)
+    internal void ConfigurePortraits(Func<string, string?> findOperatorIcon, Func<string, bool> isBanned,
+        Func<string, string?>? findStrategyIcon = null)
     {
         _findOperatorIcon = findOperatorIcon;
+        ((StrategyCardPortraitsConverter)Resources["StrategyCardPortraits"]).FindIcon = findStrategyIcon;
         _isBanned = isBanned;
     }
 
@@ -106,45 +108,25 @@ public partial class LineupView : UserControl
         if (!MatchesCategory(lineup)) CategoryTabs.SelectedIndex = lineup.IsImported ? 2 : 1;
     }
 
-    internal void ConfigureSite(LineupSiteClient site)
-    {
-        _site = site;
-        SiteAccountButton.Visibility = Visibility.Visible;
-        RefreshSiteAccount();
-    }
-
-    private void RefreshSiteAccount()
-    {
-        SiteAccountButton.Content = _site?.Email is null ? "登录卫戍阵容库" : "阵容库账号";
-        SiteAccountButton.ToolTip = _site?.Email;
-    }
-
-    private void ShowSiteAccount(Window owner)
-    {
-        new LineupSiteAccountWindow(_site!) { Owner = owner }.ShowDialog();
-        RefreshSiteAccount();
-    }
-
-    private void OnSiteAccount(object sender, RoutedEventArgs e)
-    {
-        if (!_siteBusy && _site is not null && Window.GetWindow(this) is { } owner) ShowSiteAccount(owner);
-    }
+    internal void ConfigureSite(LineupSiteClient site) => _site = site;
+    internal bool IsUploading => _siteBusy;
 
     private async void OnUpload(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: Lineup { IsImported: false } lineup } button ||
-            _siteBusy || _site is not { } site || Window.GetWindow(this) is not { } owner || ShareService is null)
+            _siteBusy || _site is not { } site || ShareService is null)
             return;
+        if (site.Email is null)
+        {
+            SetStatus("请在设置中登录卫戍阵容库，再上传阵容。");
+            return;
+        }
 
         _siteBusy = true;
         button.IsEnabled = false;
-        SiteAccountButton.IsEnabled = false;
         try
         {
             var text = ExportShare(lineup);
-            if (site.Email is null) ShowSiteAccount(owner);
-            if (site.Email is null) return;
-
             UploadedLineupButton.Visibility = Visibility.Collapsed;
             SetStatus("正在上传阵容…");
             _uploadedLineup = await site.UploadAsync(lineup.Id, text);
@@ -156,55 +138,32 @@ public partial class LineupView : UserControl
         {
             _siteBusy = false;
             button.IsEnabled = true;
-            SiteAccountButton.IsEnabled = true;
-            RefreshSiteAccount();
         }
     }
 
     private void OnOpenUploadedLineup(object sender, RoutedEventArgs e)
     {
-        if (_uploadedLineup is null) return;
-        try { Process.Start(new ProcessStartInfo(_uploadedLineup.AbsoluteUri) { UseShellExecute = true }); }
-        catch (Win32Exception) { SetStatus("无法打开浏览器：" + _uploadedLineup.AbsoluteUri); }
+        if (_uploadedLineup is not null) OpenInBrowser(_uploadedLineup);
+    }
+
+    private void OnOpenLineupHub(object sender, RoutedEventArgs e) => OpenInBrowser(LineupPublicLink.HomePage);
+
+    private void OpenInBrowser(Uri url)
+    {
+        try { Process.Start(new ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Win32Exception) { SetStatus("无法打开浏览器：" + url.AbsoluteUri); }
     }
 
     private string ExportShare(Lineup lineup) => ShareService!.Export(
         lineup with { Description = LineupDiagramSource.RemoveLegacyPositions(lineup.Description) });
 
-    private async void OnExport(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is not Lineup lineup || ShareService is null ||
-            Window.GetWindow(this) is not { } owner || _copying) return;
-        _copying = true;
-        try
-        {
-            var text = ExportShare(lineup);
-            SetStatus("正在复制分享文本…");
-            try { await LineupClipboard.CopyAsync(owner, text); }
-            catch (Exception ex) when (IsClipboardError(ex))
-            {
-                SetStatus(ex.HResult == LineupClipboard.CannotOpenClipboard
-                    ? "剪贴板仍被占用，已打开分享文本。" : "无法写入剪贴板，已打开分享文本。");
-                ShowShareText(owner, text);
-                return;
-            }
-            SetStatus("阵容分享文本已复制到剪切板。");
-        }
-        catch (FormatException ex) { SetStatus(ex.Message); }
-        finally { _copying = false; }
-    }
-
-    private void ShowShareText(Window owner, string text)
+    private void ShowShortLink(Window owner, string link)
     {
         if (!owner.IsVisible) return;
-        var field = new TextBox
-        {
-            Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
-        System.Windows.Automation.AutomationProperties.SetName(field, "阵容分享文本");
+        var field = new TextBox { Text = link, IsReadOnly = true, TextWrapping = TextWrapping.Wrap };
+        System.Windows.Automation.AutomationProperties.SetName(field, "阵容短链接");
         var body = new DockPanel { Margin = new Thickness(12) };
-        var hint = new TextBlock { Text = "剪贴板可用后，按 Ctrl+C 复制选中的分享文本。", Margin = new Thickness(0, 0, 0, 8) };
+        var hint = new TextBlock { Text = "按 Ctrl+C 复制选中的短链接。", Margin = new Thickness(0, 0, 0, 8) };
         DockPanel.SetDock(hint, Dock.Top);
         body.Children.Add(hint);
         var close = new Button { Content = "关闭", IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
@@ -213,7 +172,7 @@ public partial class LineupView : UserControl
         body.Children.Add(field);
         var dialog = new Window
         {
-            Owner = owner, Title = "阵容分享文本", Width = 560, Height = 380, MinWidth = 350, MinHeight = 240,
+            Owner = owner, Title = "阵容短链接", Width = 460, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, ShowInTaskbar = false,
             Background = (Brush)FindResource("PanelBackgroundBrush"), Content = body
         };
@@ -248,7 +207,15 @@ public partial class LineupView : UserControl
         ImportClipboardButton.IsEnabled = false;
         try
         {
-            var imported = ShareService.Import(await readText());
+            var text = await readText();
+            string? link = null;
+            if (LineupPublicLink.TryGetToken(text, out _))
+            {
+                library.Status = "正在读取阵容短链接…";
+                link = LineupPublicLink.Canonicalize(text);
+                text = await LineupPublicLink.ResolveAsync(link);
+            }
+            var imported = ShareService.Import(text) with { PublishedLink = link };
             imported = imported with { Description = LineupDiagramSource.RemoveLegacyPositions(imported.Description) };
             library.Status = "正在保存导入的阵容…";
             if (!await library.SaveAsync(imported)) return;

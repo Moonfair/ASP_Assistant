@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SPDatabase 数据抓取工具
-从 PRTS Wiki 获取卫戍协议数据，输出 operators.json 和 equipment.json
+从 PRTS Wiki 获取卫戍协议干员、装备、盟约和开局策略数据
 
 数据来源: https://static.prts.wiki/app/spdatabase/index.html
 参考项目: https://github.com/Yanstory/SPDatabase
@@ -382,6 +382,28 @@ def process_equipment(season_data: dict) -> list[dict]:
     return list(equipment_by_id.values())
 
 
+def process_strategies(season_data: dict, band_info: dict) -> list[dict]:
+    strategies = []
+    for band_id, band in sorted(season_data["bandDataListDict"].items(), key=lambda item: item[1]["sortId"]):
+        title, separator, description = strip_rich_text(band["bandDesc"]).strip().partition("】")
+        if not separator or not title.startswith("【"):
+            raise ValueError(f"无法读取策略名称: {band_id}")
+        sponsor = band_info[band_id]["bandName"]
+        strategies.append({
+            "name": title[1:].strip(),
+            "sponsor": sponsor,
+            "description": description.replace("\\n", "\n").strip(),
+            "iconPath": f"icons/strategies/{band_id}.png",
+        })
+    return strategies
+
+
+def strategy_icon_url(sponsor: str) -> str:
+    original = get_prts_media_url(f"卫戍协议：盟约_策略发起人_{sponsor}.png")
+    path = original.removeprefix(MEDIA_ENDPOINT + "/")
+    return f"{MEDIA_ENDPOINT}/thumb/{path}/90px-{path.rsplit('/', 1)[-1]}"
+
+
 # ── 图片后处理 ────────────────────────────────────────────────────────────────
 
 def apply_white_background(img: "_PilImage.Image") -> "_PilImage.Image":
@@ -556,9 +578,11 @@ def main():
     print("处理装备数据...")
     equipment = process_equipment(season_data)
     covenants = process_covenants(season_data, bond_info_dict)
+    strategies = process_strategies(season_data, act_data["autoChessData"]["bandDataDict"])
     print(f"  装备数: {len(equipment)}")
-    if not operators or not equipment:
-        raise ValueError("上游干员或装备数据为空，停止更新以保留已有数据。")
+    print(f"  开局策略数: {len(strategies)}")
+    if not operators or not equipment or not strategies:
+        raise ValueError("上游干员、装备或策略数据为空，停止更新以保留已有数据。")
 
     # 6. 下载图标
     if not args.skip_icons:
@@ -606,6 +630,10 @@ def main():
         print("下载盟约图标...")
         for name, url in covenant_icon_sources(season_data, bond_info_dict).items():
             download_image(url, covenant_icon_dir / f"{name}.png")
+        print("下载策略头像...")
+        (data_dir / "icons" / "strategies").mkdir(parents=True, exist_ok=True)
+        for strategy in strategies:
+            download_image(strategy_icon_url(strategy["sponsor"]), data_dir / strategy["iconPath"])
     else:
         print("跳过图标下载 (--skip-icons)")
 
@@ -649,6 +677,9 @@ def main():
     with open(data_dir / "covenants.json", "w", encoding="utf-8") as f:
         json.dump(covenants, f, ensure_ascii=False, indent=2)
 
+    with open(data_dir / "strategies.json", "w", encoding="utf-8") as f:
+        json.dump({"strategies": strategies}, f, ensure_ascii=False, indent=2)
+
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump({
             "season": season_cfg["name"],
@@ -656,13 +687,14 @@ def main():
             "versionCode": season_cfg.get("versionCode"),
             "operatorCount": len(operators),
             "equipmentCount": len(equipment),
+            "strategyCount": len(strategies),
             "sources": sources,
         }, f, ensure_ascii=False, indent=2)
 
     print(f"\n完成！")
     print(f"  {operators_path.resolve()} ({operators_path.stat().st_size / 1024:.1f} KB)")
     print(f"  {equipment_path.resolve()} ({equipment_path.stat().st_size / 1024:.1f} KB)")
-    print(f"\n概要: {len(operators)} 名干员, {len(equipment)} 件装备")
+    print(f"\n概要: {len(operators)} 名干员, {len(equipment)} 件装备, {len(strategies)} 项开局策略")
 
 
 if __name__ == "__main__":

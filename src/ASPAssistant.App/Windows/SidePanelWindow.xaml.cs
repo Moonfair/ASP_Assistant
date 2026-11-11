@@ -31,6 +31,7 @@ public partial class SidePanelWindow : Window
     private LineupLibraryViewModel? _lineupLibrary;
     private List<Operator> _lineupOperators = [];
     private List<Equipment> _lineupEquipment = [];
+    private IReadOnlyList<Strategy> _lineupStrategies = [];
     private LineupEditorWindow? _lineupEditor;
 
     // 用户意图追踪
@@ -119,12 +120,14 @@ public partial class SidePanelWindow : Window
         };
     }
 
-    public void ConfigureLineups(LineupLibraryViewModel library, List<Operator> operators, List<Equipment> equipment)
+    public void ConfigureLineups(LineupLibraryViewModel library, List<Operator> operators, List<Equipment> equipment,
+        IReadOnlyList<Strategy>? strategies = null)
     {
         _lineupLibrary = library;
         _lineupOperators = operators;
         _lineupEquipment = equipment;
-        LineupView.ConfigurePortraits(FindLineupOperatorIcon, BanVm.IsBanned);
+        _lineupStrategies = strategies ?? [];
+        LineupView.ConfigurePortraits(FindLineupOperatorIcon, BanVm.IsBanned, FindLineupStrategyIcon);
         LineupView.DataContext = library;
         LineupView.ShareService = new LineupShareService(operators.Select(o => o.Name), equipment.Select(e => e.Name));
         LineupView.NewRequested += () => TryOpenLineupEditor(null);
@@ -137,7 +140,29 @@ public partial class SidePanelWindow : Window
         };
     }
 
-    internal void ConfigureLineupSite(LineupSiteClient site) => LineupView.ConfigureSite(site);
+    private LineupSiteClient? _lineupSite;
+
+    internal void ConfigureLineupSite(LineupSiteClient site)
+    {
+        _lineupSite = site;
+        LineupView.ConfigureSite(site);
+        SettingsLineupAccountCard.Visibility = Visibility.Visible;
+        RefreshSettingsLineupAccount();
+    }
+
+    private void RefreshSettingsLineupAccount()
+    {
+        var email = _lineupSite?.Email;
+        SettingsLineupAccountStatus.Text = email is null ? "登录后可以上传阵容。" : $"已登录：{email}";
+        SettingsLineupAccountButton.Content = email is null ? "登录卫戍阵容库" : "管理账号";
+    }
+
+    private void OnSettingsLineupAccount(object sender, RoutedEventArgs e)
+    {
+        if (_lineupSite is not { } site || LineupView.IsUploading) return;
+        new LineupSiteAccountWindow(site) { Owner = this }.ShowDialog();
+        RefreshSettingsLineupAccount();
+    }
 
     internal void BringForward()
     {
@@ -154,13 +179,14 @@ public partial class SidePanelWindow : Window
     }
 
     private string? FindLineupOperatorIcon(string name) => _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath;
+    private string? FindLineupStrategyIcon(string name) => _lineupStrategies.FirstOrDefault(strategy => strategy.Name == name)?.IconPath;
 
     private void OpenLineupPreview(Lineup lineup)
     {
         var preview = new ASPAssistant.App.Views.LineupPreviewView { Margin = new Thickness(18) };
         preview.ShowLineup(lineup, (equipment, name) => equipment
             ? _lineupEquipment.FirstOrDefault(item => item.Name == name)?.IconPath
-            : FindLineupOperatorIcon(name));
+            : FindLineupOperatorIcon(name), FindLineupStrategyIcon);
         var window = new Window
         {
             Title = "阵容预览 · ASP Assistant",
@@ -182,7 +208,7 @@ public partial class SidePanelWindow : Window
                 : "已有阵容正在编辑，请先保存或取消当前编辑。");
             return false;
         }
-        var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup);
+        var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup, _lineupStrategies);
         vm.OperatorBrowser.SetBanChecker(BanVm.IsBanned);
         vm.OperatorBrowser.CovenantAvailability = OperatorBrowseVm.CovenantAvailability;
         void RefreshEditorBans() => Dispatcher.Invoke(() => vm.OperatorBrowser.NotifyBansChanged());
@@ -275,6 +301,7 @@ public partial class SidePanelWindow : Window
 
     private void SetSettingsVisible(bool visible)
     {
+        if (visible) RefreshSettingsLineupAccount();
         SettingsPage.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         MainContent.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
         UpdateFilterHost();

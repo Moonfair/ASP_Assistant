@@ -1,0 +1,370 @@
+{
+  "strategies": [
+    {
+      "name": "众志合一",
+      "sponsor": "阿米娅",
+      "description": "被动效果：场上存在3、4或5种以上激活盟约时，所有干员攻击力、生命上限分别+20%/30%/40%",
+      "iconPath": "icons/strategies/band_amiya.png"
+    },
+    {
+      "name": "坚不可摧",
+      "sponsor": "歌利亚",
+      "description": "被动效果：初始目标生命值为40点",
+      "iconPath": "icons/strategies/band_sarkazb.png"
+    },
+    {
+      "name": "加急调派",
+      "sponsor": "大帝",
+      "description": "被动效果：我方干员每次部署后都会使自身在本场战斗内的再部署时间-50%",
+      "iconPath": "icons/strategies/band_emperor.png"
+    },
+    {
+      "name": "食腐之蝶",
+      "sponsor": "卡莱莎",
+      "description": "被动效果：我方干员被击倒时，场上剩余我方单位攻击力+20%（最大+200%，持续至被击倒或战斗结束）",
+      "iconPath": "icons/strategies/band_qalaisa.png"
+    },
+    {
+      "name": "统御号令",
+      "sponsor": "伊奥莱塔·罗素",
+      "description": "被动效果：战斗开始时，场上每有1名精锐干员，精锐干员的攻击力、生命上限+10%",
+      "iconPath": "icons/strategies/band_ioleta.png"
+    },
+    {
+      "name": "意志鼓舞",
+      "sponsor": "百炼嘉维尔",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，下次战斗开始时立即击倒并复活，并获得额外2次复活次数",
+      "iconPath": "icons/strategies/band_survive.png"
+    },
+    {
+      "name": "内部货源",
+      "sponsor": "天空盒",
+      "description": "点击使用（消耗0）：下一件购买的装备价格-1（最多减至0）",
+      "iconPath": "icons/strategies/band_price.png"
+    },
+    {
+      "name": "纸片替身",
+      "sponsor": "风丸",
+      "description": "拖拽使用（消耗0）：选择一名调度中心内的干员，使其变为相同等阶的随机干员（每回合限2次）",
+      "iconPath": "icons/strategies/band_transfer.png"
+    },
+    {
+      "name": "溃心领域",
+      "sponsor": "妮芙",
+      "description": "拖拽使用（消耗0）：选择一个可用地块，战斗开始后首次经过该地块的敌人获得恐惧，持续3秒（每回合限1次）\n第4、8、12回合时升级，增加使用次数",
+      "iconPath": "icons/strategies/band_dance.png"
+    },
+    {
+      "name": "幻画为真",
+      "sponsor": "夕",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，获得他的复制体，包括精锐状态和携带的装备（每场模拟限1次）",
+      "iconPath": "icons/strategies/band_copy.png"
+    },
+    {
+      "name": "条文修正",
+      "sponsor": "但书",
+      "description": "第4回合解锁\n拖拽使用（消耗0）：选择一名我方干员，使该干员已激活的所有盟约层数+9（冷却3回合）",
+      "iconPath": "icons/strategies/band_jenga.png"
+    },
+    {
+      "name": "全场聚焦",
+      "sponsor": "大嘴莫布",
+      "description": "拖拽使用（消耗1）：选择一名我方干员，下次战斗开始时变为精锐干员，持续至战斗结束",
+      "iconPath": "icons/strategies/band_evolve.png"
+    },
+    {
+      "name": "集结指示",
+      "sponsor": "杰西卡",
+      "description": "被动效果：在第4、7、10、13回合进入休整期时获得1个<寻呼模块>\n<寻呼模块>：装备时销毁，在调度中心出现至多3名拥有该干员第一盟约的其他干员，免费获取其中1名（等阶不高于当前调度中心）",
+      "iconPath": "icons/strategies/band_jesica.png"
+    },
+    {
+      "name": "重点监护",
+      "sponsor": "华法琳",
+      "description": "被动效果：战斗开始时，使场上每个不同等阶的1个随机我方干员所属的已激活盟约层数+1\n调度中心等级达到3级、5级时升级使盟约层数额外+1",
+      "iconPath": "icons/strategies/band_takecare.png"
+    },
+    {
+      "name": "药枚实验",
+      "sponsor": "桑葚",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，在下次战斗开始时获得效果：每次攻击时有20%的概率获得1层护盾（最多1层）\n第7回合时效果升级",
+      "iconPath": "icons/strategies/band_shield.png"
+    },
+    {
+      "name": "全力熔铸",
+      "sponsor": "奥达",
+      "description": "被动效果：在第3、6、9、12、14回合进入休整期时获得1件当前调度中心等级的随机装备",
+      "iconPath": "icons/strategies/band_smith.png"
+    },
+    {
+      "name": "以己之长",
+      "sponsor": "陈",
+      "description": "被动效果：所有干员造成的物理和法术伤害变为弱点伤害（根据敌人的防御力和法术抗性变更伤害类型），精锐干员额外获得攻击力+16%，攻击速度+16",
+      "iconPath": "icons/strategies/band_weakness.png"
+    },
+    {
+      "name": "得闲饮茶",
+      "sponsor": "老鲤",
+      "description": "被动效果：第1、2回合的资金暂存至第3回合发放；第3回合进入休整期时，获得2、4阶随机干员各1名",
+      "iconPath": "icons/strategies/band_lmlee.png"
+    },
+    {
+      "name": "协力共进",
+      "sponsor": "芬",
+      "description": "被动效果：第8、10、12、14回合进入休整期时获得1个<信标>\n<信标>：装备时销毁携带干员，在调度中心出现2名同等阶干员，免费获得其中1名；被销毁干员在下回合传递给对应盟约人数最多的队友",
+      "iconPath": "icons/strategies/band_fang.png"
+    },
+    {
+      "name": "外勤医疗",
+      "sponsor": "Touch",
+      "description": "被动效果：所有玩家场上出现一名<预备干员-医疗>；战斗开始时，若场上至少有2名精锐干员，则替换为<Touch>",
+      "iconPath": "icons/strategies/band_amedic.png"
+    },
+    {
+      "name": "暴躁铁皮",
+      "sponsor": "森蚺",
+      "description": "被动效果：第1回合获得1名可以装备4件装备的特殊干员<“暴躁铁皮”>",
+      "iconPath": "icons/strategies/band_mech.png"
+    },
+    {
+      "name": "宝藏探机",
+      "sponsor": "寻宝人",
+      "description": "拖拽使用（消耗1）：选择一个可用地块，部署1个<“模拟宝藏”>（冷却3回合）\n<“模拟宝藏”>：被敌人触碰就会永久消失，战斗结束时若仍存在则获得额外1资金",
+      "iconPath": "icons/strategies/band_treasure.png"
+    },
+    {
+      "name": "至纯凝结",
+      "sponsor": "缪尔赛思",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，立即使该干员晋升为精锐干员（每场模拟限1次）",
+      "iconPath": "icons/strategies/band_upgrade.png"
+    },
+    {
+      "name": "消解空间",
+      "sponsor": "Misery",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，下场战斗开始后首次受到伤害时使其击倒，并召唤整备区最右侧干员",
+      "iconPath": "icons/strategies/band_breakaway.png"
+    },
+    {
+      "name": "变形同构",
+      "sponsor": "“变形者集群”",
+      "description": "被动效果：每5回合获得1件特殊装备<变形同构体>\n<变形同构体>：与特定装备一同装备时装备者将视为特定盟约成员",
+      "iconPath": "icons/strategies/band_damaztic.png"
+    },
+    {
+      "name": "私募基金",
+      "sponsor": "小贾斯汀",
+      "description": "点击使用（消耗0）：随机获得1-6资金（冷却回合数等同于获得资金）",
+      "iconPath": "icons/strategies/band_fund.png"
+    },
+    {
+      "name": "御守之力",
+      "sponsor": "铃兰",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，触发该干员的<获得时>类特质",
+      "iconPath": "icons/strategies/band_gain.png"
+    },
+    {
+      "name": "强制休整",
+      "sponsor": "苏苏洛",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，使该干员的<休整期结束时>类特质本回合可以额外触发一次",
+      "iconPath": "icons/strategies/band_prepfin.png"
+    },
+    {
+      "name": "不稳定要素",
+      "sponsor": "昆图斯",
+      "description": "第4回合解锁\n拖拽使用（消耗0）：选择一名我方干员，立即使其变为更高一阶的随机干员（最高不超过6阶）",
+      "iconPath": "icons/strategies/band_mess.png"
+    },
+    {
+      "name": "献身护卫",
+      "sponsor": "信仰搅拌机",
+      "description": "第4回合解锁\n点击使用（消耗0）：自身目标生命值降至与场上最低的玩家相同并获得等同损失生命值的资金（至多10资金），在<休整期结束时>为该玩家回复等额目标生命值",
+      "iconPath": "icons/strategies/band_protect.png"
+    },
+    {
+      "name": "好多委托！",
+      "sponsor": "“追随者们”",
+      "description": "被动效果：每次进入休整期时，从2个随机指令中选择1个并替换当前指令",
+      "iconPath": "icons/strategies/band_random.png"
+    },
+    {
+      "name": "利滚利",
+      "sponsor": "坎诺特",
+      "description": "被动效果：每回合剩余的资金可以继承，剩余至少5资金时，每回合额外获得1资金",
+      "iconPath": "icons/strategies/band_cannot.png"
+    },
+    {
+      "name": "“神秘顾客”",
+      "sponsor": "鸭爵",
+      "description": "被动效果：从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵>、<高普尼克>、<流泪小子>、<圆仔>，击倒这些敌人可以获得1资金奖励（包括联防阶段）",
+      "iconPath": "icons/strategies/band_ducklord.png"
+    },
+    {
+      "name": "最佳品味",
+      "sponsor": "琳琅诗怀雅",
+      "description": "消耗资金达到60时解锁\n点击使用（消耗0）：随机获取当前调度中心内的1名干员\n消耗资金达到120时升级为获取2名",
+      "iconPath": "icons/strategies/band_rich.png"
+    },
+    {
+      "name": "替身娃娃",
+      "sponsor": "巫恋",
+      "description": "被动效果：每回合首次出售初始干员时，改为与调度中心中随机1名干员交换",
+      "iconPath": "icons/strategies/band_substitute.png"
+    },
+    {
+      "name": "东之极道",
+      "sponsor": "三船光平",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，将其出售并为所有已激活盟约叠加等同于该干员等阶的层数",
+      "iconPath": "icons/strategies/band_sell.png"
+    },
+    {
+      "name": "人才锁定",
+      "sponsor": "雅拉",
+      "description": "点击使用（消耗1）：刷新调度中心，必定包含1名比当前调度中心等级更高一阶（最高不超过6阶）的干员（每回合限3次）",
+      "iconPath": "icons/strategies/band_support.png"
+    },
+    {
+      "name": "专享情报",
+      "sponsor": "渡桥",
+      "description": "点击使用（消耗3）：进行一次特殊刷新：此次刷新出现的干员优先为已部署在场上的干员（每场模拟限1次）",
+      "iconPath": "icons/strategies/band_high.png"
+    },
+    {
+      "name": "精巧设计",
+      "sponsor": "Mechanist",
+      "description": "被动效果：每回合首次装备合并进阶时，在调度中心出现3件装备（可能出现更高一阶的装备）免费获取其中1件\n点击使用（消耗0）：使调度中心出现1件新的装备并替换（每回合限2次）",
+      "iconPath": "icons/strategies/band_equipment.png"
+    },
+    {
+      "name": "电气化！",
+      "sponsor": "布丁",
+      "description": "拖拽使用（消耗1）：选择调度中心的一件装备使其立刻销毁，并在下次战斗开始时使场上所有还有空栏位的干员暂时获得该装备直到战斗结束（无法对<装备时销毁>的装备使用）",
+      "iconPath": "icons/strategies/band_pudd.png"
+    },
+    {
+      "name": "打包速递",
+      "sponsor": "拜松",
+      "description": "点击使用（消耗9）：获得当前调度中心中的所有干员，每回合休整期结束时指令消耗资金-1，使用后指令重置并可再次使用",
+      "iconPath": "icons/strategies/band_closeout.png"
+    },
+    {
+      "name": "优等生",
+      "sponsor": "Pith",
+      "description": "被动效果：第1回合获得1名可以造成神经、灼燃、凋亡损伤的特殊干员，其属于【调和】盟约\n【调和】：激活时使场上核心盟约的激活人数+1，【调和】干员享受已激活的核心盟约的效果",
+      "iconPath": "icons/strategies/band_pith.png"
+    },
+    {
+      "name": "正直教官",
+      "sponsor": "坚雷",
+      "description": "拖拽使用（消耗0）：选择一名我方干员，使其在下场战斗中卫戍能力的叠层上限提升，数量等同于当前回合数",
+      "iconPath": "icons/strategies/band_limit.png"
+    },
+    {
+      "name": "二重奏",
+      "sponsor": "复奏",
+      "description": "被动效果：每回合首次晋升精锐干员时，获得1次额外的晋升奖励",
+      "iconPath": "icons/strategies/band_bonus.png"
+    },
+    {
+      "name": "黑白相易",
+      "sponsor": "望",
+      "description": "拖拽使用（消耗1）：选择一名我方干员移除，获得1名不高于该干员等阶的【炎】干员\n<在场6名不同【炎】干员> 效果替换为战斗开始时收集【炎】干员部分属性召唤“炎佑”\n<在场9名不同【炎】干员> 效果改为召唤两只“炎佑”",
+      "iconPath": "icons/strategies/band_yan2.png"
+    },
+    {
+      "name": "广交豪杰",
+      "sponsor": "杜遥夜",
+      "description": "点击使用（消耗1）：刷新调度中心，优先刷新出1名【炎】干员（每回合限2次）",
+      "iconPath": "icons/strategies/band_yan.png"
+    },
+    {
+      "name": "沙洲梦魇",
+      "sponsor": "娜仁图亚",
+      "description": "被动效果：获得3名【萨尔贡】干员后使当前调度中心升级消耗资金-3，调度中心每个等级至多生效1次\n<在场6名不同【萨尔贡】干员> 效果替换为【萨尔贡】干员开启技能会使所有【萨尔贡】干员攻击力增加",
+      "iconPath": "icons/strategies/band_sargon.png"
+    },
+    {
+      "name": "博学多通",
+      "sponsor": "佩佩",
+      "description": "被动效果：升级调度中心至2、4和6级后，获得1次特殊刷新：此次刷新出现的干员优先为【萨尔贡】干员",
+      "iconPath": "icons/strategies/band_pepe.png"
+    },
+    {
+      "name": "自发制造",
+      "sponsor": "洛洛",
+      "description": "被动效果：每购买3名【维多利亚】干员，获得1件随机装备（等阶不高于当前调度中心）\n<在场6名不同【维多利亚】干员> 效果替换为【维多利亚】干员技能开启后，周围八格干员同时享受该干员携带的装备效果，持续一定时间",
+      "iconPath": "icons/strategies/band_victoria.png"
+    },
+    {
+      "name": "人才盲盒",
+      "sponsor": "哈洛德",
+      "description": "被动效果：从第4回合开始每2回合获得1名【维多利亚】干员（等阶不高于当前调度中心）",
+      "iconPath": "icons/strategies/band_harold.png"
+    },
+    {
+      "name": "猎人战法",
+      "sponsor": "歌蕾蒂娅",
+      "description": "调度中心等级达到4级解锁\n点击使用（消耗1）：获得1名【阿戈尔】干员（等阶不高于当前调度中心）\n<在场6名不同【阿戈尔】干员> 效果替换为前3名【阿戈尔】干员首次被击倒时召唤整备区最右侧一名可部署至当前位置的【阿戈尔】干员",
+      "iconPath": "icons/strategies/band_egir.png"
+    },
+    {
+      "name": "崇高牺牲",
+      "sponsor": "克莱门莎",
+      "description": "被动效果：【阿戈尔】干员被击倒时，使已激活的【阿戈尔】盟约叠加等同于该干员等阶的层数",
+      "iconPath": "icons/strategies/band_clementia.png"
+    },
+    {
+      "name": "骑士团长",
+      "sponsor": "焰尾",
+      "description": "点击使用（消耗6）：获得1名【卡西米尔】干员（等阶不高于当前调度中心），每回合休整期结束时指令消耗资金-2，使用后指令重置并可再次使用\n<在场6名不同【卡西米尔】干员> 效果替换为【卡西米尔】干员阻挡时每2秒对周围敌人造成真实伤害并晕眩，未阻挡时攻击附带真实伤害",
+      "iconPath": "icons/strategies/band_kazimier.png"
+    },
+    {
+      "name": "业务指标",
+      "sponsor": "玛恩纳",
+      "description": "被动效果：每购买1名【卡西米尔】干员，下回合开始时资金+1，每回合至多3资金",
+      "iconPath": "icons/strategies/band_mlynar.png"
+    },
+    {
+      "name": "不融信念",
+      "sponsor": "耶拉",
+      "description": "被动效果：在第4、7、10、13回合进入休整期时获得1个<谢拉格不融冰>\n<谢拉格不融冰>：造成伤害时有12%概率对目标施加1.5秒的寒冷\n<在场6名不同【谢拉格】干员> 效果替换为战场上每25秒吹过一阵寒风使敌人受到寒冷效果",
+      "iconPath": "icons/strategies/band_kjerag2.png"
+    },
+    {
+      "name": "雪域礼赠",
+      "sponsor": "休露丝",
+      "description": "被动效果：每回合首次购买的【谢拉格】干员消耗资金为1",
+      "iconPath": "icons/strategies/band_kjerag.png"
+    },
+    {
+      "name": "量体裁衣",
+      "sponsor": "裁度",
+      "description": "被动效果：每回合首次主动刷新后获得1资金\n<在场6名不同【叙拉古】干员> 效果替换为【叙拉古】干员部署后进入隐匿状态，在隐匿状态和脱离隐匿10秒内对敌人攻击时有概率造成真实伤害并恐惧目标",
+      "iconPath": "icons/strategies/band_siracusa.png"
+    },
+    {
+      "name": "团伙行动",
+      "sponsor": "贾维",
+      "description": "被动效果：每回合内主动刷新4次调度中心后，获得1名【叙拉古】干员（等阶不高于当前调度中心），每回合至多触发1次",
+      "iconPath": "icons/strategies/band_bond.png"
+    },
+    {
+      "name": "流动乐章",
+      "sponsor": "车尔尼",
+      "description": "点击使用（消耗1）：获得1名【莱塔尼亚】干员（等阶不高于当前调度中心），每次使用后指令消耗资金永久+1",
+      "iconPath": "icons/strategies/band_lethania.png"
+    },
+    {
+      "name": "无惧风雪",
+      "sponsor": "怒潮凛冬",
+      "description": "点击使用（消耗5）：获得1名【乌萨斯】干员（等阶不高于当前调度中心），每次购买【乌萨斯】干员时指令消耗资金-1，使用后指令重置并可再次使用",
+      "iconPath": "icons/strategies/band_ursus.png"
+    },
+    {
+      "name": "出航时刻",
+      "sponsor": "引星棘刺",
+      "description": "【伊比利亚】盟约激活人数达到4时解锁\n拖拽使用（消耗1）：选择一名调度中心内的干员，使其替换为不高于该干员等阶的【伊比利亚】干员（每回合限2次）",
+      "iconPath": "icons/strategies/band_iberia.png"
+    }
+  ]
+}

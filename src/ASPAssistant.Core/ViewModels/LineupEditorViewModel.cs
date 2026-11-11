@@ -40,6 +40,12 @@ public partial class LineupMemberViewModel : ObservableObject
     };
 }
 
+public sealed partial class LineupStrategyOption(Strategy strategy, bool isSelected) : ObservableObject
+{
+    public Strategy Strategy { get; } = strategy;
+    [ObservableProperty] private bool _isSelected = isSelected;
+}
+
 public partial class LineupEditorViewModel : ObservableObject
 {
     private readonly List<Operator> _operators;
@@ -47,7 +53,6 @@ public partial class LineupEditorViewModel : ObservableObject
     private readonly Guid _id;
     private readonly bool _isImported;
     private readonly string? _publishedLink;
-    private readonly List<string> _availableStrategies;
     private readonly Dictionary<string, Equipment> _equipment;
     public OperatorBrowseViewModel OperatorBrowser { get; } = new();
     public EquipmentBrowseViewModel EquipmentBrowser { get; } = new();
@@ -58,6 +63,7 @@ public partial class LineupEditorViewModel : ObservableObject
     [ObservableProperty] private bool _showRequiredFieldErrors;
     [ObservableProperty] private string _description;
     [ObservableProperty] private string _searchText = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(FilteredStrategyOptions))] private string _strategyQuery = "";
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private bool _isDirty;
     public ObservableCollection<Operator> AvailableOperators { get; } = [];
@@ -65,6 +71,12 @@ public partial class LineupEditorViewModel : ObservableObject
     public ReadOnlyObservableCollection<LineupMemberViewModel> Members { get; }
     public IReadOnlyList<string> EquipmentNames { get; }
     public IReadOnlyList<Operator> CatalogOperators => _operators;
+    public IReadOnlyList<LineupStrategyOption> StrategyOptions { get; }
+    public IEnumerable<LineupStrategyOption> FilteredStrategyOptions => StrategyOptions.Where(option =>
+        option.Strategy.Name.Contains(StrategyQuery.Trim(), StringComparison.OrdinalIgnoreCase) ||
+        option.Strategy.Sponsor.Contains(StrategyQuery.Trim(), StringComparison.OrdinalIgnoreCase));
+    public string? FindStrategyIcon(string name) => StrategyOptions
+        .FirstOrDefault(option => option.Strategy.Name == name)?.Strategy.IconPath;
     public string? FindIcon(bool equipment, string name) => equipment
         ? _equipment.GetValueOrDefault(name)?.IconPath
         : _operators.FirstOrDefault(op => op.Name == name)?.IconPath;
@@ -73,7 +85,8 @@ public partial class LineupEditorViewModel : ObservableObject
     public bool IsNameMissing => string.IsNullOrWhiteSpace(Name);
     public bool IsAuthorMissing => string.IsNullOrWhiteSpace(Author);
 
-    public LineupEditorViewModel(IEnumerable<Operator> operators, IEnumerable<Equipment> equipment, Lineup? lineup = null)
+    public LineupEditorViewModel(IEnumerable<Operator> operators, IEnumerable<Equipment> equipment, Lineup? lineup = null,
+        IEnumerable<Strategy>? strategies = null)
     {
         _operators = operators.OrderBy(o => o.Tier).ThenBy(o => o.Name).ToList();
         var gear = equipment.ToList();
@@ -83,10 +96,17 @@ public partial class LineupEditorViewModel : ObservableObject
         _id = lineup?.Id ?? Guid.NewGuid();
         _isImported = lineup?.IsImported ?? false;
         _publishedLink = lineup?.PublishedLink;
-        _availableStrategies = lineup?.AvailableStrategies.ToList() ?? [];
         _name = lineup?.Name ?? "";
         _author = lineup?.Author ?? "";
         _description = lineup?.Description ?? "";
+        var savedStrategies = lineup?.AvailableStrategies ?? [];
+        var selectedStrategies = savedStrategies.ToHashSet(StringComparer.Ordinal);
+        var catalog = (strategies ?? []).ToDictionary(strategy => strategy.Name, StringComparer.Ordinal);
+        StrategyOptions = savedStrategies.Select(name => catalog.GetValueOrDefault(name)
+                ?? new Strategy { Name = name, Description = "当前策略目录中缺失" })
+            .Concat(catalog.Values.Where(strategy => !selectedStrategies.Contains(strategy.Name)))
+            .Select(strategy => new LineupStrategyOption(strategy, selectedStrategies.Contains(strategy.Name))).ToArray();
+        foreach (var option in StrategyOptions) option.PropertyChanged += (_, _) => IsDirty = true;
         Members = new(_members);
         OperatorBrowser.LoadOperators(_operators);
         EquipmentBrowser.LoadEquipment(gear);
@@ -198,7 +218,7 @@ public partial class LineupEditorViewModel : ObservableObject
         {
             Id = _id, Name = Name.Trim(), Author = Author.Trim(), Description = includeDescription ? Description : "", IsImported = _isImported,
             PublishedLink = _publishedLink,
-            AvailableStrategies = [.. _availableStrategies],
+            AvailableStrategies = StrategyOptions.Where(option => option.IsSelected).Select(option => option.Strategy.Name).ToList(),
             Members = Members.Select(m => m.Snapshot()).ToList()
         };
         _share.Validate(lineup);

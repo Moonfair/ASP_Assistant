@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { Readable } from 'node:stream';
@@ -26,6 +26,19 @@ if (sendCode && secret.length < 32) throw new Error('AUTH_SECRET 至少需要 32
 const dataPath = process.env.LINEUP_DB ? resolve(process.env.LINEUP_DB)
   : fileURLToPath(new URL('../.site-data/lineups.sqlite', import.meta.url));
 mkdirSync(dirname(dataPath), { recursive: true, mode: 0o700 });
+const configuredShareSecret = process.env.SHARE_SECRET;
+const SHARE_SECRET = configuredShareSecret ? Buffer.from(configuredShareSecret, 'base64')
+  : development ? localShareSecret(dataPath + '.share-key') : secret;
+if (configuredShareSecret && SHARE_SECRET.length !== 32) throw new Error('SHARE_SECRET 需要 32 字节随机数据（Base64）');
+
+function localShareSecret(path) {
+  try { writeFileSync(path, randomBytes(32), { flag: 'wx', mode: 0o600 }); }
+  catch (error) { if (error.code !== 'EEXIST') throw error; }
+  const bytes = readFileSync(path);
+  if (bytes.length !== 32) throw new Error('本地短链密钥文件无效');
+  return bytes;
+}
+
 const DB = openDatabase(dataPath);
 const AUTH = sendCode ? { secret, sendCode } : null;
 const trustProxy = !development && process.env.TRUST_PROXY === '1';
@@ -48,7 +61,7 @@ const server = createServer(async (incoming, outgoing) => {
     });
     const proxyIp = incoming.headers['x-real-ip'];
     const clientIp = trustProxy && typeof proxyIp === 'string' && isIP(proxyIp) ? proxyIp : incoming.socket.remoteAddress;
-    const response = await app.fetch(request, { DB, AUTH, clientIp });
+    const response = await app.fetch(request, { DB, AUTH, SHARE_SECRET, clientIp });
     const headers = Object.fromEntries(response.headers);
     const cookies = response.headers.getSetCookie();
     if (cookies.length) headers['set-cookie'] = cookies;

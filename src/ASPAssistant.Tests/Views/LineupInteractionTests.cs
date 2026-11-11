@@ -23,6 +23,70 @@ namespace ASPAssistant.Tests.Views;
 public class LineupInteractionTests
 {
     [Fact]
+    public void StrategyTab_MultiSelectsAndInsertsPortraitIntoSavedPreview()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var catalogData = new[]
+            {
+                new Strategy { Name = "众志合一", Sponsor = "阿米娅", IconPath = "icons/strategies/band_amiya.png" },
+                new Strategy { Name = "坚不可摧", Sponsor = "歌利亚", IconPath = "icons/strategies/band_sarkazb.png" }
+            };
+            var lineup = new Lineup
+            {
+                Name = "测试阵容", Author = "博士", Members = [new() { OperatorName = "能天使" }],
+                AvailableStrategies = ["众志合一"]
+            };
+            var editor = new LineupEditorViewModel([new() { Name = "能天使" }], [], lineup, catalogData);
+            Lineup? saved = null;
+            var window = new LineupEditorWindow(editor, result =>
+            {
+                saved = result;
+                return Task.FromResult(true);
+            });
+            try
+            {
+                var content = (FrameworkElement)window.Content;
+                var catalog = (LineupCatalogView)window.FindName("Catalog");
+                var tabs = (TabControl)catalog.FindName("CatalogTabs");
+                tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(tab => Equals(tab.Header, "可用策略"));
+                Layout(content, 1020, 730);
+                var choices = Descendants<CheckBox>(catalog).ToArray();
+                choices.Select(choice => choice.IsChecked).Should().Equal(true, false);
+                choices[1].SetCurrentValue(ToggleButton.IsCheckedProperty, true);
+                editor.IsDirty.Should().BeTrue();
+
+                ((Button)window.FindName("NextButton")).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                var description = (LineupDescriptionView)window.FindName("DescriptionWorkspace");
+                Layout(content, 1020, 730);
+                var prose = (TextBox)description.FindName("IntroductionEditor");
+                prose.Text = "开局用策略";
+                prose.Select(3, 2);
+                ((ComboBox)description.FindName("StrategyPicker")).SelectedItem = "坚不可摧";
+                Descendants<Button>(description).Single(button => Equals(button.Content, "插入策略头像"))
+                    .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                prose.Text.Should().Be("开局用{{strategy:坚不可摧}}");
+
+                ((Button)window.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                saved!.AvailableStrategies.Should().Equal("众志合一", "坚不可摧");
+                var preview = (LineupPreviewView)window.FindName("CompletedPreview");
+                var viewer = (FlowDocumentScrollViewer)preview.FindName("Introduction");
+                var paragraphs = viewer.Document.Blocks.OfType<System.Windows.Documents.Paragraph>().ToArray();
+                var strategyImages = paragraphs[0].Inlines.OfType<System.Windows.Documents.InlineUIContainer>();
+                strategyImages.Select(inline => DeferredIcon.GetPath(inline.Child))
+                    .Should().Equal(catalogData.Select(strategy => strategy.IconPath));
+                var proseImage = paragraphs[1].Inlines.OfType<System.Windows.Documents.InlineUIContainer>().Single().Child;
+                DeferredIcon.GetPath(proseImage).Should().Be(catalogData[1].IconPath);
+            }
+            finally
+            {
+                window.ApprovePanelClose();
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public void VisualEditor_RoutedDropsTargetCorrectMemberAndSlot_AndRealIconsFitThreeOrFourColumns()
     {
         Exception? failure = null;
@@ -261,12 +325,14 @@ public class LineupInteractionTests
                 store.SaveAsync([new Lineup
                 {
                     Name = "测试阵容", Author = "测试作者",
-                    Members = [new() { OperatorName = "能天使" }, new() { OperatorName = "地灵" }, new() { OperatorName = "旧干员" }]
+                    Members = [new() { OperatorName = "能天使" }, new() { OperatorName = "地灵" }, new() { OperatorName = "旧干员" }],
+                    AvailableStrategies = ["众志合一", "旧赛季策略", "坚不可摧", "加急调派", "幻画为真", "全力熔铸"]
                 }]).GetAwaiter().GetResult();
                 var library = new LineupLibraryViewModel(store);
                 library.LoadAsync().GetAwaiter().GetResult();
                 const string firstPath = "icons/operators/能天使.png";
                 const string secondPath = "icons/operators/地灵.png";
+                const string strategyPath = "icons/strategies/band_amiya.png";
                 var bans = new BanViewModel();
                 bans.SetBans(["能天使"]);
                 var view = new LineupView();
@@ -275,12 +341,12 @@ public class LineupInteractionTests
                     "能天使" => firstPath,
                     "地灵" => secondPath,
                     _ => null
-                }, bans.IsBanned);
+                }, bans.IsBanned, name => name == "众志合一" ? strategyPath : null);
                 bans.BansChanged += view.RefreshBannedPortraits;
                 view.DataContext = library;
                 Layout(view, 278, 500);
                 var cards = (ItemsControl)view.FindName("LineupCards");
-                var portraits = Descendants<Image>(cards).ToArray();
+                var portraits = Descendants<Image>(cards).Where(image => image.Name == "Portrait").ToArray();
                 portraits.Select(image => ((LineupMember)image.DataContext).OperatorName)
                     .Should().Equal("能天使", "地灵", "旧干员");
                 foreach (var portrait in portraits)
@@ -296,6 +362,13 @@ public class LineupInteractionTests
                 grayPixels[colorPixel].Should().Be(grayPixels[colorPixel + 1]).And.Be(grayPixels[colorPixel + 2]);
                 grayPixels.Where((_, i) => i % 4 == 3).Should().Equal(originalPixels.Where((_, i) => i % 4 == 3));
                 Descendants<TextBlock>(cards).Single(text => text.Text == "旧干员").Visibility.Should().Be(Visibility.Visible);
+                var strategyStrip = Descendants<ItemsControl>(cards).Single(control => control.Name == "StrategyStrip");
+                ((Lineup)strategyStrip.DataContext).AvailableStrategies.Should().HaveCount(6);
+                strategyStrip.Items.Count.Should().Be(6);
+                var strategyPortraits = Descendants<Image>(cards).Where(image => image.Name == "StrategyPortrait").ToArray();
+                strategyPortraits.Select(DeferredIcon.GetPath).Should().Equal(strategyPath, "", "", "", "", "");
+                IconLoadingTests.PumpUntil(() => strategyPortraits[0].Source is BitmapSource);
+                Descendants<TextBlock>(cards).Should().Contain(text => text.Text == "+1" && text.Visibility == Visibility.Visible);
 
                 bans.SetBans(["地灵"]);
                 portraits[0].Source.Should().BeSameAs(original);
@@ -640,8 +713,12 @@ public class LineupInteractionTests
                 view.UpdateLayout();
                 Lineup? trackRequested = null;
                 view.TrackRequested += lineup => trackRequested = lineup;
-                Descendants<Button>(view).First(button => Equals(button.Content, "追踪阵容"))
-                    .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                var actions = Descendants<Button>(cards).Where(button => button.DataContext is Lineup lineup && lineup.Id == saved.Id).ToArray();
+                actions.Select(System.Windows.Automation.AutomationProperties.GetName).Should().Equal("预览", "追踪", "分享", "上传");
+                var actionBounds = actions.Select(button => button.TransformToAncestor(cards).TransformBounds(new Rect(button.RenderSize))).ToArray();
+                actionBounds.Select(bounds => bounds.Left).Distinct().Should().ContainSingle();
+                actionBounds.Select(bounds => bounds.Top).Should().BeInAscendingOrder();
+                actions[1].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 trackRequested.Should().BeEquivalentTo(saved);
                 RenderPreview(view, "lineup-library.png", 278, 500);
                 var fired = false;
