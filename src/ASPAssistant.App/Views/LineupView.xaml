@@ -42,6 +42,12 @@
                         MinHeight="34" Background="#FF23465D" BorderBrush="#FF3784A7" Foreground="#FFBBEBFF" FontWeight="SemiBold" />
                 <Button x:Name="ImportClipboardButton" Content="从剪切板导入" Click="OnImportClipboard" Margin="4,0,0,0" MinHeight="34" />
             </UniformGrid>
+            <WrapPanel Margin="0,0,0,10">
+                <Button x:Name="SiteAccountButton" Content="登录卫戍阵容库" Click="OnSiteAccount"
+                        Visibility="Collapsed" Margin="0,0,6,4" />
+                <Button x:Name="UploadedLineupButton" Content="查看已上传阵容" Click="OnOpenUploadedLineup"
+                        Visibility="Collapsed" Margin="0,0,0,4" />
+            </WrapPanel>
             <Border Background="#FF14162B" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                     CornerRadius="7" Padding="2" Margin="0,0,0,10">
                 <ListBox x:Name="CategoryTabs" SelectedIndex="0" SelectionChanged="OnCategoryChanged"
@@ -121,6 +127,17 @@
                                         <Button Content="编辑" Click="OnEdit" Margin="0,0,6,4" />
                                         <Button Content="追踪阵容" Click="OnTrackLineup" Margin="0,0,6,4" />
                                         <Button Content="导出文本" Click="OnExport" Margin="0,0,6,4" />
+                                        <Button Content="上传至阵容库" Click="OnUpload" Margin="0,0,6,4">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsImported}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
                                         <Button Content="删除" Click="OnDelete" Margin="0,0,0,4" />
                                     </WrapPanel>
                                 </StackPanel>

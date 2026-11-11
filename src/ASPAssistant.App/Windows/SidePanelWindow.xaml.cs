@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using ASPAssistant.App.Services;
 using ASPAssistant.Core;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Services;
@@ -134,6 +135,22 @@ public partial class SidePanelWindow : Window
             var added = TrackingVm.TrackLineup(lineup);
             library.Status = added > 0 ? $"已加入 {added} 项干员或装备追踪。" : "这个阵容的干员和装备已全部在追踪列表中。";
         };
+    }
+
+    internal void ConfigureLineupSite(LineupSiteClient site) => LineupView.ConfigureSite(site);
+
+    internal void BringForward()
+    {
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    internal Task ImportWebsiteLineupAsync(string hash)
+    {
+        if (SettingsPage.Visibility == Visibility.Visible) SetSettingsVisible(false);
+        MainTabs.SelectedItem = LineupTab;
+        BringForward();
+        return LineupView.ImportClipboardAsync(this, hash);
     }
 
     private string? FindLineupOperatorIcon(string name) => _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath;

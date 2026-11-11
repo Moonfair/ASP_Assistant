@@ -25,8 +25,9 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
         Validate(lineup);
         // The share carries content and attribution, never the local identity.
         var description = lineup.Description.Length == 0 ? null : lineup.Description;
-        return (description is null ? LegacyHeader : Header) + "\n" + ShareComment + "\n" +
-            JsonSerializer.Serialize(new ShareContent(lineup.Name, lineup.Author, lineup.Members, description), JsonOptions);
+        var strategies = lineup.AvailableStrategies.Count == 0 ? null : lineup.AvailableStrategies;
+        return (description is null && strategies is null ? LegacyHeader : Header) + "\n" + ShareComment + "\n" +
+            JsonSerializer.Serialize(new ShareContent(lineup.Name, lineup.Author, lineup.Members, description, strategies), JsonOptions);
     }
 
     public Lineup Import(string text)
@@ -50,7 +51,8 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
             var lineup = new Lineup
             {
                 Name = content.Name, Author = content.Author, Members = content.Members,
-                Description = content.Description ?? "", IsImported = true
+                Description = content.Description ?? "", IsImported = true,
+                AvailableStrategies = content.AvailableStrategies ?? []
             };
             Validate(lineup);
             return lineup;
@@ -80,6 +82,10 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
             throw new FormatException($"阵容介绍最多支持 {Lineup.MaxDescriptionLength} 字。");
         if (lineup.Members is null || lineup.Members.Count is < 1 or > 10)
             throw new FormatException("每个阵容需要 1–10 名干员。");
+        if (lineup.AvailableStrategies is null || lineup.AvailableStrategies.Count > 100 ||
+            lineup.AvailableStrategies.Any(name => !ValidName(name, 100)) ||
+            lineup.AvailableStrategies.Distinct(StringComparer.Ordinal).Count() != lineup.AvailableStrategies.Count)
+            throw new FormatException("可用策略需为有效且不重复的名称，最多 100 项。");
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var member in lineup.Members)
         {
@@ -96,5 +102,7 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
 
     private sealed record ShareContent(string Name, string Author, List<LineupMember> Members,
         [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-        string? Description = null);
+        string? Description = null,
+        [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        List<string>? AvailableStrategies = null);
 }

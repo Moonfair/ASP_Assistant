@@ -1,0 +1,46 @@
+<Window x:Class="ASPAssistant.App.Windows.LineupSiteAccountWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="卫戍阵容库账号" Width="400" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource PanelBackgroundBrush}">
+    <Window.Resources>
+        <ResourceDictionary Source="../Resources/LineupStyles.xaml" />
+    </Window.Resources>
+    <StackPanel Margin="18">
+        <StackPanel x:Name="EmailStage">
+            <TextBlock Text="使用邮箱登录或注册" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <Label Content="邮箱地址" Target="{Binding ElementName=Email}" Foreground="{StaticResource TextSecondaryBrush}" />
+            <TextBox x:Name="Email" MaxLength="254" />
+            <Label Content="图片验证码" Target="{Binding ElementName=ImageAnswer}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8,0,0" />
+            <DockPanel LastChildFill="False">
+                <Border DockPanel.Dock="Left" Width="150" Height="44" BorderThickness="1"
+                        BorderBrush="{StaticResource BorderBrush}" Background="#FFF5F5F5" Margin="0,0,8,0">
+                    <Image x:Name="Captcha" AutomationProperties.Name="图片验证码" />
+                </Border>
+                <Button Content="换一张" Click="OnRefresh" />
+            </DockPanel>
+            <TextBox x:Name="ImageAnswer" MaxLength="5" Margin="0,6,0,0"
+                     AutomationProperties.Name="图片验证码答案" />
+            <Button x:Name="SendCodeButton" Content="发送邮件验证码" Click="OnSendCode"
+                    HorizontalAlignment="Left" Margin="0,12,0,0" IsDefault="True" IsEnabled="False" />
+        </StackPanel>
+        <StackPanel x:Name="VerifyStage" Visibility="Collapsed">
+            <TextBlock x:Name="DeliveryNotice" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <Label Content="6 位邮件验证码" Target="{Binding ElementName=EmailCode}" Foreground="{StaticResource TextSecondaryBrush}" />
+            <TextBox x:Name="EmailCode" MaxLength="6" />
+            <WrapPanel Margin="0,12,0,0">
+                <Button Content="验证并登录" Click="OnVerify" IsDefault="True" Margin="0,0,8,0" />
+                <Button Content="返回 / 重新发送" Click="OnBack" />
+            </WrapPanel>
+        </StackPanel>
+        <StackPanel x:Name="AccountStage" Visibility="Collapsed">
+            <TextBlock Text="当前登录邮箱" Foreground="{StaticResource TextSecondaryBrush}" />
+            <TextBlock x:Name="AccountEmail" FontSize="16" TextWrapping="Wrap" Margin="0,5,0,12" />
+            <Button Content="退出登录" Click="OnSignOut" HorizontalAlignment="Left" />
+        </StackPanel>
+        <TextBlock x:Name="Status" TextWrapping="Wrap" Foreground="#FFFFCA80"
+                   AutomationProperties.LiveSetting="Polite" Margin="0,10,0,0" />
+        <Button Content="关闭" IsCancel="True" HorizontalAlignment="Right" Margin="0,8,0,0" />
+    </StackPanel>
+</Window>

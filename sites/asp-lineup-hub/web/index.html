@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#201a36">
+<meta name="description" content="探索、分享和讨论《明日方舟》卫戍协议阵容。">
+<title>卫戍阵容库 · ASP Assistant</title>
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" type="module"></script>
+</head>
+<body>
+<svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M12 1 23 7v4l-11 6L1 11V7l11-6Zm0 3.5L4 9l8 4.5L20 9l-8-4.5ZM1 13l11 6 11-6v4l-11 6-11-6v-4Z"/></symbol>
+  <symbol id="grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4.5 4.5"/></symbol>
+  <symbol id="filter" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="2.5" fill="currentColor"/><circle cx="16" cy="17" r="2.5" fill="currentColor"/></symbol>
+  <symbol id="star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></symbol>
+  <symbol id="chat" viewBox="0 0 24 24"><path d="M20 11.5a7.9 7.9 0 0 1-8 8 8 8 0 0 1-3.1-.6L4 20l1.1-4.7a8 8 0 1 1 14.9-3.8Z"/></symbol>
+  <symbol id="people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m1.5 3a5 5 0 0 1 3.5 4.8V20"/></symbol>
+  <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  <symbol id="upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4"/></symbol>
+  <symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="refresh" viewBox="0 0 24 24"><path d="M20 10a8 8 0 1 0-2 7m2-12v5h-5"/></symbol>
+  <symbol id="help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 1.2-1 2.2m0 3h.01"/></symbol>
+</svg>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/" aria-label="卫戍阵容库首页"><span class="brand-icon"><svg><use href="#mark"/></svg></span><span><strong>卫戍阵容库</strong><small>ASP ASSISTANT</small></span></a>
+    <nav aria-label="主导航"><a class="active" href="#explore"><svg><use href="#grid"/></svg>探索阵容</a><button type="button" data-guide><svg><use href="#help"/></svg>发布指南</button></nav>
+    <div class="top-actions"><button type="button" id="account-button" class="button secondary compact"><svg><use href="#people"/></svg>登录 / 注册</button>
+    <button type="button" class="button primary compact" data-publish><svg><use href="#plus"/></svg>发布阵容</button></div>
+  </div>
+</header>
+<main>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <div class="hero-label"><span></span> 明日方舟 <b></b> 卫戍协议</div>
+        <h1 id="hero-title">找到你的<br><em>下一套阵容。</em></h1>
+        <p>浏览玩家搭配，分享你的打法。<br class="mobile-break">一起探索卫戍协议的阵容思路。</p>
+        <div class="hero-actions"><a href="#explore" class="button hero-button">浏览阵容 <svg><use href="#arrow"/></svg></a><button type="button" class="button ghost" data-publish><svg><use href="#plus"/></svg>组建我的阵容</button></div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <svg viewBox="0 0 540 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="wire" x1="110" y1="45" x2="430" y2="350" gradientUnits="userSpaceOnUse"><stop stop-color="#c5adff"/><stop offset="1" stop-color="#6c4dcc"/></linearGradient>
+            <linearGradient id="face" x1="160" y1="70" x2="345" y2="275" gradientUnits="userSpaceOnUse"><stop stop-color="#8c6de3" stop-opacity=".5"/><stop offset="1" stop-color="#5d39b9" stop-opacity=".14"/></linearGradient>
+            <pattern id="dots" width="13" height="13" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#b69aff" opacity=".3"/></pattern>
+          </defs>
+          <path d="M36 257 265 133l235 124-229 124L36 257Z" fill="url(#dots)" opacity=".6"/>
+          <g stroke="#967cda" opacity=".45"><path d="M35 248 272 119l233 129-233 130L35 248Z"/><path d="M72 248 272 140l196 108-196 108L72 248Z" stroke-dasharray="2 5"/><path d="M142 248 272 178l130 70-130 71-130-71Z"/><path d="M35 248h470M272 119v259M95 281l233-129m-173 164 233-130m-233 0 233 130M95 216l233 128" opacity=".55"/></g>
+          <g stroke="url(#wire)" stroke-linejoin="round">
+            <path d="M272 32 405 106v22l-133 75-134-75v-22L272 32Z" fill="url(#face)" stroke-width="1.5"/><path d="m138 106 134 74 133-74m-133 74v23" opacity=".85"/>
+            <path d="m138 148 134 75 133-75v19l-133 76-134-76v-19Z" fill="#8960ed" fill-opacity=".16"/><path d="M272 223v20"/>
+            <path d="m138 185 134 74 133-74v20l-133 76-134-76v-20Z" fill="#8960ed" fill-opacity=".22"/><path d="M272 259v22"/>
+            <path d="m185 106 87-48 87 48-87 48-87-48Z" stroke-dasharray="4 5"/><path d="m222 106 50-28 50 28-50 27-50-27Z" fill="#9a7aed" fill-opacity=".28"/>
+            <path d="M272 32v-18M405 106h46l34-34h30M138 106H99L72 79H29M138 204H90l-28 28H18M405 204h33l25 26h50" opacity=".64"/>
+            <path d="M272 286v37M138 209v35m267-33v33" stroke-dasharray="3 4" opacity=".62"/>
+          </g>
+          <g fill="#c7aaff"><path d="m272 90 28 16-28 16-28-16 28-16Z"/><path d="m272 98 14 8-14 8-14-8 14-8Z" fill="#372753"/><circle cx="29" cy="79" r="3"/><circle cx="515" cy="72" r="3"/><circle cx="18" cy="232" r="3"/><circle cx="513" cy="230" r="3"/><circle cx="272" cy="323" r="3"/></g>
+          <g fill="#ad99d6" font-size="9" font-family="monospace" letter-spacing="1.3"><text x="29" y="64">LINK / 01</text><text x="438" y="56">ARCHIVE_</text><text x="423" y="249">SYNC / READY</text><text x="35" y="252">FORMATION</text></g>
+          <g stroke="#ac8df8" opacity=".8"><path d="M477 120h26m-13-13v26M45 145h16m-8-8v16M450 305h16m-8-8v16"/></g>
+        </svg>
+        <div class="hero-index"><span>阵容档案</span><b>ASP / 01</b></div>
+      </div>
+    </div>
+  </section>
+  <div class="workspace" id="explore">
+    <div class="section-head">
+      <div><p class="eyebrow">FORMATION ARCHIVE</p><h2>探索阵容</h2></div>
+      <p>搜索干员、装备或阵容名称，找到适合你打法的搭配。</p>
+    </div>
+    <div class="archive">
+      <aside class="filters" aria-label="阵容筛选">
+        <div class="filter-head"><strong><svg><use href="#filter"/></svg>筛选条件</strong>
+          <button type="button" id="toggle-filters" class="text-button" aria-expanded="false" aria-controls="filter-body">
+            <svg><use href="#filter"/></svg> 筛选条件 <span aria-hidden="true">⌄</span>
+          </button><button type="button" id="clear-filters" class="text-button">重置</button>
+        </div>
+        <div id="filter-body">
+          <div class="filter-block">
+            <h3>核心盟约</h3>
+            <div id="covenants" class="filter-options"><button type="button" data-covenant="" class="selected" aria-pressed="true">全部盟约</button></div>
+          </div>
+          <div class="filter-block">
+            <label for="source" class="filter-label">阵容来源</label>
+            <select id="source"><option value="">全部阵容</option><option value="community">玩家发布</option><option value="sample">示例阵容</option></select>
+            <label class="check-line"><input type="checkbox" id="rated"> 仅显示已评分阵容</label>
+          </div>
+        </div>
+      </aside>
+      <section class="results" aria-label="阵容列表">
+        <div class="toolbar">
+          <label class="search"><svg><use href="#search"/></svg><input type="search" id="query" maxlength="100" placeholder="搜索阵容、干员、装备或作者…" aria-label="搜索阵容"></label>
+          <label class="sort"><span>排序</span><select id="sort" aria-label="排序"><option value="latest">最新发布</option><option value="rating">评分最高</option><option value="comments">讨论最多</option></select></label>
+        </div>
+        <div class="result-meta"><p id="result-count" role="status">正在载入阵容…</p><div id="active-filter"></div></div>
+        <div id="cards" class="cards" aria-busy="true"></div>
+        <div id="pagination" class="pagination"></div>
+      </section>
+    </div>
+  </div>
+</main>
+<footer><div><span class="footer-brand"><svg><use href="#mark"/></svg> 卫戍阵容库</span><span>ASP Assistant 玩家社区 · 非官方站点</span></div></footer>
+<dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
+<div class="toast" id="toast" hidden><span id="toast-message" role="status"></span>
+  <a id="toast-download" hidden>下载 ASP Assistant</a>
+</div>
+</body>
+</html>

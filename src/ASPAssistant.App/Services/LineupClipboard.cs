@@ -41,7 +41,7 @@ internal static class LineupClipboard
         finally { if (memory != IntPtr.Zero) GlobalFree(memory); }
     }
 
-    internal static async Task<string> ReadAsync(Window owner)
+    internal static async Task<string> ReadAsync(Window owner, int maxTextLength = LineupShareService.MaxShareTextLength)
     {
         var window = new WindowInteropHelper(owner).EnsureHandle();
         var text = "";
@@ -57,7 +57,7 @@ internal static class LineupClipboard
             try
             {
                 // Read one character past the format limit so the importer can report oversize text.
-                var length = (int)Math.Min((ulong)(size / 2), (ulong)LineupShareService.MaxShareTextLength + 1);
+                var length = (int)Math.Min((ulong)(size / 2), (ulong)maxTextLength + 1);
                 text = Marshal.PtrToStringUni(buffer, length)!;
                 var terminator = text.IndexOf('\0');
                 if (terminator >= 0) text = text[..terminator];

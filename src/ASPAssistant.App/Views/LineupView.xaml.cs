@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -5,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Media;
 using ASPAssistant.App.Controls;
 using ASPAssistant.App.Services;
+using ASPAssistant.App.Windows;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
@@ -21,6 +24,10 @@ public partial class LineupView : UserControl
     private Func<string, string?>? _findOperatorIcon;
     private Func<string, bool>? _isBanned;
     private bool _copying;
+    private LineupSiteClient? _site;
+    private Uri? _uploadedLineup;
+    private bool _siteBusy;
+    private readonly SemaphoreSlim _importGate = new(1, 1);
     internal bool IsImporting { get; private set; }
     private LineupLibraryViewModel? Vm => DataContext as LineupLibraryViewModel;
 
@@ -99,6 +106,71 @@ public partial class LineupView : UserControl
         if (!MatchesCategory(lineup)) CategoryTabs.SelectedIndex = lineup.IsImported ? 2 : 1;
     }
 
+    internal void ConfigureSite(LineupSiteClient site)
+    {
+        _site = site;
+        SiteAccountButton.Visibility = Visibility.Visible;
+        RefreshSiteAccount();
+    }
+
+    private void RefreshSiteAccount()
+    {
+        SiteAccountButton.Content = _site?.Email is null ? "登录卫戍阵容库" : "阵容库账号";
+        SiteAccountButton.ToolTip = _site?.Email;
+    }
+
+    private void ShowSiteAccount(Window owner)
+    {
+        new LineupSiteAccountWindow(_site!) { Owner = owner }.ShowDialog();
+        RefreshSiteAccount();
+    }
+
+    private void OnSiteAccount(object sender, RoutedEventArgs e)
+    {
+        if (!_siteBusy && _site is not null && Window.GetWindow(this) is { } owner) ShowSiteAccount(owner);
+    }
+
+    private async void OnUpload(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: Lineup { IsImported: false } lineup } button ||
+            _siteBusy || _site is not { } site || Window.GetWindow(this) is not { } owner || ShareService is null)
+            return;
+
+        _siteBusy = true;
+        button.IsEnabled = false;
+        SiteAccountButton.IsEnabled = false;
+        try
+        {
+            var text = ExportShare(lineup);
+            if (site.Email is null) ShowSiteAccount(owner);
+            if (site.Email is null) return;
+
+            UploadedLineupButton.Visibility = Visibility.Collapsed;
+            SetStatus("正在上传阵容…");
+            _uploadedLineup = await site.UploadAsync(lineup.Id, text);
+            UploadedLineupButton.Visibility = Visibility.Visible;
+            SetStatus($"阵容“{lineup.Name}”已发布到卫戍阵容库。");
+        }
+        catch (Exception ex) when (ex is LineupSiteException or FormatException) { SetStatus(ex.Message); }
+        finally
+        {
+            _siteBusy = false;
+            button.IsEnabled = true;
+            SiteAccountButton.IsEnabled = true;
+            RefreshSiteAccount();
+        }
+    }
+
+    private void OnOpenUploadedLineup(object sender, RoutedEventArgs e)
+    {
+        if (_uploadedLineup is null) return;
+        try { Process.Start(new ProcessStartInfo(_uploadedLineup.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Win32Exception) { SetStatus("无法打开浏览器：" + _uploadedLineup.AbsoluteUri); }
+    }
+
+    private string ExportShare(Lineup lineup) => ShareService!.Export(
+        lineup with { Description = LineupDiagramSource.RemoveLegacyPositions(lineup.Description) });
+
     private async void OnExport(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not Lineup lineup || ShareService is null ||
@@ -106,8 +178,7 @@ public partial class LineupView : UserControl
         _copying = true;
         try
         {
-            var share = lineup with { Description = LineupDiagramSource.RemoveLegacyPositions(lineup.Description) };
-            var text = ShareService.Export(share);
+            var text = ExportShare(lineup);
             SetStatus("正在复制分享文本…");
             try { await LineupClipboard.CopyAsync(owner, text); }
             catch (Exception ex) when (IsClipboardError(ex))
@@ -156,15 +227,23 @@ public partial class LineupView : UserControl
 
     private async void OnImportClipboard(object sender, RoutedEventArgs e)
     {
-        if (Window.GetWindow(this) is { } owner)
-            await ImportAsync(() => LineupClipboard.ReadAsync(owner));
+        if (Window.GetWindow(this) is { } owner) await ImportClipboardAsync(owner);
     }
+
+    internal Task ImportClipboardAsync(Window owner, string? expectedHash = null) => ImportAsync(async () =>
+    {
+        if (expectedHash is null) return await LineupClipboard.ReadAsync(owner);
+        // Windows may expand each line break to CRLF during a browser clipboard write.
+        var text = await LineupClipboard.ReadAsync(owner, LineupShareService.MaxShareTextLength * 2);
+        return LineupProtocol.RequireMatchingShare(text, expectedHash);
+    }, wait: expectedHash is not null);
 
     internal Task ImportTextAsync(string text) => ImportAsync(() => Task.FromResult(text));
 
-    private async Task ImportAsync(Func<Task<string>> readText)
+    private async Task ImportAsync(Func<Task<string>> readText, bool wait = false)
     {
-        if (ShareService is null || Vm is not { } library || IsImporting) return;
+        if (ShareService is null || Vm is not { } library || (IsImporting && !wait)) return;
+        await _importGate.WaitAsync();
         IsImporting = true;
         ImportClipboardButton.IsEnabled = false;
         try
@@ -186,6 +265,7 @@ public partial class LineupView : UserControl
         {
             IsImporting = false;
             ImportClipboardButton.IsEnabled = true;
+            _importGate.Release();
         }
     }
 

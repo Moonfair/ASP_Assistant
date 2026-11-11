@@ -12,7 +12,10 @@ public sealed record Lineup
     public string Description { get; init; } = "";
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsImported { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PublishedLink { get; init; }
     public List<LineupMember> Members { get; init; } = [];
+    public List<string> AvailableStrategies { get; init; } = [];
 
     [JsonIgnore]
     public string Summary => string.Join(" · ", Members.Select(m => m.OperatorName));

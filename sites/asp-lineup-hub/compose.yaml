@@ -1,0 +1,28 @@
+name: asp-lineup-hub
+services:
+  app:
+    image: asp-lineup-hub:local
+    build: .
+    env_file: .env
+    environment:
+      PORT: 4173
+      BIND_HOST: 0.0.0.0
+      LINEUP_DB: /data/lineups.sqlite
+      TRUST_PROXY: "1"
+    ports:
+      - "127.0.0.1:4173:4173"
+    volumes:
+      - data:/data
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4173/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 4s
+      start_period: 10s
+      retries: 3
+volumes:
+  data:

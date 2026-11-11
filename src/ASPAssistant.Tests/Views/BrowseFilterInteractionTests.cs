@@ -271,6 +271,13 @@ public class BrowseFilterInteractionTests
         gearVm.FilteredEquipment.Select(g => g.Name).Should().Equal("装备乙");
         toggle.IsChecked = false;
         (window.Left + window.Width).Should().BeApproximately(right, 0.1);
+
+        ((Button)window.FindName("SettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        settingsPage.Visibility.Should().Be(Visibility.Visible);
+        window.ImportWebsiteLineupAsync(new string('a', 64)).GetAwaiter().GetResult();
+        settingsPage.Visibility.Should().Be(Visibility.Collapsed);
+        ((FrameworkElement)window.FindName("MainContent")).Visibility.Should().Be(Visibility.Visible);
+        tabs.SelectedItem.Should().BeSameAs(window.FindName("LineupTab"));
     }
 
     private static void VerifyExpandedFiltersAvoidGameWindow()

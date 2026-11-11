@@ -155,6 +155,55 @@ public class LineupViewModelTests
     }
 
     [Fact]
+    public async Task Library_CanEditAndShareAStoredLineupWithAvailableStrategies()
+    {
+        var directory = Directory.CreateTempSubdirectory("ASPA-LineupTests-").FullName;
+        var file = Path.Combine(directory, "lineups.json");
+        const string publishedLink = "https://aspa.moonfair.cn/?lineup=3f3bdc3d-91c1-4cd0-8984-6923a32e0afb";
+        try
+        {
+            await File.WriteAllTextAsync(file, """
+                {
+                  "Version": 1,
+                  "Lineups": [{
+                    "Id": "26bc0c8a-e7a9-4d94-a6c8-5193a63640c9",
+                    "Name": "策略阵容",
+                    "Author": "博士",
+                    "Members": [{ "OperatorName": "能天使" }],
+                    "AvailableStrategies": ["众志合一", "旧赛季策略"],
+                    "PublishedLink": "https://aspa.moonfair.cn/?lineup=3f3bdc3d-91c1-4cd0-8984-6923a32e0afb"
+                  }]
+                }
+                """);
+            var store = new LineupStore(directory);
+            var library = new LineupLibraryViewModel(store);
+            await library.LoadAsync();
+            var source = library.Lineups.Should().ContainSingle().Which;
+            var editor = new LineupEditorViewModel([new() { Name = "能天使" }], [], source) { Name = "更新阵容" };
+            var saved = editor.BuildLineup();
+            (await library.SaveAsync(saved)).Should().BeTrue();
+            var share = editor.ExportLineup(saved);
+            share.Should().StartWith("ASPA-LINEUP/2").And.NotContain("PublishedLink");
+            var imported = new LineupShareService(["能天使"], []).Import(share);
+            (await library.SaveAsync(imported)).Should().BeTrue();
+
+            using var document = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(file));
+            var lineups = document.RootElement.GetProperty("Lineups");
+            lineups.GetArrayLength().Should().Be(2);
+            lineups[0].GetProperty("Name").GetString().Should().Be("更新阵容");
+            lineups[0].GetProperty("PublishedLink").GetString().Should().Be(publishedLink);
+            foreach (var lineup in lineups.EnumerateArray())
+                lineup.GetProperty("AvailableStrategies").EnumerateArray().Select(strategy => strategy.GetString())
+                    .Should().Equal("众志合一", "旧赛季策略");
+        }
+        finally
+        {
+            File.Delete(file);
+            Directory.Delete(directory);
+        }
+    }
+
+    [Fact]
     public async Task Library_UnreadableFileCannotBeOverwritten()
     {
         var path = Path.Combine(Path.GetTempPath(), "ASPA-LineupTests", Guid.NewGuid().ToString("N"));

@@ -1,0 +1,8 @@
+.git
+.openai
+.site-data
+.env
+.env.*
+node_modules
+outputs
+dist

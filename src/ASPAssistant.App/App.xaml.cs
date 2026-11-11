@@ -1,4 +1,6 @@
 using System.IO;
+using System.Security;
+using ASPAssistant.App.Services;
 using System.Windows;
 using ASPAssistant.App.Windows;
 using ASPAssistant.Core;
@@ -17,6 +19,9 @@ public partial class App : Application
     private SidePanelWindow? _sidePanel;
     private OverlayWindow? _overlay;
     private SettingsManager? _settingsManager;
+    private LineupActivation? _activation;
+    private LineupSiteClient? _lineupSite;
+    private readonly TaskCompletionSource<SidePanelWindow> _readyForActivation = new();
     private Task _trackingSave = Task.CompletedTask;
 
     public App()
@@ -39,7 +44,24 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
-            await StartupAsync(e);
+            var hash = LineupProtocol.ParseImport(e.Args);
+            if (e.Args.FirstOrDefault() == "--lineup-uri" && hash is null)
+            {
+                Shutdown(1);
+                return;
+            }
+
+            _activation = new LineupActivation();
+            if (!_activation.IsPrimary)
+            {
+                await _activation.ForwardAsync(hash);
+                Shutdown();
+                return;
+            }
+
+            _ = ListenForActivationAsync();
+            await StartupAsync();
+            if (hash is not null) await ActivateLineupAsync(hash);
         }
         catch (Exception ex)
         {
@@ -53,7 +75,21 @@ public partial class App : Application
         }
     }
 
-    private async Task StartupAsync(StartupEventArgs e)
+    private async Task ListenForActivationAsync()
+    {
+        try { await _activation!.ListenAsync(ActivateLineupAsync); }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { AppLogger.Error("Activation", "Could not listen for app activations", ex); }
+    }
+
+    private async Task ActivateLineupAsync(string? hash)
+    {
+        var panel = await _readyForActivation.Task;
+        if (hash is null) panel.BringForward();
+        else await panel.ImportWebsiteLineupAsync(hash);
+    }
+
+    private async Task StartupAsync()
     {
         // Paths
         var appDir = AppContext.BaseDirectory;
@@ -65,6 +101,11 @@ public partial class App : Application
         // Initialize file logger as early as possible.
         AppLogger.Initialize(Path.Combine(settingsDir, "logs"));
         AppLogger.Info("App", $"appDir={appDir}");
+        try { LineupProtocol.Register(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            AppLogger.Warn("Activation", $"Could not register aspassistant protocol: {ex.Message}");
+        }
 
         // Data layer
         var dataStore = new JsonDataStore(dataDir);
@@ -104,6 +145,8 @@ public partial class App : Application
         var gameStateVm = new GameStateViewModel();
         var lineupVm = new LineupLibraryViewModel(new LineupStore(settingsDir));
         await lineupVm.LoadAsync();
+        _lineupSite = new LineupSiteClient(settingsDir);
+        await _lineupSite.RestoreSessionAsync();
 
         // GameState
         var gameState = new Core.GameState.GameState();
@@ -134,6 +177,7 @@ public partial class App : Application
             catch (Exception ex) { AppLogger.Error("Settings", "Could not save filter layout", ex); }
         };
         _sidePanel.ConfigureLineups(lineupVm, operators, equipment);
+        _sidePanel.ConfigureLineupSite(_lineupSite);
         _overlay = new OverlayWindow();
 
         // Wire window tracker → window positioning
@@ -226,6 +270,7 @@ public partial class App : Application
         _overlay.Show();
         _windowTracker.Start();
         _ocrScanner.Start();
+        _readyForActivation.SetResult(_sidePanel);
         AppLogger.Info("App", "Startup complete");
 
         // Start background update check
@@ -245,6 +290,9 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         AppLogger.Info("App", "Shutting down");
+        _readyForActivation.TrySetCanceled();
+        _activation?.Dispose();
+        _lineupSite?.Dispose();
         _ocrScanner?.Dispose();
         _windowTracker?.Dispose();
         _trackingSave.GetAwaiter().GetResult();

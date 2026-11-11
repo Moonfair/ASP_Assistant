@@ -46,6 +46,8 @@ public partial class LineupEditorViewModel : ObservableObject
     private readonly LineupShareService _share;
     private readonly Guid _id;
     private readonly bool _isImported;
+    private readonly string? _publishedLink;
+    private readonly List<string> _availableStrategies;
     private readonly Dictionary<string, Equipment> _equipment;
     public OperatorBrowseViewModel OperatorBrowser { get; } = new();
     public EquipmentBrowseViewModel EquipmentBrowser { get; } = new();
@@ -80,6 +82,8 @@ public partial class LineupEditorViewModel : ObservableObject
         EquipmentNames = ["", .. gear.OrderBy(e => e.Tier).ThenBy(e => e.Name).Select(e => e.Name).Distinct()];
         _id = lineup?.Id ?? Guid.NewGuid();
         _isImported = lineup?.IsImported ?? false;
+        _publishedLink = lineup?.PublishedLink;
+        _availableStrategies = lineup?.AvailableStrategies.ToList() ?? [];
         _name = lineup?.Name ?? "";
         _author = lineup?.Author ?? "";
         _description = lineup?.Description ?? "";
@@ -193,6 +197,8 @@ public partial class LineupEditorViewModel : ObservableObject
         var lineup = new Lineup
         {
             Id = _id, Name = Name.Trim(), Author = Author.Trim(), Description = includeDescription ? Description : "", IsImported = _isImported,
+            PublishedLink = _publishedLink,
+            AvailableStrategies = [.. _availableStrategies],
             Members = Members.Select(m => m.Snapshot()).ToList()
         };
         _share.Validate(lineup);
