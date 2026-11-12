@@ -82,24 +82,33 @@ function renderActiveCovenants(covenants) {
 function renderCard(lineup) {
   const faction = lineup.covenants[0] ?? '其他阵容';
   const badge = state.badges[faction];
+  const attribution = lineup.attribution;
+  const skland = attribution && isSklandGuideHref(attribution.url);
   const visible = lineup.members.slice(0, 5).map(portrait).join('');
   const more = lineup.members.length > 5 ? '<span class="portrait more">+' + (lineup.members.length - 5) + '</span>' : '';
   const strategies = lineup.strategyPortraits ?? [];
   const remainingStrategies = lineup.strategyCount - strategies.length;
   const score = lineup.rating === null ? '暂无评分' : lineup.rating.toFixed(1) + ' (' + lineup.ratingCount + ')';
   return `<article class="card"><a class="card-link" href="?lineup=${encodeURIComponent(lineup.id)}" data-lineup="${escape(lineup.id)}">
-    <div class="card-band" data-theme="${escape(faction)}">
+    <div class="card-band${attribution ? ' has-attribution' : ''}" data-theme="${escape(faction)}">
       <span class="tag">${escape(faction)}</span>
-      <span class="band-code">${lineup.sample ? '示例阵容' : '玩家发布'}</span>
+      ${attribution ? '<span class="card-source-badge' + (skland ? ' skland' : '') + '">' + (skland ? '转自森空岛' : '转自 B 站') + '</span>'
+        : '<span class="band-code">' + (lineup.sample ? '示例阵容' : '玩家发布') + '</span>'}
       ${badge ? '<img class="band-badge" src="' + escape(badge) + '" alt="" loading="lazy">' : ''}
     </div>
-    <div class="card-body"><h3>${escape(lineup.title)}</h3><p class="byline">作者 · ${escape(lineup.author)}</p><div class="members">${visible}${more}</div>
+    <div class="card-body"><h3>${escape(lineup.title)}</h3>
+      ${attribution?.author === lineup.author ? '' : '<p class="byline">作者 · ' + escape(lineup.author) + '</p>'}
+      <div class="members">${visible}${more}</div>
       ${renderActiveCovenants(lineup.activeCovenants)}
       ${strategies.length ? `<div class="card-strategies">
         <span class="card-strategies-label">可用策略</span>${strategies.map(portrait).join('')}
         ${remainingStrategies > 0 ? `<span class="portrait more" aria-label="另有 ${remainingStrategies} 项策略">+${remainingStrategies}</span>` : ''}
       </div>` : ''}
     </div></a>
+    ${attribution ? `<div class="card-attribution">
+      ${attribution.author ? '<span>原作者 · ' + escape(attribution.author) + '</span>' : ''}
+      <a href="${escape(attribution.url)}" target="_blank" rel="noopener noreferrer">${skland ? '森空岛原攻略' : 'B 站原视频'} ${icon('arrow')}</a>
+    </div>` : ''}
     <div class="card-foot"><span class="${lineup.rating === null ? '' : 'gold'}">${icon('star')}${score}</span><span aria-label="${lineup.commentCount} 条评论">${icon('chat')}${lineup.commentCount}</span><button class="text-button card-use" type="button" data-use-lineup="${escape(lineup.shortPath)}" aria-label="使用阵容：${escape(lineup.title)}">去使用</button></div>
   </article>`;
 }
@@ -116,10 +125,14 @@ async function loadLineups() {
   try {
     const { items, total, page, pageSize } = await api('lineups?' + params);
     if (request !== state.request) return;
+    const max = Math.max(1, Math.ceil(total / pageSize));
+    if (page > max) {
+      state.page = max;
+      return loadLineups();
+    }
     count.innerHTML = '找到 <strong>' + total + '</strong> 套阵容';
     cards.innerHTML = items.length ? items.map(renderCard).join('') :
       '<div class="empty">' + icon('search') + '<h3>没有找到阵容</h3><p>试试其他关键词，或清除筛选条件。</p><button type="button" class="button secondary" data-reset>清除筛选</button></div>';
-    const max = Math.ceil(total / pageSize);
     pages.innerHTML = max > 1 ? `<button class="button secondary compact" type="button" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button><span>第 ${page} / ${max} 页</span><button class="button secondary compact" type="button" data-page="${page + 1}" ${page >= max ? 'disabled' : ''}>下一页</button>` : '';
   } catch (error) {
     if (request !== state.request) return;
@@ -289,6 +302,53 @@ function bindInteraction(form, action, id, submitPayload, afterSubmit) {
   });
 }
 
+function setLineupFavorite(id, favorite) {
+  return api('lineups/' + encodeURIComponent(id) + '/favorite', { favorite }, 'PUT');
+}
+
+function bindLineupFavorite(id, initialFavorite) {
+  const button = $('#favorite-lineup');
+  let favorite = Boolean(state.user && initialFavorite);
+
+  function renderFavorite() {
+    button.setAttribute('aria-pressed', String(favorite));
+    button.textContent = favorite ? '已收藏' : '收藏';
+  }
+
+  async function resumeFavorite(desired) {
+    const version = modalVersion;
+    let message;
+    try {
+      const result = await setLineupFavorite(id, desired);
+      message = result.favorite ? '已收藏阵容' : '已取消收藏';
+    } catch (failure) {
+      message = failure.message;
+    }
+    if (modal.open && version === modalVersion) showDetail(id, message);
+  }
+
+  renderFavorite();
+  button.addEventListener('click', async () => {
+    const desired = !favorite;
+    if (!state.user) {
+      showAuth(() => resumeFavorite(desired), () => showDetail(id));
+      return;
+    }
+    button.disabled = true;
+    try {
+      const result = await setLineupFavorite(id, desired);
+      if (!button.isConnected) return;
+      favorite = result.favorite;
+      renderFavorite();
+      showToast(favorite ? '已收藏阵容' : '已取消收藏');
+    } catch (failure) {
+      if (button.isConnected && !handleExpiredSession(failure, () => resumeFavorite(desired))) showToast(failure.message);
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
 async function showDetail(id, confirmation, shared = false) {
   activeDetail = shared ? null : id;
   const version = ++modalVersion;
@@ -305,14 +365,23 @@ async function showDetail(id, confirmation, shared = false) {
     const tags = lineup.covenants.map(c => '<span class="tag">' + escape(c) + '</span>').join('');
     const roster = lineup.members.map(member => {
       const roles = [member.damage && '输出核心', member.stacking && '叠层核心', member.elite && '精锐'].filter(Boolean);
-      const labels = [member.tier && ('等阶 ' + member.tier), ...roles, ...member.equipment].filter(Boolean);
+      const labels = [member.tier === 0 ? '特殊' : member.tier && ('等阶 ' + member.tier), ...roles, ...member.equipment].filter(Boolean);
       return '<div class="roster-item">' + portrait(member) + '<div><strong>' + escape(member.name) + '</strong><small>' + escape(labels.join(' · ')) + '</small></div></div>';
     }).join('');
     modalShell(lineup.title, `
       ${confirmation ? '<p class="intro" role="status">' + escape(confirmation) + '</p>' : ''}
       <div class="detail-meta">作者 · ${escape(lineup.author)} ${shared ? '· 分享快照' : lineup.sample ? '· 示例阵容' : '· ' + escape(dateText(lineup.createdAt))} ${tags}</div>
+      ${originalAuthor || originalVideoUrl ? `<section class="original-video" aria-labelledby="original-video-title">
+        <h3 id="original-video-title">${sklandGuide ? '原攻略 · 转自森空岛' : sourceHref ? '原视频 · 转自 B 站' : '攻略来源'}</h3>
+        <div class="original-video-details">
+          ${originalAuthor ? `<p>原作者 · ${escape(originalAuthor)}</p>` : ''}
+          ${sourceHref ? `<a class="button secondary compact" href="${escape(sourceHref)}" target="_blank" rel="noopener noreferrer">${sklandGuide ? '在森空岛打开' : '在哔哩哔哩观看'} ${icon('arrow')}</a>`
+            : originalVideoUrl ? `<p>${escape(originalVideoUrl)}</p>` : ''}
+        </div>
+      </section>` : ''}
       <div class="action-line"><button type="button" class="button primary" id="use-lineup">去使用</button>
       <button type="button" class="button secondary" id="copy-link">${icon('copy')} 复制短链接</button>
+      ${shared ? '' : '<button type="button" class="button secondary favorite-action" id="favorite-lineup" aria-pressed="false">收藏</button>'}
       ${data.canEdit ? '<button type="button" class="button primary" id="edit-lineup">编辑阵容</button>' : ''}</div>
       <p class="intro" id="desktop-feedback" role="status" hidden></p>
       <a class="text-button" id="desktop-download" href="${ASP_DOWNLOAD_URL}" hidden>下载 ASP Assistant</a>
@@ -322,14 +391,6 @@ async function showDetail(id, confirmation, shared = false) {
       ${lineup.strategyPortraits?.length ? '<h3>可用策略</h3><div class="detail-meta">' +
         lineup.strategyPortraits.map(({ name, image }) => `<span class="tag strategy-tag">
           ${image ? `<img src="${escape(image)}" alt="" loading="lazy">` : ''}${escape(name)}</span>`).join('') + '</div>' : ''}
-      ${originalAuthor || originalVideoUrl ? `<section class="original-video" aria-labelledby="original-video-title">
-        <h3 id="original-video-title">${sklandGuide ? '原攻略' : '原视频'}</h3>
-        <div class="original-video-details">
-          ${originalAuthor ? `<p>${sklandGuide ? '原作者' : '原视频作者'} · ${escape(originalAuthor)}</p>` : ''}
-          ${sourceHref ? `<a class="button secondary compact" href="${escape(sourceHref)}" target="_blank" rel="noopener noreferrer">${sklandGuide ? '在森空岛打开' : '在哔哩哔哩观看'} ${icon('arrow')}</a>`
-            : originalVideoUrl ? `<p>${escape(originalVideoUrl)}</p>` : ''}
-        </div>
-      </section>` : ''}
       ${prose || diagrams ? `<h3>阵容介绍</h3><div id="lineup-description"${diagrams ? ' class="has-diagrams"' : ''}>
         ${prose ? `<div class="description">${renderDescriptionProse(prose)}</div>` : ''}</div>` : ''}
       ${shared ? '' : `
@@ -349,8 +410,11 @@ async function showDetail(id, confirmation, shared = false) {
         <ul class="comment-list" id="comment-list"></ul><div class="comment-pages" id="comment-pages"></div>
       </section>`}`, 'FORMATION DETAILS');
     const introduction = $('#lineup-description');
-    if (introduction) renderPublishedDescription(introduction, description).catch(() => {});
-    if (!shared) bindPublishedDetailInteractions(id, data, version);
+    if (introduction) renderPublishedDescription(introduction, description, lineup.members.map(member => member.name)).catch(() => {});
+    if (!shared) {
+      bindLineupFavorite(id, data.isFavorite);
+      bindPublishedDetailInteractions(id, data, version);
+    }
     async function copy(value, success) {
       try {
         await navigator.clipboard.writeText(value);

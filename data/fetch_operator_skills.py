@@ -88,6 +88,15 @@ def build_skills(operators, characters, skills):
     return result
 
 
+def write_skills(path, season, entries):
+    lines = [f'  "season": {json.dumps(season)},', '  "operators": {']
+    for index, (name, values) in enumerate(entries.items()):
+        suffix = "," if index < len(entries) - 1 else ""
+        lines.append(f"    {json.dumps(name, ensure_ascii=False)}: {json.dumps(values, ensure_ascii=False)}{suffix}")
+    path.write_text("\n".join(["{", *lines, "  }", "}", ""]), encoding="utf-8", newline="\n")
+    print(f"{path.name}：{len(entries)} 名干员的本体技能")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--characters", type=Path)
@@ -96,14 +105,13 @@ def main():
     characters = read_json(args.characters) if args.characters else fetch_json(f"{EXCEL}/character_table.json")
     skills = read_json(args.skills) if args.skills else fetch_json(f"{EXCEL}/skill_table.json")
     season = read_json(DATA / "source_metadata.json")["seasonCode"]
-    entries = build_skills(read_json(DATA / "operators.json")["operators"], characters, skills)
-    lines = [f'  "season": {json.dumps(season)},', '  "operators": {']
-    for index, (name, values) in enumerate(entries.items()):
-        suffix = "," if index < len(entries) - 1 else ""
-        lines.append(f"    {json.dumps(name, ensure_ascii=False)}: {json.dumps(values, ensure_ascii=False)}{suffix}")
-    (DATA / "operator_skills.json").write_text(
-        "\n".join(["{", *lines, "  }", "}", ""]), encoding="utf-8", newline="\n")
-    print(f"已生成 {len(entries)} 名干员的本体技能")
+    catalogs = [
+        (DATA / "operator_skills.json", read_json(DATA / "operators.json")["operators"]),
+        (DATA / "self-selected-operator-skills.json", read_json(DATA / "self-selected-operators.json")["operators"]),
+    ]
+    supplements = [(path, build_skills(operators, characters, skills)) for path, operators in catalogs]
+    for path, entries in supplements:
+        write_skills(path, season, entries)
 
 
 if __name__ == "__main__":

@@ -20,12 +20,15 @@ class HttpError extends Error {
 const hasOwn = (object, key) => Object.hasOwn(object, key);
 const validId = (value) => typeof value === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value);
 const cleanText = (value) => typeof value === 'string' ? value.trim() : '';
+const lineupOperators = { ...catalog.operators, ...selfSelectedOperators };
+const pageNumber = (params) => Math.min(100000, Math.max(1, parseInt(params.get('page'), 10) || 1));
+const lineupNotFound = () => new HttpError(404, '找不到这个阵容。');
 
 function parseShare(value) {
   let parsed;
   try {
     parsed = parseLineupShare(value);
-    validateLineupCatalog(parsed.content, catalog.operators, catalog.equipment);
+    validateLineupCatalog(parsed.content, lineupOperators, catalog.equipment);
   } catch (error) {
     throw new HttpError(400, error.message);
   }
@@ -33,10 +36,10 @@ function parseShare(value) {
   const factions = new Map();
   const members = data.Members.map((member) => {
     const { OperatorName: name, IsStackingCore: stacking, IsDamageCore: damage } = member;
-    const op = catalog.operators[name];
+    const op = lineupOperators[name];
     for (const covenant of op.covenants) factions.set(covenant, (factions.get(covenant) ?? 0) + 1);
     return { name, stacking, damage, equipment: memberEquipmentSlots(member).filter(Boolean), image: op.image, tier: op.tier,
-      ...(member.IsElite && op.tier > 0 ? { elite: true } : {}) };
+      ...(member.IsElite && (op.tier > 0 || op.selfSelected) ? { elite: true } : {}) };
   });
   const covenants = data.CovenantTags?.length ? data.CovenantTags :
     [...factions].sort((a, b) => b[1] - a[1]).map(pair => pair[0]);
@@ -92,8 +95,8 @@ function activeCovenantsFor(members) {
   const counts = new Map();
   let eliteCount = 0;
   for (const member of members) {
-    if (!hasOwn(catalog.operators, member.name)) continue;
-    const op = catalog.operators[member.name];
+    if (!hasOwn(lineupOperators, member.name)) continue;
+    const op = lineupOperators[member.name];
     const memberships = new Set([...op.covenants, ...(op.additionalCovenants ?? [])]);
     if (member.equipment.some(name => catalog.jobChangeActivators.includes(name))) {
       for (const name of member.equipment) {
@@ -101,7 +104,7 @@ function activeCovenantsFor(members) {
       }
     }
     for (const name of memberships) counts.set(name, (counts.get(name) ?? 0) + 1);
-    if (member.elite && op.tier > 0) eliteCount++;
+    if (member.elite && (op.tier > 0 || op.selfSelected)) eliteCount++;
   }
 
   const rules = Object.entries(catalog.activationRules);
@@ -117,6 +120,8 @@ function activeCovenantsFor(members) {
 
 function lineupFromRow(row, detail = false) {
   const { title, author, description, covenants, members, strategies = [], sample, share } = JSON.parse(row.data);
+  const { originalAuthor, originalVideoUrl } = splitLineupDescription(description);
+  const sourceUrl = lineupSourceHref(originalVideoUrl);
   const visibleStrategies = detail ? strategies : strategies.slice(0, 5);
   const strategyPortraits = visibleStrategies.map(name => ({
     name,
@@ -125,6 +130,7 @@ function lineupFromRow(row, detail = false) {
   return {
     id: row.id, createdAt: row.created_at, title, author,
     description: detail ? description : description.slice(0, 160),
+    ...(sourceUrl ? { attribution: { author: originalAuthor, url: sourceUrl } } : {}),
     covenants, activeCovenants: activeCovenantsFor(members), members, strategyPortraits,
     strategyCount: strategies.length, sample, commentCount: row.comment_count,
     ratingCount: row.rating_count, rating: row.rating === null ? null : Math.round(row.rating * 10) / 10,
@@ -136,7 +142,7 @@ async function listLineups(db, params) {
   const q = (params.get('q') ?? '').slice(0, 100).normalize('NFKC').trim().toLowerCase();
   const covenant = params.get('covenant') ?? '';
   const source = params.get('source') ?? '';
-  const page = Math.min(100000, Math.max(1, parseInt(params.get('page'), 10) || 1));
+  const page = pageNumber(params);
   const minimum = params.get('rated') === '1' ? 1 : 0;
   const filters = [
     "instr(json_extract(data,'$.search'), ?) > 0",
@@ -154,13 +160,93 @@ async function listLineups(db, params) {
   return { items: results.map(row => lineupFromRow(row)), total: count, page, pageSize: PAGE_SIZE };
 }
 
+async function listAccountLineups(db, accountId, params) {
+  const view = params.get('view') ?? 'published';
+  if (view !== 'published' && view !== 'favorites') throw new HttpError(400, '个人阵容列表类型无效。');
+  const page = pageNumber(params);
+  const favorites = view === 'favorites';
+  const scope = favorites
+    ? 'SELECT visible.*, favorite.created_at AS order_at FROM visible'
+      + ' JOIN lineup_favorites AS favorite ON favorite.lineup_id = visible.id WHERE favorite.account_id = ?'
+    : 'SELECT *, created_at AS order_at FROM visible WHERE account_id = ?';
+  const personal = visible + ', personal AS (' + scope + ')';
+  const { count } = await db.prepare(personal + ' SELECT COUNT(*) AS count FROM personal').bind(demoJson, accountId).first();
+  const { results } = await db.prepare(personal + ' SELECT ' + summary + ', revision FROM personal AS visible'
+    + ' ORDER BY order_at DESC, id LIMIT ? OFFSET ?').bind(demoJson, accountId, PAGE_SIZE, (page - 1) * PAGE_SIZE).all();
+  const items = results.map(row => ({ ...lineupFromRow(row), ...(favorites ? { isFavorite: true } : { revision: row.revision }) }));
+  return { items, total: count, page, pageSize: PAGE_SIZE };
+}
+
 async function findLineup(db, id, accountId = null) {
-  if (!validTarget(id)) throw new HttpError(404, '找不到这个阵容。');
+  if (!validTarget(id)) throw lineupNotFound();
   const row = await db.prepare(visible + ' SELECT ' + summary
     + ', CASE WHEN account_id = ? THEN revision END AS owned_revision FROM visible WHERE id = ?')
     .bind(demoJson, accountId, id).first();
-  if (!row) throw new HttpError(404, '找不到这个阵容。');
+  if (!row) throw lineupNotFound();
   return { lineup: lineupFromRow(row, true), revision: row.owned_revision ?? undefined };
+}
+
+async function setFavorite(db, id, accountId, favorite) {
+  if (typeof favorite !== 'boolean') throw new HttpError(400, '收藏状态无效。');
+  if (favorite) {
+    const row = await db.prepare(visible + ' INSERT INTO lineup_favorites (account_id, lineup_id, created_at)'
+      + ' SELECT ?, id, ? FROM visible WHERE id = ?'
+      + ' ON CONFLICT(account_id, lineup_id) DO UPDATE SET lineup_id = excluded.lineup_id RETURNING lineup_id')
+      .bind(demoJson, accountId, Date.now(), id).first();
+    if (!row) throw lineupNotFound();
+  } else {
+    await findLineup(db, id);
+    await db.prepare('DELETE FROM lineup_favorites WHERE lineup_id = ? AND account_id = ?').bind(id, accountId).run();
+  }
+  return { favorite };
+}
+
+async function deleteLineup(db, id, accountId, revision) {
+  if (!Number.isSafeInteger(revision) || revision < 0) throw new HttpError(400, '阵容版本无效。');
+  const deleted = await db.prepare('DELETE FROM lineups WHERE id = ? AND account_id = ? AND revision = ? RETURNING id')
+    .bind(id, accountId, revision).first();
+  if (deleted) return deleted;
+  const current = await findLineup(db, id, accountId);
+  if (current.revision === undefined) throw new HttpError(403, '只有发布账号可以删除此阵容。');
+  throw new HttpError(409, '此阵容已有新版本。请重新打开阵容后再删除。', 'revision_conflict');
+}
+
+async function listNotifications(db, accountId, params) {
+  const page = pageNumber(params);
+  const { total, unread } = await db.prepare('SELECT COUNT(*) AS total, COUNT(*) - COUNT(read_at) AS unread'
+    + ' FROM lineup_comment_notifications WHERE recipient_id = ?').bind(accountId).first();
+  const { results } = await db.prepare(`SELECT notification.id, notification.lineup_id AS lineupId,
+    json_extract(lineups.data, '$.title') AS title, comments.text AS comment, notification.created_at AS createdAt,
+    notification.read_at AS readAt
+    FROM lineup_comment_notifications AS notification
+    JOIN lineups ON lineups.id = notification.lineup_id
+    JOIN comments ON comments.id = notification.id
+    WHERE notification.recipient_id = ?
+    ORDER BY notification.created_at DESC, notification.id LIMIT ? OFFSET ?`).bind(accountId, PAGE_SIZE, (page - 1) * PAGE_SIZE).all();
+  const items = results.map(({ readAt, ...item }) => ({ ...item, read: readAt !== null }));
+  return { items, total, unread, page, pageSize: PAGE_SIZE };
+}
+
+async function markNotificationRead(db, id, accountId) {
+  if (!validId(id)) throw new HttpError(404, '找不到这条通知。');
+  const result = await db.prepare('UPDATE lineup_comment_notifications SET read_at = COALESCE(read_at, ?)'
+    + ' WHERE id = ? AND recipient_id = ? RETURNING id').bind(Date.now(), id, accountId).first();
+  if (!result) throw new HttpError(404, '找不到这条通知。');
+  const { unread } = await db.prepare('SELECT COUNT(*) AS unread FROM lineup_comment_notifications'
+    + ' WHERE recipient_id = ? AND read_at IS NULL').bind(accountId).first();
+  return { id, unread };
+}
+
+async function addComment(db, lineupId, commenterId, text) {
+  const id = crypto.randomUUID();
+  const insert = db.prepare(visible + ' INSERT INTO comments (id, lineup_id, text, created_at)'
+    + ' SELECT ?, id, ?, ? FROM visible WHERE id = ?').bind(demoJson, id, text, Date.now(), lineupId);
+  const notify = db.prepare(`INSERT INTO lineup_comment_notifications (id, lineup_id, recipient_id, created_at)
+    SELECT comments.id, lineups.id, lineups.account_id, comments.created_at
+    FROM comments JOIN lineups ON lineups.id = comments.lineup_id
+    WHERE comments.id = ? AND lineups.account_id <> ?`).bind(id, commenterId);
+  const [inserted] = await db.batch([insert, notify]);
+  if (inserted.changes !== 1) throw lineupNotFound();
 }
 
 async function ownedRevision(db, id, accountId) {
@@ -249,7 +335,22 @@ async function api(request, url, env) {
   if (method === 'GET' && path === '/api/catalog') return reply({ covenants: Object.fromEntries(
     catalog.covenantTags.map(name => [name, catalog.covenants[name] ?? null])) });
   if (method === 'GET' && path === '/api/editor-catalog') return reply(catalog);
+  if (method === 'GET' && path === '/api/self-selected-operators') return reply(selfSelectedOperators);
   if (method === 'GET' && path === '/api/lineups') return reply(await listLineups(db, url.searchParams));
+  if (method === 'GET' && path === '/api/me/lineups') {
+    const user = await requireSession(db, request);
+    return reply(await listAccountLineups(db, user.id, url.searchParams));
+  }
+  if (method === 'GET' && path === '/api/me/notifications') {
+    const user = await requireSession(db, request);
+    return reply(await listNotifications(db, user.id, url.searchParams));
+  }
+  const notice = /^\/api\/me\/notifications\/([a-z0-9-]+)\/read$/.exec(path);
+  if (method === 'PUT' && notice) {
+    const user = await requireSession(db, request);
+    await readBody(request, 1024);
+    return reply(await markNotificationRead(db, notice[1], user.id));
+  }
   if (method === 'POST' && path === '/api/captcha') {
     const { action, target = '' } = await readBody(request, 2048);
     if (['publish', 'login'].includes(action) ? target !== '' : !['comment', 'rate', 'edit'].includes(action) || !validTarget(target)) {
@@ -280,7 +381,7 @@ async function api(request, url, env) {
       .bind(id, Date.now(), JSON.stringify(data), user.id).run();
     return reply({ id, shortPath: shortPathFor(id) }, 201);
   }
-  const route = /^\/api\/lineups\/([a-z0-9-]+)(?:\/(comments|rating))?$/.exec(path);
+  const route = /^\/api\/lineups\/([a-z0-9-]+)(?:\/(comments|rating|favorite))?$/.exec(path);
   if (route) {
     const [, id, action] = route;
     if (method === 'GET' && !action) {
@@ -292,8 +393,20 @@ async function api(request, url, env) {
       ).bind(id, (page - 1) * 25).all();
       const mine = user && await db.prepare('SELECT score FROM ratings WHERE lineup_id = ? AND voter = ?')
         .bind(id, 'account:' + user.id).first();
+      const isFavorite = Boolean(user && await db.prepare('SELECT 1 FROM lineup_favorites WHERE lineup_id = ? AND account_id = ?')
+        .bind(id, user.id).first());
       return reply({ lineup, comments: results, myScore: mine?.score ?? null, commentsPage: page,
-        canEdit: revision !== undefined, revision });
+        canEdit: revision !== undefined, revision, isFavorite });
+    }
+    if (method === 'PUT' && action === 'favorite') {
+      const user = await requireSession(db, request);
+      const { favorite } = await readBody(request, 1024);
+      return reply(await setFavorite(db, id, user.id, favorite));
+    }
+    if (method === 'DELETE' && !action) {
+      const user = await requireSession(db, request);
+      const { revision } = await readBody(request, 1024);
+      return reply(await deleteLineup(db, id, user.id, revision));
     }
     if (method === 'PATCH' && !action) {
       const user = await requireSession(db, request);
@@ -310,7 +423,7 @@ async function api(request, url, env) {
       if (update.changes !== 1) throw conflict();
       return reply({ id });
     }
-    if (method === 'POST' && action) {
+    if (method === 'POST' && (action === 'comments' || action === 'rating')) {
       const user = await requireSession(db, request);
       await findLineup(db, id);
       const body = await readBody(request, 8192);
@@ -318,14 +431,16 @@ async function api(request, url, env) {
         const text = cleanText(body.text);
         if (!text || text.length > 600) throw new HttpError(400, '评论需在 1–600 字以内。');
         await verifyCaptcha(db, user.hash, 'comment', id, body.captcha);
-        await db.prepare('INSERT INTO comments VALUES (?, ?, ?, ?)').bind(crypto.randomUUID(), id, text, Date.now()).run();
+        await addComment(db, id, user.id, text);
         return reply({ ok: true }, 201);
       }
       const score = body.score;
       if (!Number.isInteger(score) || score < 1 || score > 5) throw new HttpError(400, '请选择 1–5 星。');
       await verifyCaptcha(db, user.hash, 'rate', id, body.captcha);
-      await db.prepare('INSERT INTO ratings VALUES (?, ?, ?) ON CONFLICT(lineup_id, voter) DO UPDATE SET score = excluded.score')
-        .bind(id, 'account:' + user.id, score).run();
+      const rating = await db.prepare(visible + ' INSERT INTO ratings (lineup_id, voter, score)'
+        + ' SELECT id, ?, ? FROM visible WHERE id = ? ON CONFLICT(lineup_id, voter) DO UPDATE SET score = excluded.score')
+        .bind(demoJson, 'account:' + user.id, score, id).run();
+      if (rating.changes !== 1) throw lineupNotFound();
       return reply({ ok: true });
     }
   }
@@ -372,8 +487,10 @@ export default {
         const portrait = /^\/portraits\/([a-z0-9]+)\.webp$/.exec(path)?.[1];
         const gear = /^\/gear-icons\/([a-f0-9]{16})\.png$/.exec(path)?.[1];
         const strategy = /^\/strategy-icons\/([a-f0-9]{16})\.png$/.exec(path)?.[1];
+        const selfSelectedPortrait = /^\/self-selected-portraits\/([a-f0-9]{16})\.png$/.exec(path)?.[1];
         const asset = portrait && hasOwn(portraits, portrait) ? portraits[portrait]
-          : gear ? gearIcons[gear] : strategy && strategyIcons[strategy];
+          : gear ? gearIcons[gear] : strategy ? strategyIcons[strategy]
+            : selfSelectedPortrait && selfSelectedPortraits[selfSelectedPortrait];
         if (asset) {
           return new Response(isHead ? null : Uint8Array.from(atob(asset), c => c.charCodeAt(0)), {
             headers: { ...security, 'Content-Type': portrait ? 'image/webp' : 'image/png', 'Cache-Control': 'public, max-age=86400' }

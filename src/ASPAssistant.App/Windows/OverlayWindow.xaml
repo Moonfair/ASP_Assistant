@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="ASPOverlay"
         Width="1" Height="1" ShowActivated="False"
-        Icon="{StaticResource AspaLogo}"
+        Icon="{DynamicResource AspaLogo}"
         AllowsTransparency="True"
         WindowStyle="None"
         Background="Transparent"

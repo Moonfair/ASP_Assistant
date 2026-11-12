@@ -37,8 +37,12 @@ public partial class LineupCatalogView : UserControl
     private void OnSingleFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is not ListBox { DataContext: OperatorBrowseViewModel vm } list) return;
-        if ((string)list.Tag == "Availability") vm.SelectedAvailabilityFilter = (AvailabilityFilter)Math.Max(0, list.SelectedIndex);
-        else vm.SelectedStackingFilter = list.SelectedIndex switch { 1 => true, 2 => false, _ => null };
+        switch ((string)list.Tag)
+        {
+            case "Availability": vm.SelectedAvailabilityFilter = (AvailabilityFilter)Math.Max(0, list.SelectedIndex); break;
+            case "SelfSelected": vm.SelfSelectedOnly = list.SelectedIndex == 1; break;
+            case "Stacking": vm.SelectedStackingFilter = list.SelectedIndex switch { 1 => true, 2 => false, _ => null }; break;
+        }
     }
 
     private void OnRemoveFilter(object sender, RoutedEventArgs e)
@@ -49,7 +53,8 @@ public partial class LineupCatalogView : UserControl
             OperatorFilterKind.Tier => TierFilters, OperatorFilterKind.CoreCovenant => CoreFilters,
             OperatorFilterKind.OtherCovenant => OtherFilters, OperatorFilterKind.Trait => TraitFilters,
             OperatorFilterKind.TriggerTiming => TimingFilters, OperatorFilterKind.Availability => AvailabilityFilters,
-            OperatorFilterKind.Stacking => StackingFilters, _ => null
+            OperatorFilterKind.Stacking => StackingFilters, OperatorFilterKind.SelfSelected => SelfSelectedFilters,
+            _ => null
         };
         if (list is null) return;
         if (list.SelectionMode == SelectionMode.Single) list.SelectedIndex = 0;

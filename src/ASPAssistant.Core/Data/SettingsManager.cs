@@ -36,17 +36,26 @@ public class SettingsManager
     }
 
     // The small preference is saved synchronously, so closing immediately after a click cannot lose it.
-    public void SaveSideFilterLayout(bool sideFilters)
+    public void SaveSideFilterLayout(bool sideFilters) => SavePreference("ui", new LayoutPreferences(sideFilters));
+
+    public MarkerOffset LoadMarkerOffset()
     {
-        Directory.CreateDirectory(_settingsDir);
-        var temporary = Path.Combine(_settingsDir, $"ui.{Guid.NewGuid():N}.tmp");
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(new LayoutPreferences(sideFilters), JsonOptions));
-            File.Move(temporary, Path.Combine(_settingsDir, "ui.json"), overwrite: true);
+            var path = Path.Combine(_settingsDir, "marker-offset.json");
+            if (File.Exists(path) &&
+                JsonSerializer.Deserialize<MarkerOffset?>(File.ReadAllText(path), JsonOptions) is { } offset &&
+                Math.Abs(offset.X) <= 1 && Math.Abs(offset.Y) <= 1)
+                return offset;
         }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("Settings", "Could not read marker offset", ex);
+        }
+        return default;
     }
+
+    public void SaveMarkerOffset(MarkerOffset offset) => SavePreference("marker-offset", offset);
 
     private sealed record LayoutPreferences(bool SideFilters = true);
 
@@ -67,14 +76,16 @@ public class SettingsManager
         return new GameTargetPreference();
     }
 
-    public void SaveGameTarget(GameTargetPreference preference)
+    public void SaveGameTarget(GameTargetPreference preference) => SavePreference("game-target", preference);
+
+    private void SavePreference<T>(string name, T preference)
     {
         Directory.CreateDirectory(_settingsDir);
-        var temporary = Path.Combine(_settingsDir, $"game-target.{Guid.NewGuid():N}.tmp");
+        var temporary = Path.Combine(_settingsDir, $"{name}.{Guid.NewGuid():N}.tmp");
         try
         {
             File.WriteAllText(temporary, JsonSerializer.Serialize(preference, JsonOptions));
-            File.Move(temporary, Path.Combine(_settingsDir, "game-target.json"), overwrite: true);
+            File.Move(temporary, Path.Combine(_settingsDir, $"{name}.json"), overwrite: true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }

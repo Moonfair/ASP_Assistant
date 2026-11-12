@@ -76,7 +76,7 @@ public partial class OperatorCard : UserControl
         {
             LoadIcon(op2.IconPath);
             TrackButton.Visibility = BanButton.Visibility = op2.StrategyOnly ? Visibility.Collapsed : Visibility.Visible;
-            VariantPicker.Visibility = op2.StrategyOnly && op2.Tier == 0 ? Visibility.Collapsed : Visibility.Visible;
+            VariantPicker.Visibility = op2.Tier == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
         UpdateVariantDisplay();
         UpdateTrackButton();

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.ViewModels;
@@ -9,6 +10,7 @@ public partial class TrackingViewModel : ObservableObject
     private readonly IReadOnlyList<Operator> _operators;
     private readonly ILookup<string, string> _operatorIcons;
     private readonly ILookup<string, string> _equipmentIcons;
+    private readonly OperatorCatalog? _catalog;
 
     [ObservableProperty]
     private ObservableCollection<TrackingEntry> _trackedOperators = [];
@@ -22,8 +24,10 @@ public partial class TrackingViewModel : ObservableObject
     public IReadOnlyList<string> AdditionalCovenants { get; }
     public event Action? TrackingChanged;
 
-    public TrackingViewModel(IEnumerable<Operator>? operators = null, IEnumerable<Equipment>? equipment = null)
+    public TrackingViewModel(IEnumerable<Operator>? operators = null, IEnumerable<Equipment>? equipment = null,
+        OperatorCatalog? catalog = null)
     {
+        _catalog = catalog;
         _operators = (operators ?? []).ToArray();
         _operatorIcons = _operators.ToLookup(item => item.Name, item => item.IconPath);
         _equipmentIcons = (equipment ?? []).ToLookup(item => item.Name, item => item.IconPath);
@@ -88,7 +92,7 @@ public partial class TrackingViewModel : ObservableObject
     {
         if (entry.Type == TrackingType.Operator)
         {
-            entry.IconPath = _operatorIcons[entry.Name].FirstOrDefault() ?? "";
+            entry.IconPath = _operatorIcons[entry.Name].FirstOrDefault() ?? _catalog?.FindPortrait(entry.Name) ?? "";
             TrackedOperators.Add(entry);
         }
         else

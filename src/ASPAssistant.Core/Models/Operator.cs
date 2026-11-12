@@ -28,6 +28,12 @@ public class Operator
     [JsonPropertyName("strategyOnly")]
     public bool StrategyOnly { get; set; }
 
+    [JsonPropertyName("selfSelected")]
+    public bool SelfSelected { get; set; }
+
+    [JsonIgnore]
+    public bool CanBecomeElite => Tier > 0 || SelfSelected;
+
     [JsonPropertyName("equipmentSlotCount")]
     public int EquipmentSlotCount { get; set; } = 2;
 

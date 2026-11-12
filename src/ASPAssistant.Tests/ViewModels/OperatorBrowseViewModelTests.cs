@@ -1,4 +1,5 @@
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.ViewModels;
 using FluentAssertions;
 
@@ -6,6 +7,60 @@ namespace ASPAssistant.Tests.ViewModels;
 
 public class OperatorBrowseViewModelTests
 {
+    [Fact]
+    public void SelfSelectedCatalogLoadsOnceOnDemandAndSearchOverridesItsFilter()
+    {
+        var loads = 0;
+        var fixedOperator = new Operator { Name = "银灰·固定", Tier = 6 };
+        var selfSelected = new Operator { Name = "银灰", SelfSelected = true, Tier = 0 };
+        var catalog = new OperatorCatalog([fixedOperator], () =>
+        {
+            loads++;
+            return Task.FromResult<List<Operator>>([selfSelected]);
+        });
+        var vm = new OperatorBrowseViewModel(catalog);
+        vm.LoadOperators([fixedOperator]);
+        vm.FilteredOperators.Should().Equal(fixedOperator);
+        loads.Should().Be(0);
+
+        vm.SearchText = "银灰";
+        vm.FilteredOperators.Should().Equal(fixedOperator, selfSelected);
+        vm.SelfSelectedOnly = true;
+        vm.FilteredOperators.Should().Equal(fixedOperator, selfSelected);
+        vm.SearchText = "";
+        vm.FilteredOperators.Should().Equal(selfSelected);
+        vm.SelfSelectedOnly = false;
+        vm.FilteredOperators.Should().Equal(fixedOperator);
+        loads.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SelfSelectedMembersSurviveLineupAndTrackingRoundTrips()
+    {
+        var op = new Operator { Name = "银灰", SelfSelected = true, IconPath = "icons/operators/银灰.png" };
+        var catalog = new OperatorCatalog([], () => Task.FromResult<List<Operator>>([op]));
+        var editor = new LineupEditorViewModel([], [], operatorCatalog: catalog) { Name = "示例", Author = "测试" };
+        editor.OperatorBrowser.SelfSelectedOnly = true;
+        editor.AddOperator(editor.AvailableOperators.Single());
+        editor.Members.Single().CanBecomeElite.Should().BeTrue();
+        editor.Members.Single().IsElite = true;
+        var text = editor.ExportLineup(editor.BuildLineup());
+
+        var freshCatalog = new OperatorCatalog([], () => Task.FromResult<List<Operator>>([op]));
+        var share = ASPAssistant.Core.Services.LineupShareService.FromCatalog([], [], freshCatalog);
+        var tracking = new TrackingViewModel(catalog: freshCatalog);
+        tracking.LoadEntries([new TrackingEntry { Name = op.Name, Type = TrackingType.Operator }]);
+        tracking.TrackedOperators.Single().IconPath.Should().Be(op.IconPath);
+        freshCatalog.SelfSelected.Should().BeEmpty();
+
+        var imported = await share.ImportAsync(text);
+        var reopened = new LineupEditorViewModel([], [], imported, operatorCatalog: freshCatalog);
+        reopened.Members.Single().Operator.Should().BeSameAs(op);
+        reopened.Members.Single().IsElite.Should().BeTrue();
+        tracking.ClearTracking();
+        tracking.TrackLineup(imported).Should().Be(1);
+    }
+
     private static List<Operator> TestOperators =>
     [
         new() { Name = "隐现", Tier = 6, CoreCovenants = ["拉特兰"], AdditionalCovenants = ["迅捷"],

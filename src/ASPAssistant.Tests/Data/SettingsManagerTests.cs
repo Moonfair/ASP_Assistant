@@ -23,6 +23,30 @@ public class SettingsManagerTests : IDisposable
     }
 
     [Fact]
+    public void MarkerOffset_RoundTripsAndCanBeReset()
+    {
+        _manager.LoadMarkerOffset().Should().Be(default(MarkerOffset));
+
+        var offset = new MarkerOffset(-0.035, 0.06);
+        _manager.SaveMarkerOffset(offset);
+        new SettingsManager(_tempDir).LoadMarkerOffset().Should().Be(offset);
+
+        _manager.SaveMarkerOffset(default);
+        new SettingsManager(_tempDir).LoadMarkerOffset().Should().Be(default(MarkerOffset));
+    }
+
+    [Theory]
+    [InlineData("{broken")]
+    [InlineData("{\"X\":2,\"Y\":0}")]
+    [InlineData("{\"X\":0,\"Y\":1e1000}")]
+    public void MarkerOffset_InvalidFileUsesDefaultPosition(string json)
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "marker-offset.json"), json);
+
+        _manager.LoadMarkerOffset().Should().Be(default(MarkerOffset));
+    }
+
+    [Fact]
     public async Task SaveAndLoad_TrackingEntries_RoundTrips()
     {
         var entries = new List<TrackingEntry>

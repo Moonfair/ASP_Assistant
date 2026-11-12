@@ -325,6 +325,49 @@ def process_operators(
     return operators
 
 
+def process_self_selected_operators(char_table: dict, season_data: dict, bond_info_dict: dict) -> list[dict]:
+    """Resolve the season's custom-slot candidates from character powers."""
+    rarities = set((season_data.get("diyChessDict") or {}).values())
+    if not rarities:
+        return []
+
+    fixed_ids = {entry["charId"] for entry in season_data["charShopChessDatas"].values()}
+    constants = season_data["constData"]
+    system_ids = set(constants.get("systemCustomChar") or [])
+    power_bonds = [
+        (bond_id, set(bond_info_dict[bond_id]["powerIdList"] or []))
+        for bond_id in season_data["bondInfoDict"]
+        if bond_info_dict[bond_id]["bondType"] == "SEASON"
+    ]
+    operators = []
+    for char_id, character in char_table.items():
+        if char_id in fixed_ids:
+            continue
+        if char_id not in system_ids and (
+            not char_id.startswith("char_") or character["rarity"] not in rarities
+            or character["isNotObtainable"]
+        ):
+            continue
+
+        powers = {
+            power for affiliation in [character.get("mainPower") or {}, *(character.get("subPower") or [])]
+            for power in affiliation.values() if power
+        }
+        bond_ids = [bond_id for bond_id, ids in power_bonds if not powers.isdisjoint(ids)]
+        core, additional = classify_bonds({"bondIds": bond_ids or [constants["fallbackBondId"]]}, bond_info_dict)
+        name = SP_CHAR_REDIRECT.get(char_id, character["name"])
+        operators.append({
+            "name": name,
+            "iconPath": f"icons/operators/{name}.png",
+            "_charId": char_id,
+            "tier": 0,
+            "selfSelected": True,
+            "coreCovenants": core,
+            "additionalCovenants": additional,
+        })
+    return sorted(operators, key=lambda op: op["name"])
+
+
 # ── 装备处理 ──────────────────────────────────────────────────────────────────
 
 def covenant_icon_sources(season_data: dict, bond_info_dict: dict) -> dict[str, str]:
@@ -662,6 +705,9 @@ def main():
         print(f"  重复干员 (已去重): {len(operators) - len(unique_operators)}")
     operators = unique_operators
     print(f"  干员数: {len(operators)}")
+    self_selected = [op for op in process_self_selected_operators(char_table, season_data, bond_info_dict)
+                     if op["name"] not in seen_names]
+    print(f"  自选干员数: {len(self_selected)}")
 
     # 5. 处理装备
     print("处理装备数据...")
@@ -682,7 +728,7 @@ def main():
 
         print("下载干员图标...")
         dl_new, dl_skip, dl_fail = 0, 0, 0
-        for op in operators:
+        for op in [*operators, *self_selected]:
             char_id = op.get("_charId", "")
             if not char_id:
                 dl_fail += 1
@@ -741,7 +787,7 @@ def main():
         print(f"  映射已保存: {avatar_map_path.name} ({avatar_map_path.stat().st_size / 1024:.1f} KB)")
 
     # 清理临时字段
-    for op in operators:
+    for op in [*operators, *self_selected]:
         op.pop("_charId", None)
 
     # 8. 输出 JSON
@@ -750,6 +796,9 @@ def main():
 
     with open(operators_path, "w", encoding="utf-8") as f:
         json.dump({"operators": operators}, f, ensure_ascii=False, indent=2)
+
+    with open(data_dir / "self-selected-operators.json", "w", encoding="utf-8") as f:
+        json.dump({"operators": self_selected}, f, ensure_ascii=False, indent=2)
 
     with open(equipment_path, "w", encoding="utf-8") as f:
         json.dump(

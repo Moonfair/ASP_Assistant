@@ -18,7 +18,7 @@
   <ItemGroup>
     <None Update="LICENSE-FontAwesome.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Ship active catalogues and UI icons only. Legacy avatar/template matching is no longer used. -->
-    <Content Include="..\..\data\operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\strategies.json;..\..\data\source_metadata.json;..\..\data\operator_skills.json;..\..\data\catalog_tips.json"
+    <Content Include="..\..\data\operators.json;..\..\data\self-selected-operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\strategies.json;..\..\data\source_metadata.json;..\..\data\operator_skills.json;..\..\data\self-selected-operator-skills.json;..\..\data\catalog_tips.json"
              Link="data\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

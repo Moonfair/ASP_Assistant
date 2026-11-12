@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using ASPAssistant.App.Controls;
 using ASPAssistant.App.Views;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.ViewModels;
@@ -40,14 +41,21 @@ public class BrowseFilterInteractionTests
         });
         try
         {
-            var vm = new OperatorBrowseViewModel();
-            vm.LoadOperators([
+            List<Operator> operators = [
                 new() { Name = "高阶", Tier = 3, CoreCovenants = ["甲"], AdditionalCovenants = ["丙"],
                     Normal = new() { Traits = [new() { TraitType = "作战", TraitDescription = "<获得时>攻击+1" }] } },
                 new() { Name = "低阶", Tier = 1, CoreCovenants = ["乙"], AdditionalCovenants = ["丁"],
                     Elite = new() { Traits = [new() { TraitType = "经济", TraitDescription = "<结束时>金币+1" }] } },
                 new() { Name = "中阶", Tier = 2 }
-            ]);
+            ];
+            var loads = 0;
+            var catalog = new OperatorCatalog(operators, () =>
+            {
+                loads++;
+                return Task.FromResult<List<Operator>>([new() { Name = "自选示例", SelfSelected = true }]);
+            });
+            var vm = new OperatorBrowseViewModel(catalog);
+            vm.LoadOperators(operators);
             var view = new OperatorBrowseView { DataContext = vm };
             ((System.Windows.Controls.Primitives.ToggleButton)view.FindName("FilterToggle")).IsChecked = true;
             view.Measure(new Size(600, 1400));
@@ -63,6 +71,15 @@ public class BrowseFilterInteractionTests
                 list.SelectionMode.Should().Be(SelectionMode.Multiple);
             ((ListBox)view.FindName("AvailabilityFilterList")).SelectionMode.Should().Be(SelectionMode.Single);
             ((ListBox)view.FindName("StackingFilterList")).SelectionMode.Should().Be(SelectionMode.Single);
+            var selfSelected = (ListBox)view.FindName("SelfSelectedFilterList");
+            selfSelected.SelectedIndex.Should().Be(0);
+            loads.Should().Be(0);
+            selfSelected.SelectedIndex = 1;
+            loads.Should().Be(1);
+            vm.FilteredOperators.Select(op => op.Name).Should().Equal("自选示例");
+            ClickTag(view, "自选干员");
+            selfSelected.SelectedIndex.Should().Be(0);
+            vm.FilteredOperators.Should().HaveCount(3);
 
             tier.SelectedItems.Add(1);
             tier.SelectedItems.Add(3);
@@ -283,9 +300,13 @@ public class BrowseFilterInteractionTests
     private static void VerifyExpandedFiltersAvoidGameWindow()
     {
         var window = new ASPAssistant.App.Windows.SidePanelWindow(new(), new(), new(), new(), new())
-            { UseSideFilters = true };
+            { Height = 800 };
+        var mainWidth = window.Width;
+        window.UseSideFilters = true;
         var expand = (Button)window.FindName("ExpandSideFiltersButton");
         var collapse = (Button)window.FindName("CollapseSideFiltersButton");
+        var filters = (FrameworkElement)window.FindName("SideFilterPanel");
+        var results = (FrameworkElement)window.FindName("MainSurface");
         var monitor = User32.GetMonitorRect(0, 0);
         var game = new RECT
         {
@@ -297,6 +318,8 @@ public class BrowseFilterInteractionTests
         (window.Left + window.Width).Should().Be(game.Left, "the expanded window fits to the left of the game");
         window.UpdatePosition(game, attachInside: true, gameActuallyMoved: false);
         (window.Left + window.Width).Should().Be(game.Left, "the next tracking update must keep the expanded placement");
+        LayoutFilterWindow(window);
+        filters.TranslatePoint(new Point(filters.ActualWidth, 0), results).X.Should().Be(0);
 
         collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         game.Left = monitor.Left + 20;
@@ -304,12 +327,39 @@ public class BrowseFilterInteractionTests
         window.UpdatePosition(game, attachInside: false, gameActuallyMoved: true);
         expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         window.Left.Should().Be(game.Right, "both the list and the expanded filters fit outside the game on the right");
+        LayoutFilterWindow(window);
+        filters.TranslatePoint(new Point(), results).X.Should().Be(results.ActualWidth);
 
-        game.Right = monitor.Right - 180;
+        collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        game.Right = monitor.Right - (int)mainWidth - 40;
+        window.UpdatePosition(game, attachInside: false, gameActuallyMoved: true);
+        var widthWithRail = window.Width;
+        widthWithRail.Should().BeGreaterThan(mainWidth);
+        expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.Width.Should().Be(widthWithRail, "expanding keeps the existing footprint when only the rail fits externally");
+        window.Left.Should().Be(game.Right);
+
+        game.Right = monitor.Right - (int)mainWidth - 12;
+        window.UpdatePosition(game, attachInside: false, gameActuallyMoved: true);
+        window.Left.Should().Be(game.Right, "the right margin still fits the main window");
+        window.Width.Should().Be(mainWidth, "expanded filters stay inside the window when its full width cannot fit outside the game");
+        LayoutFilterWindow(window);
+        filters.ActualWidth.Should().BeGreaterThan(200);
+        filters.TranslatePoint(new Point(filters.ActualWidth, 0), results).X.Should().BeLessThanOrEqualTo(results.ActualWidth + 28);
+
+        collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.Left.Should().Be(game.Right, "the collapsed rail must also stay outside the game");
+        window.Width.Should().Be(mainWidth);
+        expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.UpdatePosition(game, attachInside: false, gameActuallyMoved: false);
+        window.Left.Should().Be(game.Right);
+        window.Width.Should().Be(mainWidth);
+
+        game.Left = monitor.Left;
+        game.Right = monitor.Right;
         window.UpdatePosition(game, attachInside: true, gameActuallyMoved: true);
-        window.Left.Should().BeLessThan(game.Right);
-        (window.Left + window.Width).Should().BeLessThanOrEqualTo(monitor.Right, "the expanded window remains on screen when no side fits");
-        (window.Left + window.Width).Should().BeGreaterThan(game.Right, "the fallback uses the wider right margin");
+        window.Width.Should().Be(mainWidth, "fullscreen filters must not increase the assistant's footprint");
+        (window.Left + window.Width).Should().Be(monitor.Right);
     }
 
     private static void VerifyShortWindowAllowsFiltering()

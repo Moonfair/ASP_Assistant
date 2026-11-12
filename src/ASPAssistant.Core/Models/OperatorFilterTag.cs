@@ -4,6 +4,7 @@ public enum OperatorFilterKind
 {
     Separator,
     Availability,
+    SelfSelected,
     Tier,
     CoreCovenant,
     OtherCovenant,

@@ -40,8 +40,9 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition x:Name="SidebarColumn" Width="0" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition x:Name="RightSidebarColumn" Width="0" />
                 </Grid.ColumnDefinitions>
-                <Border x:Name="SideFilterPanel" Grid.Column="0" Visibility="Collapsed"
+                <Border x:Name="SideFilterPanel" Grid.Column="0" Panel.ZIndex="1" Visibility="Collapsed"
                         Background="#FF202039" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
                     <DockPanel Margin="8">
                         <DockPanel DockPanel.Dock="Top" Margin="0,5,0,12">
@@ -73,7 +74,7 @@
                             </ControlTemplate>
                         </Button.Template>
                         <StackPanel>
-                            <TextBlock Text="‹" FontSize="22" HorizontalAlignment="Center" />
+                            <TextBlock x:Name="ExpandSideFiltersArrow" Text="‹" FontSize="22" HorizontalAlignment="Center" />
                             <TextBlock Text="筛" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0" />
                             <TextBlock Text="选" FontSize="11" HorizontalAlignment="Center" />
                             <TextBlock x:Name="FilterRailCount" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
@@ -193,6 +194,19 @@
                                            TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <Button Content="选择游戏来源" Click="OnSelectGameSource"
                                         Style="{StaticResource TrackingButton}" HorizontalAlignment="Left" Padding="8,5" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,10,0,0">
+                            <StackPanel>
+                                <CheckBox x:Name="MarkerCalibrationToggle" Content="校准标记"
+                                          Foreground="{StaticResource TextPrimaryBrush}" />
+                                <TextBlock Text="开启后，拖动游戏内任意追踪标记。所有标记会一起移动，松手后保存。"
+                                           Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,8" />
+                                <Button x:Name="ResetMarkerOffsetButton" Content="恢复默认位置"
+                                        Style="{StaticResource TrackingButton}" HorizontalAlignment="Left" Padding="8,5" />
+                                <TextBlock x:Name="MarkerOffsetSaveError" Text="无法保存标记位置，请重试。"
+                                           Foreground="#FFFFA6A6" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" />
                             </StackPanel>
                         </Border>
                         <Border x:Name="SettingsLineupAccountCard" Background="{StaticResource CardBackgroundBrush}"

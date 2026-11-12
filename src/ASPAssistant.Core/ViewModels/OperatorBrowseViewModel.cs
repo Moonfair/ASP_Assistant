@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.ViewModels;
@@ -12,7 +13,7 @@ public enum AvailabilityFilter
     Unavailable
 }
 
-public partial class OperatorBrowseViewModel : ObservableObject
+public partial class OperatorBrowseViewModel(OperatorCatalog? catalog = null) : ObservableObject
 {
     private List<Operator> _allOperators = [];
     private Func<string, bool>? _isBannedCheck;
@@ -25,6 +26,9 @@ public partial class OperatorBrowseViewModel : ObservableObject
 
     [ObservableProperty]
     private string _searchText = "";
+
+    [ObservableProperty]
+    private bool _selfSelectedOnly;
 
     private readonly HashSet<int> _selectedTierFilters = [];
 
@@ -55,6 +59,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
         get
         {
             var groups = new List<List<OperatorFilterTag>>();
+            if (SelfSelectedOnly)
+                groups.Add([new(OperatorFilterKind.SelfSelected, true, "自选干员")]);
             if (SelectedAvailabilityFilter != AvailabilityFilter.All)
                 groups.Add([new(OperatorFilterKind.Availability, SelectedAvailabilityFilter,
                     SelectedAvailabilityFilter == AvailabilityFilter.Available ? "本局可用" : "本局不可用")]);
@@ -90,7 +96,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
     {
         _allOperators = operators;
 
-        AvailableTiers = [null, .. operators.Select(o => (int?)o.Tier).Distinct().OrderBy(t => t)];
+        AvailableTiers = [null, .. operators.Select(o => (int?)o.Tier)
+            .Concat(catalog is null ? [] : new int?[] { 0 }).Distinct().OrderBy(t => t)];
 
         var coreSet = operators
             .SelectMany(o => o.CoreCovenants)
@@ -136,7 +143,8 @@ public partial class OperatorBrowseViewModel : ObservableObject
     /// </summary>
     public void NotifyBansChanged() => ApplyFilters();
 
-    partial void OnSearchTextChanged(string value) => ApplyFilters();
+    partial void OnSearchTextChanged(string value) => _ = ApplyFiltersWithSelfSelectedAsync();
+    partial void OnSelfSelectedOnlyChanged(bool value) => _ = ApplyFiltersWithSelfSelectedAsync();
     partial void OnSelectedStackingFilterChanged(bool? value) => ApplyFilters();
     partial void OnSelectedAvailabilityFilterChanged(AvailabilityFilter value) => ApplyFilters();
 
@@ -177,9 +185,22 @@ public partial class OperatorBrowseViewModel : ObservableObject
         ApplyFilters();
     }
 
+    private async Task ApplyFiltersWithSelfSelectedAsync()
+    {
+        ApplyFilters();
+        if (catalog is not null && (SelfSelectedOnly || !string.IsNullOrWhiteSpace(SearchText)))
+        {
+            await catalog.LoadSelfSelectedAsync();
+            ApplyFilters();
+        }
+    }
+
     private void ApplyFilters()
     {
-        var filtered = _allOperators.AsEnumerable();
+        var query = SearchText.Trim();
+        var filtered = _allOperators.Concat(catalog?.SelfSelected ?? []);
+        if (query.Length == 0)
+            filtered = filtered.Where(o => o.SelfSelected == SelfSelectedOnly);
 
         if (SelectedAvailabilityFilter != AvailabilityFilter.All && _isBannedCheck != null)
         {
@@ -217,11 +238,11 @@ public partial class OperatorBrowseViewModel : ObservableObject
                     .Any(t => tags.Any(tag => t.TraitDescription.Contains(tag, StringComparison.Ordinal))));
         }
 
-        if (!string.IsNullOrEmpty(SearchText))
+        if (query.Length > 0)
             filtered = filtered.Where(o =>
-                o.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+                o.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
 
-        var results = filtered.OrderBy(o => o.Tier).ToList();
+        var results = filtered.OrderBy(o => o.SelfSelected).ThenBy(o => o.Tier).ToList();
         if (!FilteredOperators.SequenceEqual(results))
             FilteredOperators = new ObservableCollection<Operator>(results);
         OnPropertyChanged(nameof(ActiveFilterTags));

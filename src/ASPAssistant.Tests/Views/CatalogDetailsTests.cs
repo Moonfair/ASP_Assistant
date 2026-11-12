@@ -16,6 +16,19 @@ namespace ASPAssistant.Tests.Views;
 public class CatalogDetailsTests
 {
     [Fact]
+    public async Task CatalogDetails_LoadsSelfSelectedSkillsSeparately()
+    {
+        var store = new JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
+        var details = await store.LoadCatalogDetailsAsync();
+        details.Skills.Should().NotContainKey("银灰");
+        var optional = await store.LoadSelfSelectedSkillsAsync(details.Season);
+        optional["银灰"].Select(skill => skill.Name).Should().Equal("强力击·γ型", "雪境生存法则", "真银斩");
+        var operators = await store.LoadSelfSelectedOperatorsAsync();
+        optional.Keys.Should().BeEquivalentTo(operators.Select(op => op.Name));
+        (await store.LoadSelfSelectedSkillsAsync("other-season")).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task CatalogDetails_LoadsRealSkillNumbersAndSeasonTips()
     {
         var store = new JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
@@ -31,12 +44,17 @@ public class CatalogDetailsTests
         details.Tips.Equipment.Should().ContainKey("雪祀之衣");
     }
 
-    [Fact]
-    public async Task CatalogWindow_ShowsEffectsSkillsAndPublicResultsOnDemand()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CatalogWindow_ShowsEffectsSkillsAndPublicResultsOnDemand(bool selfSelected)
     {
         var store = new JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
         var details = await store.LoadCatalogDetailsAsync();
-        var op = (await store.LoadOperatorsAsync()).Single(item => item.Name == "黑键");
+        var op = selfSelected
+            ? (await store.LoadSelfSelectedOperatorsAsync()).Single(item => item.Name == "银灰")
+            : (await store.LoadOperatorsAsync()).Single(item => item.Name == "黑键");
+        if (selfSelected) details = details with { Skills = await store.LoadSelfSelectedSkillsAsync(details.Season) };
         var (equipment, _) = await store.LoadEquipmentAsync();
 
         LineupPerformanceTests.RunSta(() =>
@@ -48,8 +66,8 @@ public class CatalogDetailsTests
             {
                 ((TextBlock)window.FindName("TitleText")).Text.Should().Be(op.Name);
                 ((WrapPanel)window.FindName("Tags")).Children.Count.Should().BeGreaterThan(0);
-                ((TextBlock)window.FindName("TipText")).Text.Should().Contain("二技能");
-                ((StackPanel)window.FindName("Effects")).Children.Count.Should().Be(2);
+                if (!selfSelected) ((TextBlock)window.FindName("TipText")).Text.Should().Contain("二技能");
+                ((StackPanel)window.FindName("Effects")).Children.Count.Should().Be(selfSelected ? 1 : 2);
                 ((ItemsControl)window.FindName("SkillDetails")).Items.Count.Should().Be(3);
                 handler.Count.Should().Be(0);
                 var votesTab = (TabItem)window.FindName("VotesTab");

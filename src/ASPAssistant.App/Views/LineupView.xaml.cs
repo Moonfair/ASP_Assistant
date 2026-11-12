@@ -21,6 +21,7 @@ public partial class LineupView : UserControl
     public event Action<Lineup>? PreviewRequested;
     public event Action<Lineup>? TrackRequested;
     public LineupShareService? ShareService { get; set; }
+    internal Func<Lineup, Task>? PrepareOperatorsAsync { get; set; }
     private Func<string, string?>? _findOperatorIcon;
     private Func<string, bool>? _isBanned;
     private bool _copying;
@@ -102,7 +103,13 @@ public partial class LineupView : UserControl
 
     private void OnCategoryChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ReferenceEquals(sender, e.OriginalSource) && Resources["FilteredLineups"] is CollectionViewSource source)
+        if (ReferenceEquals(sender, e.OriginalSource))
+            RefreshLineupCards();
+    }
+
+    internal void RefreshLineupCards()
+    {
+        if (Resources["FilteredLineups"] is CollectionViewSource source)
             source.View?.Refresh();
     }
 
@@ -129,7 +136,7 @@ public partial class LineupView : UserControl
         button.IsEnabled = false;
         try
         {
-            var text = ExportShare(lineup);
+            var text = await ExportShareAsync(lineup);
             UploadedLineupButton.Visibility = Visibility.Collapsed;
             SetStatus("正在上传阵容…");
             _uploadedLineup = await site.UploadAsync(lineup.Id, text);
@@ -157,8 +164,11 @@ public partial class LineupView : UserControl
         catch (Win32Exception) { SetStatus("无法打开浏览器：" + url.AbsoluteUri); }
     }
 
-    private string ExportShare(Lineup lineup) => ShareService!.Export(
-        lineup with { Description = LineupDiagramSource.RemoveLegacyPositions(lineup.Description) });
+    private async Task<string> ExportShareAsync(Lineup lineup)
+    {
+        if (PrepareOperatorsAsync is not null) await PrepareOperatorsAsync(lineup);
+        return ShareService!.Export(lineup with { Description = LineupDiagramSource.RemoveLegacyPositions(lineup.Description) });
+    }
 
     private void ShowShortLink(Window owner, string link)
     {
@@ -218,7 +228,7 @@ public partial class LineupView : UserControl
                 link = LineupPublicLink.Canonicalize(text);
                 text = await LineupPublicLink.ResolveAsync(link);
             }
-            var imported = ShareService.Import(text) with { PublishedLink = link };
+            var imported = (await ShareService.ImportAsync(text)) with { PublishedLink = link };
             imported = imported with { Description = LineupDiagramSource.RemoveLegacyPositions(imported.Description) };
             library.Status = "正在保存导入的阵容…";
             if (!await library.SaveAsync(imported)) return;

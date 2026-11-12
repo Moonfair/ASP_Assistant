@@ -16,7 +16,7 @@ public partial class LineupView
         button.IsEnabled = false;
         try
         {
-            var text = ExportShare(lineup);
+            var text = await ExportShareAsync(lineup);
             SetStatus("正在生成阵容短链接…");
             var link = await LineupPublicLink.CreateAsync(text);
             try

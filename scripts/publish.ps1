@@ -68,8 +68,8 @@ Deployment reference: https://learn.microsoft.com/en-us/cpp/windows/redistributi
 
 $requiredPayload = @('ASPAssistant.App.exe', 'ASPAssistant.App.dll', 'ASPAssistant.Core.dll',
     'ASPAssistant.App.runtimeconfig.json', 'coreclr.dll',
-    'data/operators.json', 'data/equipment.json', 'data/covenants.json', 'data/strategies.json',
-    'data/operator_skills.json', 'data/catalog_tips.json',
+    'data/operators.json', 'data/self-selected-operators.json', 'data/equipment.json', 'data/covenants.json', 'data/strategies.json',
+    'data/operator_skills.json', 'data/self-selected-operator-skills.json', 'data/catalog_tips.json',
     'data/model/ocr/det.onnx', 'data/model/ocr/rec.onnx', 'data/model/ocr/keys.txt',
     'runtimes/win-x64/native/MaaFramework.dll', 'runtimes/win-x64/native/onnxruntime_maa.dll') +
     @($requiredCrt | ForEach-Object { "runtimes/win-x64/native/$_" })
@@ -83,9 +83,10 @@ $unexpected = @($files | Where-Object { $_.Extension -in @('.pdb', '.pyc', '.log
 if ($unexpected.Count -gt 0) { throw "Unexpected runtime/debug files in publish output: $($unexpected.Name -join ', ')" }
 $otherPlatforms = @(Get-ChildItem -LiteralPath (Join-Path $outputPath 'runtimes') -Directory | Where-Object Name -ne 'win-x64')
 if ($otherPlatforms.Count -gt 0) { throw "Unexpected native platforms: $($otherPlatforms.Name -join ', ')" }
-foreach ($catalog in @('operators', 'equipment', 'strategies')) {
+foreach ($catalog in @('operators', 'self-selected-operators', 'equipment', 'strategies')) {
     $data = Get-Content -LiteralPath (Join-Path $outputPath "data/$catalog.json") -Raw -Encoding utf8 | ConvertFrom-Json
-    foreach ($entry in $data.$catalog) {
+    $property = if ($catalog -eq 'self-selected-operators') { 'operators' } else { $catalog }
+    foreach ($entry in $data.$property) {
         if ($entry.iconPath -and -not (Test-Path -LiteralPath (Join-Path $outputPath "data/$($entry.iconPath)") -PathType Leaf)) {
             throw "Missing icon for $($entry.name): $($entry.iconPath)"
         }

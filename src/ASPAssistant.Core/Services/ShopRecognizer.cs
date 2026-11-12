@@ -16,9 +16,9 @@ public sealed class ShopRecognizer(IOcrEngine ocr, IReadOnlyList<string>? catalo
         var texts = await ocr.RecognizeRegionAsync(png,
             (int)(region.XPercent * width), top,
             (int)(region.WidthPercent * width), bottom - top);
-        var names = (catalogNames ?? trackedNames).Concat(trackedNames)
-            .GroupBy(Normalize).ToDictionary(g => g.Key, g => g.First());
         var tracked = trackedNames.ToHashSet(StringComparer.Ordinal);
+        var names = (catalogNames ?? trackedNames).Concat(trackedNames)
+            .GroupBy(Normalize).ToDictionary(g => g.Key, g => g.FirstOrDefault(tracked.Contains) ?? g.First());
         var items = new List<ShopItem>();
         var seen = new HashSet<string>();
         double scale = height / 720.0;
@@ -80,7 +80,13 @@ public sealed class ShopRecognizer(IOcrEngine ocr, IReadOnlyList<string>? catalo
         return items;
     }
 
-    private static string Normalize(string text) => new(text.Where(char.IsLetterOrDigit).ToArray());
+    private static string Normalize(string text)
+    {
+        const string protocolSuffix = "(卫戍协议)";
+        if (text.EndsWith(protocolSuffix, StringComparison.Ordinal))
+            text = text[..^protocolSuffix.Length];
+        return new(text.Where(char.IsLetterOrDigit).ToArray());
+    }
 
     private static bool IsNameRow(OcrTextResult text, int height) => text.Box.W > 0 && text.Box.H > 0
         && text.Box.Y + text.Box.H / 2.0 >= height * .90

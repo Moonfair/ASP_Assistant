@@ -537,10 +537,12 @@ function mountDiagramEditor(form, catalog, draft) {
   };
 }
 
-async function renderPublishedDescription(container, { prose, diagrams }) {
+async function renderPublishedDescription(container, { prose, diagrams }, operatorNames) {
   const { blocks } = findDiagramBlocks(diagrams);
   if (!blocks.length && !/\{\{(?:op|gear|strategy):/.test(prose)) return;
-  const catalog = await getEditorCatalog().catch(() => ({ equipment: {}, operators: {} }));
+  const catalog = await getEditorCatalogForNames([
+    ...operatorNames, ...descriptionOperatorNames(prose), ...descriptionOperatorNames(diagrams)
+  ]).catch(() => ({ equipment: {}, operators: {} }));
   if (!container.isConnected) return;
   const plots = blocks.slice(0, DIAGRAM_LIMITS.diagrams).map((block, index) => {
     try {

@@ -114,6 +114,7 @@ public partial class App : Application
         // Load data
         AppLogger.Info("App", "Loading operators...");
         var operators = await dataStore.LoadOperatorsAsync();
+        var operatorCatalog = new OperatorCatalog(operators, dataStore.LoadSelfSelectedOperatorsAsync);
         var shopOperators = operators.Where(op => !op.StrategyOnly).ToList();
         var covenantCatalog = await dataStore.LoadCovenantCatalogAsync();
         var strategies = await dataStore.LoadStrategiesAsync();
@@ -128,7 +129,7 @@ public partial class App : Application
         // ViewModels
         var banVm = new BanViewModel();
 
-        var operatorVm = new OperatorBrowseViewModel();
+        var operatorVm = new OperatorBrowseViewModel(operatorCatalog);
         operatorVm.LoadOperators(operators);
         operatorVm.SetBanChecker(banVm.IsBanned);
 
@@ -141,7 +142,7 @@ public partial class App : Application
         var equipmentVm = new EquipmentBrowseViewModel();
         equipmentVm.LoadEquipment(equipment, covenantNames, manualJobChangeEquipments);
 
-        var trackingVm = new TrackingViewModel(operators, equipment);
+        var trackingVm = new TrackingViewModel(operators, equipment, operatorCatalog);
         trackingVm.LoadEntries(trackingEntries);
 
         var gameStateVm = new GameStateViewModel();
@@ -178,10 +179,12 @@ public partial class App : Application
             try { _settingsManager.SaveSideFilterLayout(side); }
             catch (Exception ex) { AppLogger.Error("Settings", "Could not save filter layout", ex); }
         };
-        _sidePanel.ConfigureLineups(lineupVm, operators, equipment, strategies, covenantCatalog);
+        _sidePanel.ConfigureLineups(lineupVm, operators, equipment, strategies, covenantCatalog, operatorCatalog);
         _sidePanel.ConfigureLineupSite(_lineupSite);
-        _sidePanel.ConfigureCatalogDetails(await dataStore.LoadCatalogDetailsAsync());
-        _overlay = new OverlayWindow();
+        var catalogDetails = await dataStore.LoadCatalogDetailsAsync();
+        _sidePanel.ConfigureCatalogDetails(catalogDetails, () => dataStore.LoadSelfSelectedSkillsAsync(catalogDetails.Season));
+        _overlay = new OverlayWindow(_settingsManager);
+        _sidePanel.ConfigureMarkerCalibration(_overlay);
         ConfigureGameSource();
         bool hasCurrentGameState = false;
         _gameTarget.Changed += () =>
@@ -206,7 +209,9 @@ public partial class App : Application
                 _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: moved);
                 _overlay.SetTarget(target);
                 var viewport = captureService.GetViewport(target);
-                if (viewport == null || (target.Kind != GameTargetKind.Windows && !_windowTracker.IsGameFocused))
+                var calibratingFromPanel = _overlay.IsCalibratingMarkers && _sidePanel.IsActive;
+                if (viewport == null || (target.Kind != GameTargetKind.Windows &&
+                        !_windowTracker.IsGameFocused && !calibratingFromPanel))
                     _overlay.Hide();
                 else
                     _overlay.UpdatePosition(viewport.Value);
@@ -241,7 +246,7 @@ public partial class App : Application
                 _overlay.SetTarget(target);
                 hasCurrentGameState = true;
                 state.CovenantCounts = Core.GameState.GameStateUpdater.ComputeCovenantCounts(
-                    [.. state.FieldOperators, .. state.BenchOperators], operators);
+                    [.. state.FieldOperators, .. state.BenchOperators], [.. operators, .. operatorCatalog.SelfSelected]);
                 RefreshShopTracking(state, trackingVm.AllEntries.ToList());
             });
         };

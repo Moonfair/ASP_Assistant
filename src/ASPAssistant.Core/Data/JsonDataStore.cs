@@ -17,13 +17,17 @@ public class JsonDataStore
         _dataDirectory = dataDirectory;
     }
 
-    public async Task<List<Operator>> LoadOperatorsAsync()
+    public Task<List<Operator>> LoadOperatorsAsync() => LoadOperatorsAsync("operators.json");
+
+    public Task<List<Operator>> LoadSelfSelectedOperatorsAsync() => LoadOperatorsAsync("self-selected-operators.json");
+
+    private async Task<List<Operator>> LoadOperatorsAsync(string fileName)
     {
-        var path = Path.Combine(_dataDirectory, "operators.json");
+        var path = Path.Combine(_dataDirectory, fileName);
         if (!File.Exists(path))
             return [];
 
-        var json = await File.ReadAllTextAsync(path);
+        var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
         var wrapper = JsonSerializer.Deserialize<OperatorDataFile>(json, JsonOptions);
         return wrapper?.Operators ?? [];
     }
@@ -71,12 +75,21 @@ public class JsonDataStore
 
     public async Task<CatalogDetails> LoadCatalogDetailsAsync()
     {
-        var skills = await ReadSupplementAsync<OperatorSkillDataFile>("operator_skills.json");
         var tips = await ReadSupplementAsync<CatalogTips>("catalog_tips.json");
         var source = await ReadSupplementAsync<CatalogSource>("source_metadata.json");
         var season = source?.SeasonCode;
-        return new(season, season == skills?.Season ? skills?.Operators ?? [] : [],
+        var skills = await LoadOperatorSkillsAsync("operator_skills.json", season);
+        return new(season, skills,
             season == tips?.Season && source?.VersionCode == tips?.Version ? tips : null);
+    }
+
+    public Task<Dictionary<string, List<OperatorSkill>>> LoadSelfSelectedSkillsAsync(string? season) =>
+        LoadOperatorSkillsAsync("self-selected-operator-skills.json", season);
+
+    private async Task<Dictionary<string, List<OperatorSkill>>> LoadOperatorSkillsAsync(string filename, string? season)
+    {
+        var skills = await ReadSupplementAsync<OperatorSkillDataFile>(filename).ConfigureAwait(false);
+        return season == skills?.Season ? skills?.Operators ?? [] : [];
     }
 
     private async Task<T?> ReadSupplementAsync<T>(string filename) where T : class
@@ -85,7 +98,7 @@ public class JsonDataStore
         if (!File.Exists(path)) return null;
         try
         {
-            return JsonSerializer.Deserialize<T>(await File.ReadAllTextAsync(path), JsonOptions);
+            return JsonSerializer.Deserialize<T>(await File.ReadAllTextAsync(path).ConfigureAwait(false), JsonOptions);
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {

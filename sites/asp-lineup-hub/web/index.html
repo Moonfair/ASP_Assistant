@@ -20,6 +20,7 @@
   <symbol id="star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></symbol>
   <symbol id="chat" viewBox="0 0 24 24"><path d="M20 11.5a7.9 7.9 0 0 1-8 8 8 8 0 0 1-3.1-.6L4 20l1.1-4.7a8 8 0 1 1 14.9-3.8Z"/></symbol>
   <symbol id="people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m1.5 3a5 5 0 0 1 3.5 4.8V20"/></symbol>
+  <symbol id="bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 5-1.7 6.8-3 8h18c-1.3-1.2-3-3-3-8m-8 11a2 2 0 0 0 4 0"/></symbol>
   <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
   <symbol id="upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4"/></symbol>
   <symbol id="copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></symbol>
@@ -30,8 +31,13 @@
   <div class="topbar-inner">
     <a class="brand" href="/" aria-label="卫戍阵容库首页"><span class="brand-icon"><svg><use href="#mark"/></svg></span><span><strong>卫戍阵容库</strong><small>ASP ASSISTANT</small></span></a>
     <nav aria-label="主导航"><a class="active" href="#explore"><svg><use href="#grid"/></svg>探索阵容</a><button type="button" data-guide><svg><use href="#help"/></svg>发布指南</button></nav>
-    <div class="top-actions"><button type="button" id="account-button" class="button secondary compact"><svg><use href="#people"/></svg>登录 / 注册</button>
-    <button type="button" class="button primary compact" data-publish><svg><use href="#plus"/></svg>发布阵容</button></div>
+    <div class="top-actions">
+      <a class="button compact tool-home-link" href="https://moonfair.github.io/ASP_Assistant/">工具主页 <svg aria-hidden="true"><use href="#arrow"/></svg></a>
+      <button type="button" id="notifications-button" class="button secondary compact" aria-label="通知" aria-haspopup="dialog" hidden><svg aria-hidden="true"><use href="#bell"/></svg><span class="notification-button-label">通知</span><span id="notifications-badge" class="notification-badge" aria-hidden="true" hidden></span></button>
+      <span id="notifications-status" class="visually-hidden" role="status"></span>
+      <button type="button" id="account-button" class="button secondary compact"><svg><use href="#people"/></svg>登录 / 注册</button>
+      <button type="button" class="button primary compact" data-publish><svg><use href="#plus"/></svg>发布阵容</button>
+    </div>
   </div>
 </header>
 <main>
@@ -74,7 +80,7 @@
         <h2 id="desktop-tool-title">ASP Assistant 桌面工具</h2>
         <p>在 Windows 上使用卫戍协议对局侧边栏，实时追踪干员上架、识别 Ban 位并快速筛选装备。</p>
       </div>
-      <a class="button secondary" href="https://moonfair.github.io/ASP_Assistant/">前往工具官网 <svg aria-hidden="true"><use href="#arrow"/></svg></a>
+      <a class="button primary" href="https://moonfair.github.io/ASP_Assistant/">前往工具官网 <svg aria-hidden="true"><use href="#arrow"/></svg></a>
     </div>
   </section>
   <div class="workspace" id="explore">

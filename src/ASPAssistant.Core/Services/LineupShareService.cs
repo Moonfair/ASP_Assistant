@@ -1,11 +1,12 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.Services;
 
 public sealed class LineupShareService(IEnumerable<string> operators, IEnumerable<string> equipment,
-    IReadOnlyDictionary<string, int>? equipmentSlotCounts = null)
+    IReadOnlyDictionary<string, int>? equipmentSlotCounts = null, OperatorCatalog? operatorCatalog = null)
 {
     public const int MaxShareTextLength = 100_000;
     private const string LegacyHeader = "ASPA-LINEUP/1";
@@ -14,9 +15,10 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
     private readonly HashSet<string> _operators = new(operators, StringComparer.Ordinal);
     private readonly HashSet<string> _equipment = new(equipment, StringComparer.Ordinal);
 
-    public static LineupShareService FromCatalog(IReadOnlyList<Operator> operators, IEnumerable<string> equipment) =>
+    public static LineupShareService FromCatalog(IReadOnlyList<Operator> operators, IEnumerable<string> equipment,
+        OperatorCatalog? operatorCatalog = null) =>
         new(operators.Select(op => op.Name), equipment, operators.Where(op => op.EquipmentSlotCount != 2)
-            .ToDictionary(op => op.Name, op => op.EquipmentSlotCount, StringComparer.Ordinal));
+            .ToDictionary(op => op.Name, op => op.EquipmentSlotCount, StringComparer.Ordinal), operatorCatalog);
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -42,6 +44,23 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
 
     public Lineup Import(string text)
     {
+        var lineup = Parse(text);
+        Validate(lineup);
+        return lineup;
+    }
+
+    public async Task<Lineup> ImportAsync(string text)
+    {
+        var lineup = Parse(text);
+        ValidateStructure(lineup);
+        if (operatorCatalog is not null)
+            await operatorCatalog.LoadForNamesAsync(lineup.Members.Select(member => member.OperatorName));
+        ValidateCatalog(lineup);
+        return lineup;
+    }
+
+    private static Lineup Parse(string text)
+    {
         if (string.IsNullOrWhiteSpace(text)) throw new FormatException("请先复制阵容分享文本。");
         if (text.Length > MaxShareTextLength) throw new FormatException("分享文本过长，请检查是否复制了完整且正确的阵容。");
         text = text.Trim().TrimStart('\uFEFF');
@@ -64,7 +83,6 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
                 Description = content.Description ?? "", IsImported = true,
                 AvailableStrategies = content.AvailableStrategies ?? [], CovenantTags = content.CovenantTags
             };
-            Validate(lineup);
             return lineup;
         }
         catch (JsonException ex) { throw new FormatException("阵容文本不完整或字段格式错误。", ex); }
@@ -73,9 +91,14 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
     public void Validate(Lineup lineup)
     {
         ValidateStructure(lineup);
+        ValidateCatalog(lineup);
+    }
+
+    private void ValidateCatalog(Lineup lineup)
+    {
         foreach (var member in lineup.Members)
         {
-            if (!_operators.Contains(member.OperatorName))
+            if (!_operators.Contains(member.OperatorName) && operatorCatalog?.Find(member.OperatorName) is null)
                 throw new FormatException($"当前数据中没有干员“{member.OperatorName}”，请检查赛季或更新数据。");
             var slots = member.EquipmentSlots;
             var slotCount = equipmentSlotCounts?.GetValueOrDefault(member.OperatorName, 2) ?? 2;

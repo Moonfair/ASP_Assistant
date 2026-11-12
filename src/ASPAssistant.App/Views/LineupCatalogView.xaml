@@ -113,6 +113,12 @@
                                     <ListBoxItem Content="本局可用" />
                                     <ListBoxItem Content="本局不可用" />
                                 </ListBox>
+                                <TextBlock Text="自选干员" Margin="0,6,0,4" />
+                                <ListBox x:Name="SelfSelectedFilters" Style="{StaticResource Chips}" Tag="SelfSelected"
+                                         SelectedIndex="0" SelectionChanged="OnSingleFilterChanged">
+                                    <ListBoxItem Content="否" />
+                                    <ListBoxItem Content="是" />
+                                </ListBox>
                                 <TextBlock Text="等阶" Margin="0,6,0,4" />
                                 <ListBox x:Name="TierFilters" Style="{StaticResource Chips}" ItemTemplate="{StaticResource TierFilterLabel}" Tag="Tier" ItemsSource="{Binding AvailableTiers}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" />
                                 <TextBlock Text="核心盟约" Margin="0,6,0,4" />

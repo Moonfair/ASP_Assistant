@@ -17,6 +17,9 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
         Func<string, string?>? findStrategyIcon = null, IReadOnlyList<string>? availableStrategies = null)
         => new LineupMarkdown(findIcon, findStrategyIcon).Build(source, emptyMessage, availableStrategies);
 
+    internal static IEnumerable<string> FindOperatorReferences(string source) =>
+        OperatorReferencePattern().Matches(source).Select(match => match.Groups[1].Value.Trim());
+
     internal static (FlowDocument Introduction, FlowDocument Diagrams) RenderWithDiagramsAside(string source,
         Func<bool, string, string?> findIcon, string emptyMessage, Func<string, string?>? findStrategyIcon,
         IReadOnlyList<string>? availableStrategies)
@@ -255,6 +258,9 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
 
     [GeneratedRegex(@"^(#{1,3})\s+(.+)$")]
     private static partial Regex HeadingPattern();
+
+    [GeneratedRegex(@"\{\{op:([^{}\r\n]{1,100})\}\}")]
+    private static partial Regex OperatorReferencePattern();
 
     [GeneratedRegex(@"\\(?<literal>[\\*_`={<>])|`(?<code>[^`]+)`|\{\{(?<kind>op|gear|strategy):(?<name>[^{}]{1,100})\}\}|\*\*\*(?<both>.+?)\*\*\*|\*\*(?<bold>.+?)\*\*|__(?<bold>.+?)__|\*(?<italic>[^*]+)\*|_(?<italic>[^_]+)_|<u>(?<underline>.+?)</u>|==(?<mark>.+?)==")]
     private static partial Regex InlinePattern();

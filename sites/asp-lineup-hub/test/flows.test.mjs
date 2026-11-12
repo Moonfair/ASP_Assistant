@@ -120,6 +120,39 @@ test('暴躁铁皮的四个装备槽随分享保留，普通干员无法使用�
   assert.equal((await guest.request('/api/share', { share: encode('折光') })).status, 400);
 });
 
+test('自选干员由独立接口提供，也可用于短链接、头像和精锐盟约', async (t) => {
+  const { DB, browser } = setup();
+  t.after(() => DB.close());
+  const guest = browser();
+  const { data: base } = await guest.request('/api/editor-catalog');
+  assert.equal(base.operators['银灰'], undefined);
+  const { status, data: optional } = await guest.request('/api/self-selected-operators');
+  assert.equal(status, 200);
+  assert.equal(optional['银灰'].tier, 0);
+  assert.deepEqual(optional['银灰'].covenants, ['谢拉格']);
+  assert.deepEqual(optional['维什戴尔'].additionalCovenants, ['协防干员']);
+  const votePath = '/api/operator-votes?season=act3autochess&operator=' + encodeURIComponent('银灰');
+  assert.equal((await guest.request(votePath)).status, 200);
+  await guest.login('self-selected-voter@example.test');
+  assert.equal((await guest.request(votePath, { skill: 3 })).status, 201);
+  assert.equal((await guest.request(votePath, { equipment: [Object.keys(base.equipment)[0]] })).status, 201);
+  assert.deepEqual((await guest.request(votePath.replace('operator-votes?', 'operator-votes/mine?'))).data,
+    { skillVoted: true, equipmentVoted: true });
+  const portrait = await worker.fetch(new Request('https://lineup.example.test' + optional['银灰'].image), { DB });
+  assert.equal(portrait.status, 200);
+  assert.equal(portrait.headers.get('content-type'), 'image/png');
+  const share = 'ASPA-LINEUP/2\n' + JSON.stringify({
+    Name: '自选阵容', Author: '测试',
+    Members: ['银灰', '维什戴尔'].map(OperatorName => ({ OperatorName, IsElite: true }))
+  });
+  const created = await guest.request('/api/share', { share });
+  assert.equal(created.status, 201);
+  const path = created.data.shortPath.replace('/s/', '/api/share/');
+  const { data: preview } = await guest.request(path + '?preview=1');
+  assert.ok(preview.lineup.members.every(member => member.tier === 0 && member.elite));
+  assert.ok(preview.lineup.activeCovenants.includes('绝技'));
+});
+
 test('阵容最多容纳三十名干员，公开阵容可以按手选盟约筛选', async (t) => {
   const { DB, browser } = setup();
   t.after(() => DB.close());

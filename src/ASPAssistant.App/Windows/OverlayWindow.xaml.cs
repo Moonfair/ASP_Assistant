@@ -4,6 +4,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
@@ -18,37 +19,37 @@ public partial class OverlayWindow : Window
     // Persistent marker elements keyed by ShopItem.Id.
     // Using Id (not Name) lets multiple cards with the same operator name each
     // have their own independent marker.
-    private readonly Dictionary<string, FrameworkElement> _markerPool = [];
+    private readonly Dictionary<string, OverlayMarker> _markerPool = [];
 
-    // Ban-screen avatar markers keyed by operator name.
-    private readonly List<FrameworkElement> _banMarkerPool = [];
+    private readonly List<OverlayMarker> _banMarkerPool = [];
 
     // The full-screen instruction layer shown at the start of ban detection.
     private FrameworkElement? _banInstructionLayer;
     private GameTarget? _target;
     private RECT? _bounds;
-    private IReadOnlyList<ShopItem> _shopItems = [];
-
-    public OverlayWindow()
+    public OverlayWindow(SettingsManager settings)
     {
+        _settings = settings;
+        _markerOffset = settings.LoadMarkerOffset();
         InitializeComponent();
-        Loaded += OnLoaded;
-        SizeChanged += (_, _) => UpdateShopItems(_shopItems);
+        InitializeMarkerCalibration();
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    protected override void OnSourceInitialized(EventArgs e)
     {
+        base.OnSourceInitialized(e);
         var hwnd = new WindowInteropHelper(this).Handle;
         var exStyle = User32.GetWindowLong(hwnd, User32.GWL_EXSTYLE);
         User32.SetWindowLong(hwnd, User32.GWL_EXSTYLE,
-            exStyle | User32.WS_EX_TRANSPARENT | User32.WS_EX_TOOLWINDOW);
+            exStyle | User32.WS_EX_TOOLWINDOW | User32.WS_EX_NOACTIVATE);
+        RefreshMarkerInput();
     }
 
     public void SetTarget(GameTarget? target)
     {
         if (ReferenceEquals(_target, target)) return;
+        EndMarkerDrag(save: false);
         _target = target;
-        _shopItems = [];
         _markerPool.Clear();
         _banMarkerPool.Clear();
         HideBanInstructionOverlay();
@@ -73,7 +74,6 @@ public partial class OverlayWindow : Window
     /// </summary>
     public void UpdateShopItems(IReadOnlyList<ShopItem> shopItems)
     {
-        _shopItems = shopItems;
         var nowTracked = shopItems
             .Where(s => s.IsTracked)
             .ToDictionary(s => s.Id);
@@ -85,56 +85,39 @@ public partial class OverlayWindow : Window
         // Add new markers or reposition existing ones
         foreach (var item in nowTracked.Values)
         {
-            var (mx, my) = ComputeMarkerPosition(item);
-
-            if (_markerPool.TryGetValue(item.Id, out var existing))
+            var anchor = new Point(item.OcrRegion.X + item.OcrRegion.Width, item.OcrRegion.Y);
+            if (_markerPool.TryGetValue(item.Id, out var marker))
             {
-                Canvas.SetLeft(existing, mx);
-                Canvas.SetTop(existing, my);
+                marker.Anchor = anchor;
+                PositionMarker(marker);
             }
             else
             {
-                var marker = CreateMarker();
-                marker.Opacity = 0;
-                Canvas.SetLeft(marker, mx);
-                Canvas.SetTop(marker, my);
-                OverlayCanvas.Children.Add(marker);
+                marker = new OverlayMarker(CreateMarker(), anchor, new Vector(-MarkerSize - 2, 2));
                 _markerPool[item.Id] = marker;
-
-                marker.BeginAnimation(OpacityProperty,
-                    new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250)));
+                AddMarker(marker);
             }
         }
     }
 
     private void FadeOutAndRemove(string id)
     {
-        var el = _markerPool[id];
+        var marker = _markerPool[id];
         _markerPool.Remove(id);
+        FadeOutMarker(marker, 250);
+    }
 
-        var anim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(250));
+    private void FadeOutMarker(OverlayMarker marker, int milliseconds)
+    {
+        if (_drag?.Marker == marker) EndMarkerDrag(save: false);
+        var el = marker.Element;
+        el.IsHitTestVisible = false;
+        var anim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(milliseconds));
         anim.Completed += (_, _) =>
         {
             OverlayCanvas.Children.Remove(el);
         };
         el.BeginAnimation(OpacityProperty, anim);
-    }
-
-    /// <summary>
-    /// Returns the canvas pixel position for a marker placed at the top-right
-    /// corner of the operator card. OcrRegion stores the card's normalised
-    /// bounding box [0,1] (X, Y, Width, Height).
-    /// </summary>
-    private (double X, double Y) ComputeMarkerPosition(ShopItem item)
-    {
-        // Place marker just inside the card's top-right corner.
-        var mx = (item.OcrRegion.X + item.OcrRegion.Width) * ActualWidth - MarkerSize - 2;
-        var my = item.OcrRegion.Y * ActualHeight + 2;
-
-        mx = Math.Max(0, Math.Min(mx, ActualWidth - MarkerSize));
-        my = Math.Max(0, Math.Min(my, ActualHeight - MarkerSize));
-
-        return (mx, my);
     }
 
     private static Grid CreateMarker()
@@ -182,6 +165,7 @@ public partial class OverlayWindow : Window
     /// </summary>
     public void ShowBanInstructionOverlay()
     {
+        EndMarkerDrag(save: false);
         // Remove any pre-existing layer (e.g. rapid re-entry).
         HideBanInstructionOverlay();
 
@@ -276,8 +260,7 @@ public partial class OverlayWindow : Window
         container.BeginAnimation(OpacityProperty,
             new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)));
 
-        // Remove click-through so we can receive the scroll wheel event.
-        SetClickThrough(false);
+        RefreshMarkerInput();
         MouseWheel += OnBanScreenScrollDetected;
     }
 
@@ -288,13 +271,12 @@ public partial class OverlayWindow : Window
     public void HideBanInstructionOverlay()
     {
         MouseWheel -= OnBanScreenScrollDetected;
-        SetClickThrough(true);
-
         if (_banInstructionLayer == null)
             return;
 
         var layer = _banInstructionLayer;
         _banInstructionLayer = null;
+        RefreshMarkerInput();
 
         var anim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
         anim.Completed += (_, _) => OverlayCanvas.Children.Remove(layer);
@@ -336,18 +318,10 @@ public partial class OverlayWindow : Window
         // frames, and removing+re-adding causes visible flicker.
         foreach (var hitBox in positions)
         {
-            double mx = (double)hitBox.X / imgWidth * ActualWidth;
-            double my = (double)hitBox.Y / imgHeight * ActualHeight;
-
-            var marker = CreateBanMarker();
-            marker.Opacity = 0;
-            Canvas.SetLeft(marker, mx);
-            Canvas.SetTop(marker, my);
-            OverlayCanvas.Children.Add(marker);
+            var anchor = new Point((double)hitBox.X / imgWidth, (double)hitBox.Y / imgHeight);
+            var marker = new OverlayMarker(CreateBanMarker(), anchor, default);
             _banMarkerPool.Add(marker);
-
-            marker.BeginAnimation(OpacityProperty,
-                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250)));
+            AddMarker(marker);
         }
     }
 
@@ -357,13 +331,9 @@ public partial class OverlayWindow : Window
     /// </summary>
     public void ClearBanMarkers()
     {
-        foreach (var el in _banMarkerPool.ToList())
-        {
-            _banMarkerPool.Remove(el);
-            var anim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
-            anim.Completed += (_, _) => OverlayCanvas.Children.Remove(el);
-            el.BeginAnimation(OpacityProperty, anim);
-        }
+        foreach (var marker in _banMarkerPool)
+            FadeOutMarker(marker, 200);
+        _banMarkerPool.Clear();
     }
 
     private static Grid CreateBanMarker()
@@ -407,12 +377,12 @@ public partial class OverlayWindow : Window
     /// Toggles the <c>WS_EX_TRANSPARENT</c> extended style on the overlay HWND.
     /// When <paramref name="clickThrough"/> is <c>true</c> (default state) the
     /// overlay is invisible to hit-testing and all input falls through to the game.
-    /// When <c>false</c> the overlay can receive mouse events (used briefly while
-    /// the instruction layer waits for the player's scroll).
+    /// When <c>false</c> the overlay can receive mouse events.
     /// </summary>
     private void SetClickThrough(bool clickThrough)
     {
         var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == 0) return;
         var exStyle = User32.GetWindowLong(hwnd, User32.GWL_EXSTYLE);
         if (clickThrough)
             User32.SetWindowLong(hwnd, User32.GWL_EXSTYLE,

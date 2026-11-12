@@ -124,6 +124,10 @@ function escape(value) {
   }[c]));
 }
 
+export function descriptionOperatorNames(description = '') {
+  return [...description.matchAll(/\{\{op:([^{}\r\n]{1,100})\}\}/g)].map(match => match[1].trim());
+}
+
 export function renderDescriptionProse(prose, catalog = {}) {
   const catalogs = { op: catalog.operators, gear: catalog.equipment, strategy: catalog.strategies };
   const tokens = /`[^`\r\n]+`|\\\{\{|\{\{(op|gear|strategy):([^{}\r\n]{1,100})\}\}/g;

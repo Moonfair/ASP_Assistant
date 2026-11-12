@@ -45,6 +45,13 @@ public class ShopRecognizerTests
     }
 
     [Fact]
+    public async Task TracksProtocolVariantByItsInGameName()
+    {
+        var items = await Recognize([new("Touch", (620, 664, 50, 21))], ["Touch(卫戍协议)"]);
+        items.Select(item => item.Name).Should().Equal("Touch(卫戍协议)");
+    }
+
+    [Fact]
     public async Task DuplicateOcrBoxesDoNotCreateDuplicateMarkers()
     {
         var label = new OcrTextResult("角峰", (973, 664, 37, 20));

@@ -35,7 +35,8 @@ public partial class OperatorBrowseView : UserControl
     {
         InitializeComponent();
         Filters = new(this, TopFilterScroll, FilterContentPanel, FilterToggle, FilterActionsPanel, FilterTagsControl,
-            AvailabilityFilterList, TierFilterList, CoreCovenantFilterList, OtherCovenantFilterList, TraitFilterList, StackingFilterList, TriggerTimingFilterList);
+            AvailabilityFilterList, SelfSelectedFilterList, TierFilterList, CoreCovenantFilterList,
+            OtherCovenantFilterList, TraitFilterList, StackingFilterList, TriggerTimingFilterList);
         SizeChanged += (_, _) => TopFilterScroll.MaxHeight = Math.Max(80, ActualHeight * 0.45);
         Filters.Changed += () =>
         {
@@ -272,6 +273,12 @@ public partial class OperatorBrowseView : UserControl
         ManualScanStatusText.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void OnSelfSelectedFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ListBox { DataContext: OperatorBrowseViewModel vm } list)
+            vm.SelfSelectedOnly = list.SelectedIndex == 1;
+    }
+
     private void OnMultiFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (DataContext is not OperatorBrowseViewModel vm) return;
@@ -295,6 +302,7 @@ public partial class OperatorBrowseView : UserControl
         var list = tag.Kind switch
         {
             OperatorFilterKind.Availability => AvailabilityFilterList,
+            OperatorFilterKind.SelfSelected => SelfSelectedFilterList,
             OperatorFilterKind.Tier => TierFilterList,
             OperatorFilterKind.CoreCovenant => CoreCovenantFilterList,
             OperatorFilterKind.OtherCovenant => OtherCovenantFilterList,

@@ -1,8 +1,10 @@
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Data;
 
 namespace ASPAssistant.Core.Services;
 
-public sealed class LineupCovenantCalculator(CovenantCatalog catalog, IEnumerable<Operator> operators)
+public sealed class LineupCovenantCalculator(CovenantCatalog catalog, IEnumerable<Operator> operators,
+    OperatorCatalog? operatorCatalog = null)
 {
     private readonly Dictionary<string, Operator> _operators = operators.ToDictionary(op => op.Name, StringComparer.Ordinal);
     private readonly HashSet<string> _core = new(catalog.CoreCovenants, StringComparer.Ordinal);
@@ -14,7 +16,8 @@ public sealed class LineupCovenantCalculator(CovenantCatalog catalog, IEnumerabl
         var eliteCount = 0;
         foreach (var member in lineup.Members.DistinctBy(member => member.OperatorName, StringComparer.Ordinal))
         {
-            if (!_operators.TryGetValue(member.OperatorName, out var op)) continue;
+            var op = _operators.GetValueOrDefault(member.OperatorName) ?? operatorCatalog?.Find(member.OperatorName);
+            if (op is null) continue;
             var memberships = new HashSet<string>(op.CoreCovenants.Concat(op.AdditionalCovenants), StringComparer.Ordinal);
             var equipment = member.EquipmentSlots;
             if (equipment.Any(_activators.Contains))
@@ -25,7 +28,7 @@ public sealed class LineupCovenantCalculator(CovenantCatalog catalog, IEnumerabl
             }
             foreach (var covenant in memberships)
                 counts[covenant] = counts.GetValueOrDefault(covenant) + 1;
-            if (member.IsElite && op.Tier > 0) eliteCount++;
+            if (member.IsElite && op.CanBecomeElite) eliteCount++;
         }
 
         var coreBonus = catalog.ActivationRules

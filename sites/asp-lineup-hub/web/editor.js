@@ -1,4 +1,4 @@
-let editorCatalogRequest;
+let editorCatalogRequest, selfSelectedCatalogRequest;
 
 function getEditorCatalog() {
   editorCatalogRequest ??= api('editor-catalog').catch(error => {
@@ -8,6 +8,21 @@ function getEditorCatalog() {
   return editorCatalogRequest;
 }
 
+function getSelfSelectedCatalog() {
+  selfSelectedCatalogRequest ??= api('self-selected-operators').catch(error => {
+    selfSelectedCatalogRequest = null;
+    throw error;
+  });
+  return selfSelectedCatalogRequest;
+}
+
+async function getEditorCatalogForNames(names) {
+  const catalog = await getEditorCatalog();
+  const needsSelfSelected = names.some(name => !Object.hasOwn(catalog.operators, name));
+  const extra = needsSelfSelected ? await getSelfSelectedCatalog() : {};
+  return { ...catalog, operators: { ...catalog.operators, ...extra } };
+}
+
 async function showLineupEditor(lineup = null, revision = null, draft = null, openImport = false) {
   const version = ++modalVersion;
   activeDetail = lineup?.id ?? null;
@@ -15,11 +30,13 @@ async function showLineupEditor(lineup = null, revision = null, draft = null, op
   const title = lineup ? '编辑阵容' : '发布阵容';
   modalShell(title, '<p class="intro">正在载入干员、装备和策略…</p>', 'LINEUP EDITOR');
   try {
-    const catalog = await getEditorCatalog();
-    if (version !== modalVersion) return;
     const content = draft ?? (lineup ? parseLineupShare(lineup.share).content : {
       Name: '', Author: '', Description: '', Members: []
     });
+    const catalog = await getEditorCatalogForNames([
+      ...content.Members.map(member => member.OperatorName), ...descriptionOperatorNames(content.Description)
+    ]);
+    if (version !== modalVersion) return;
     renderLineupEditor(title, catalog, content, lineup, revision, openImport);
   } catch (error) {
     if (version !== modalVersion) return;
@@ -30,7 +47,7 @@ async function showLineupEditor(lineup = null, revision = null, draft = null, op
 }
 
 function renderLineupEditor(title, catalog, draft, lineup, revision, openImport) {
-  const operators = Object.entries(catalog.operators).sort(compareCatalogEntries);
+  let selfSelectedLoaded = Object.values(catalog.operators).some(op => op.selfSelected);
   const equipment = Object.entries(catalog.equipment).sort(compareCatalogEntries);
   const strategyCatalog = new Map(Object.entries(catalog.strategies ?? {}));
   const equipmentOptions = equipment.map(([name, item]) =>
@@ -79,10 +96,12 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
         </div>
         <div role="tabpanel" id="operator-panel" aria-labelledby="operator-tab">
           <label>搜索干员<input class="field" name="operatorQuery" type="search" placeholder="干员名称或盟约"></label>
+          <label>自选干员<select class="field" name="operatorSelfSelected">
+            <option value="no">否</option><option value="yes">是</option></select></label>
           <label>核心盟约<select class="field" name="operatorCovenant">
             <option value="">全部盟约</option>${covenantOptions}</select></label>
           <p class="editor-count" id="picker-count" role="status"></p>
-          <div class="editor-operators" id="editor-operators"></div>
+          <div class="editor-operators" id="editor-operators" role="region" aria-label="匹配干员" tabindex="0"></div>
         </div>
         <div role="tabpanel" id="strategy-panel" aria-labelledby="strategy-tab" hidden>
           <label>搜索策略<input class="field" name="strategyQuery" type="search" placeholder="策略名称或发起人"></label>
@@ -156,19 +175,53 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
     return share;
   }
 
+  async function loadSelfSelected() {
+    if (selfSelectedLoaded) return;
+    Object.assign(catalog.operators, await getSelfSelectedCatalog());
+    selfSelectedLoaded = true;
+  }
+
+  function showSelfSelected() {
+    return form.elements.operatorSelfSelected.value === 'yes';
+  }
+
+  function needsSelfSelected() {
+    return showSelfSelected() || Boolean(form.elements.operatorQuery.value.trim());
+  }
+
+  async function refreshPicker() {
+    renderPicker();
+    if (!needsSelfSelected() || selfSelectedLoaded) return;
+    try {
+      await loadSelfSelected();
+      if (form.isConnected) {
+        renderPicker();
+        diagram.refreshMembers();
+      }
+    } catch (error) {
+      if (form.isConnected && needsSelfSelected())
+        $('#picker-count', form).textContent = '自选干员加载失败。' + error.message;
+    }
+  }
+
   function renderPicker() {
     const query = form.elements.operatorQuery.value.trim().normalize('NFKC').toLowerCase();
     const covenant = form.elements.operatorCovenant.value;
     const selected = new Set(draft.Members.map(member => member.OperatorName));
-    const matches = operators.filter(([name, op]) => !selected.has(name)
+    const matches = Object.entries(catalog.operators).filter(([name, op]) => !selected.has(name)
+      && (query || Boolean(op.selfSelected) === showSelfSelected())
       && (!covenant || op.covenants.includes(covenant))
-      && [name, ...op.covenants].join(' ').normalize('NFKC').toLowerCase().includes(query));
-    $('#picker-count', form).textContent = matches.length > 8 ? `共 ${matches.length} 名，显示前 8 名` : `共 ${matches.length} 名`;
-    picker.innerHTML = matches.slice(0, 8).map(([name, op]) => `
+      && [name, ...op.covenants, ...(op.additionalCovenants ?? [])].join(' ').normalize('NFKC').toLowerCase().includes(query))
+      .sort((first, second) => Number(Boolean(first[1].selfSelected)) - Number(Boolean(second[1].selfSelected))
+        || compareCatalogEntries(first, second));
+    const visible = query || showSelfSelected() ? matches : matches.slice(0, 8);
+    $('#picker-count', form).textContent = `共 ${matches.length} 名` + (visible.length < matches.length ? '，显示前 8 名' : '');
+    picker.innerHTML = visible.map(([name, op]) => `
       <button type="button" class="editor-operator" data-add-operator="${escape(name)}"
         ${draft.Members.length >= LINEUP_LIMIT ? 'disabled' : ''}>
         ${portrait({ name, image: op.image })}<span><strong>${escape(name)}</strong>
-        <small>${escape([op.tier ? op.tier + ' 阶' : '特殊', ...op.covenants].join(' · '))}</small></span>
+        <small>${escape([op.tier ? op.tier + ' 阶' : '特殊', ...op.covenants,
+          ...(op.selfSelected ? op.additionalCovenants ?? [] : [])].join(' · '))}</small></span>
         ${icon('plus')}
       </button>`).join('');
   }
@@ -231,7 +284,7 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
         <div class="editor-roles">
           <label><input type="checkbox" data-member-field="IsDamageCore" ${member.IsDamageCore ? 'checked' : ''}> 输出核心</label>
           <label><input type="checkbox" data-member-field="IsStackingCore" ${member.IsStackingCore ? 'checked' : ''}> 叠层核心</label>
-          ${op?.tier > 0 ? `<label><input type="checkbox" data-member-field="IsElite" ${member.IsElite ? 'checked' : ''}> 精锐</label>` : ''}
+          ${op && (op.tier > 0 || op.selfSelected) ? `<label><input type="checkbox" data-member-field="IsElite" ${member.IsElite ? 'checked' : ''}> 精锐</label>` : ''}
         </div>
         <div class="editor-slots">${slots}</div>
       </article>`;
@@ -265,8 +318,11 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
     renderCovenantTags();
   }
 
-  function importShare(text, request) {
+  async function importShare(text, request) {
     const { content } = parseLineupShare(text);
+    const names = [...content.Members.map(member => member.OperatorName), ...descriptionOperatorNames(content.Description)];
+    if (names.some(name => !Object.hasOwn(catalog.operators, name)))
+      await loadSelfSelected();
     if (!form.isConnected || request !== importRequest) return;
     validateLineupCatalog(content, catalog.operators, catalog.equipment);
     Object.assign(draft, { Description: '', AvailableStrategies: [], CovenantTags: [], ...content });
@@ -275,7 +331,8 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
   }
 
   for (const field of fields) form.elements[field].addEventListener('input', event => { draft[field] = event.target.value; });
-  form.elements.operatorQuery.addEventListener('input', renderPicker);
+  form.elements.operatorQuery.addEventListener('input', refreshPicker);
+  form.elements.operatorSelfSelected.addEventListener('change', refreshPicker);
   form.elements.operatorCovenant.addEventListener('change', renderPicker);
   for (const tab of tabs) {
     tab.addEventListener('click', () => selectPickerTab(tab));
@@ -346,7 +403,7 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
       const path = shortLinkPath($('#editor-import-text', form).value, location.origin);
       if (!path) throw new Error('请粘贴本站生成的阵容短链接。');
       const { share } = await api('share/' + path.slice(3));
-      importShare(share, request);
+      await importShare(share, request);
     }
     catch (failure) { if (request === importRequest) report(importStatus, failure.message, true); }
   });
@@ -359,7 +416,7 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
     try {
       if (file.size > 350_000) throw new Error('文件过大，请选择 ASP Assistant 导出的文本文件。');
       const value = await file.text();
-      if (form.isConnected && request === importRequest) importShare(value, request);
+      if (form.isConnected && request === importRequest) await importShare(value, request);
     } catch (failure) { if (request === importRequest) report(importStatus, failure.message, true); }
   });
   $('#editor-copy', form).addEventListener('click', async (event) => {

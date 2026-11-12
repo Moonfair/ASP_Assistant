@@ -284,6 +284,13 @@
                     <ListBoxItem Content="本局不可用" />
                 </ListBox></StackPanel>
                 </Expander>
+                <Expander Header="自选干员" Style="{StaticResource FilterSectionExpander}">
+                    <ListBox x:Name="SelfSelectedFilterList" Style="{StaticResource FilterChipListBox}"
+                             SelectedIndex="0" SelectionChanged="OnSelfSelectedFilterChanged">
+                        <ListBoxItem Content="否" />
+                        <ListBoxItem Content="是" />
+                    </ListBox>
+                </Expander>
                 <Expander Header="等阶" Style="{StaticResource FilterSectionExpander}">
                     <StackPanel><ListBox x:Name="TierFilterList"
                          controls:FilterChipSelection.IsEnabled="True"

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 
@@ -15,7 +16,7 @@ public partial class LineupMemberViewModel : ObservableObject
     public string Equipment2 { get => EquipmentSlots[1].Name; set => EquipmentSlots[1].Name = value; }
     public string Equipment1IconPath => EquipmentSlots[0].IconPath;
     public string Equipment2IconPath => EquipmentSlots[1].IconPath;
-    public bool CanBecomeElite => Operator is { Tier: > 0 };
+    public bool CanBecomeElite => Operator?.CanBecomeElite == true;
     [ObservableProperty] private bool _isStackingCore;
     [ObservableProperty] private bool _isDamageCore;
     [ObservableProperty] private bool _isElite;
@@ -78,12 +79,13 @@ public sealed partial class LineupCovenantOption(string name, bool isSelected) :
 public partial class LineupEditorViewModel : ObservableObject
 {
     private readonly List<Operator> _operators;
+    private readonly OperatorCatalog? _catalog;
     private readonly LineupShareService _share;
     private readonly Guid _id;
     private readonly bool _isImported;
     private readonly string? _publishedLink;
     private readonly Dictionary<string, Equipment> _equipment;
-    public OperatorBrowseViewModel OperatorBrowser { get; } = new();
+    public OperatorBrowseViewModel OperatorBrowser { get; }
     public EquipmentBrowseViewModel EquipmentBrowser { get; } = new();
     [ObservableProperty] private LineupMemberViewModel? _selectedMember;
     [ObservableProperty] private object? _catalogPreview;
@@ -99,7 +101,7 @@ public partial class LineupEditorViewModel : ObservableObject
     private readonly ObservableCollection<LineupMemberViewModel> _members = [];
     public ReadOnlyObservableCollection<LineupMemberViewModel> Members { get; }
     public IReadOnlyList<string> EquipmentNames { get; }
-    public IReadOnlyList<Operator> CatalogOperators => _operators;
+    public IReadOnlyList<Operator> CatalogOperators => [.. _operators, .. _catalog?.SelfSelected ?? []];
     public IReadOnlyList<LineupStrategyOption> StrategyOptions { get; }
     public IReadOnlyList<LineupCovenantOption> CovenantTagOptions { get; }
     public string CovenantTagSummary
@@ -117,19 +119,22 @@ public partial class LineupEditorViewModel : ObservableObject
         .FirstOrDefault(option => option.Strategy.Name == name)?.Strategy.IconPath;
     public string? FindIcon(bool equipment, string name) => equipment
         ? _equipment.GetValueOrDefault(name)?.IconPath
-        : _operators.FirstOrDefault(op => op.Name == name)?.IconPath;
+        : FindOperator(name)?.IconPath;
+    private Operator? FindOperator(string name) => _catalog?.Find(name) ?? _operators.FirstOrDefault(op => op.Name == name);
     public string MemberCount => $"已选 {Members.Count} / {Lineup.MaxMembers}";
     public bool CanAddOperator => Members.Count < Lineup.MaxMembers;
     public bool IsNameMissing => string.IsNullOrWhiteSpace(Name);
     public bool IsAuthorMissing => string.IsNullOrWhiteSpace(Author);
 
     public LineupEditorViewModel(IEnumerable<Operator> operators, IEnumerable<Equipment> equipment, Lineup? lineup = null,
-        IEnumerable<Strategy>? strategies = null, IEnumerable<string>? covenantTags = null)
+        IEnumerable<Strategy>? strategies = null, IEnumerable<string>? covenantTags = null, OperatorCatalog? operatorCatalog = null)
     {
+        _catalog = operatorCatalog;
+        OperatorBrowser = new(operatorCatalog);
         _operators = operators.OrderBy(o => o.Tier).ThenBy(o => o.Name).ToList();
         var gear = equipment.ToList();
         _equipment = gear.ToDictionary(e => e.Name, StringComparer.Ordinal);
-        _share = LineupShareService.FromCatalog(_operators, gear.Select(e => e.Name));
+        _share = LineupShareService.FromCatalog(_operators, gear.Select(e => e.Name), operatorCatalog);
         EquipmentNames = ["", .. gear.OrderBy(e => e.Tier).ThenBy(e => e.Name).Select(e => e.Name).Distinct()];
         _id = lineup?.Id ?? Guid.NewGuid();
         _isImported = lineup?.IsImported ?? false;
@@ -172,7 +177,7 @@ public partial class LineupEditorViewModel : ObservableObject
 
     public void AddOperator(Operator op)
     {
-        if (!_operators.Any(o => o.Name == op.Name)) return;
+        if (FindOperator(op.Name) is null) return;
         if (Members.FirstOrDefault(m => m.OperatorName == op.Name) is { } existing)
         {
             SelectedMember = existing;
@@ -187,7 +192,7 @@ public partial class LineupEditorViewModel : ObservableObject
 
     private void AddMember(LineupMember member)
     {
-        var vm = new LineupMemberViewModel(member, _operators.FirstOrDefault(o => o.Name == member.OperatorName), _equipment);
+        var vm = new LineupMemberViewModel(member, FindOperator(member.OperatorName), _equipment);
         vm.PropertyChanged += MemberChanged;
         _members.Add(vm);
     }

@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using ASPAssistant.App.Controls;
 using ASPAssistant.App.Services;
 using ASPAssistant.Core;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
@@ -31,6 +32,7 @@ public partial class SidePanelWindow : Window
     private bool _waitingForScroll;
     private LineupLibraryViewModel? _lineupLibrary;
     private List<Operator> _lineupOperators = [];
+    private OperatorCatalog? _operatorCatalog;
     private List<Equipment> _lineupEquipment = [];
     private IReadOnlyList<Strategy> _lineupStrategies = [];
     private IReadOnlyList<string>? _lineupCovenantTags;
@@ -123,22 +125,36 @@ public partial class SidePanelWindow : Window
     }
 
     public void ConfigureLineups(LineupLibraryViewModel library, List<Operator> operators, List<Equipment> equipment,
-        IReadOnlyList<Strategy>? strategies = null, CovenantCatalog? covenantCatalog = null)
+        IReadOnlyList<Strategy>? strategies = null, CovenantCatalog? covenantCatalog = null, OperatorCatalog? operatorCatalog = null)
     {
         _lineupLibrary = library;
         _lineupOperators = operators;
+        _operatorCatalog = operatorCatalog;
         _lineupEquipment = equipment;
         _lineupStrategies = strategies ?? [];
         _lineupCovenantTags = covenantCatalog is null ? null :
             [.. covenantCatalog.CoreCovenants, .. covenantCatalog.AdditionalCovenants];
         if (covenantCatalog is { ActivationRules.Count: > 0 })
-            LineupView.ConfigureCovenantActivation(new(covenantCatalog, operators));
+            LineupView.ConfigureCovenantActivation(new(covenantCatalog, operators, operatorCatalog));
         LineupView.ConfigurePortraits(FindLineupOperatorIcon, BanVm.IsBanned, FindLineupStrategyIcon);
         LineupView.DataContext = library;
-        LineupView.ShareService = LineupShareService.FromCatalog(operators, equipment.Select(e => e.Name));
-        LineupView.NewRequested += () => TryOpenLineupEditor(null);
-        LineupView.EditRequested += lineup => TryOpenLineupEditor(lineup);
-        LineupView.PreviewRequested += OpenLineupPreview;
+        LineupView.ShareService = LineupShareService.FromCatalog(operators, equipment.Select(e => e.Name), operatorCatalog);
+        LineupView.PrepareOperatorsAsync = PrepareLineupOperatorsAsync;
+        LineupView.NewRequested += async () => await OpenLineupEditorAsync(null);
+        LineupView.EditRequested += async lineup => await OpenLineupEditorAsync(lineup);
+        LineupView.PreviewRequested += async lineup =>
+        {
+            await PrepareLineupOperatorsAsync(lineup);
+            OpenLineupPreview(lineup);
+        };
+        LineupView.IsVisibleChanged += async (_, args) =>
+        {
+            if (args.NewValue is not true || operatorCatalog is null || operatorCatalog.SelfSelected.Count > 0) return;
+            await operatorCatalog.LoadForNamesAsync(library.Lineups.SelectMany(lineup =>
+                lineup.Members.Select(member => member.OperatorName)));
+            if (operatorCatalog.SelfSelected.Count > 0)
+                LineupView.RefreshLineupCards();
+        };
         LineupView.TrackRequested += lineup =>
         {
             var added = TrackingVm.TrackLineup(lineup);
@@ -147,19 +163,25 @@ public partial class SidePanelWindow : Window
     }
 
     private Window? _catalogDetail;
+    private int _catalogDetailRequest;
     private LineupSiteClient? _lineupSite;
 
-    internal void ConfigureCatalogDetails(CatalogDetails details)
+    internal void ConfigureCatalogDetails(CatalogDetails details, Func<Task<Dictionary<string, List<OperatorSkill>>>> loadSelfSelectedSkills)
     {
-        OperatorView.AddHandler(OperatorCard.DetailRequestedEvent, new RoutedEventHandler((_, e) =>
+        var selfSelectedSkills = new Lazy<Task<Dictionary<string, List<OperatorSkill>>>>(loadSelfSelectedSkills);
+        OperatorView.AddHandler(OperatorCard.DetailRequestedEvent, new RoutedEventHandler(async (_, e) =>
         {
-            if (e.OriginalSource is OperatorCard { DataContext: Operator op })
-                OpenCatalogDetail(new CatalogDetailWindow(op, details, _lineupEquipment, _lineupSite));
+            if (e.OriginalSource is not OperatorCard { DataContext: Operator op }) return;
+            var request = ++_catalogDetailRequest;
+            var operatorDetails = op.SelfSelected ? details with { Skills = await selfSelectedSkills.Value } : details;
+            if (request == _catalogDetailRequest && IsLoaded)
+                OpenCatalogDetail(new CatalogDetailWindow(op, operatorDetails, _lineupEquipment, _lineupSite));
         }));
         EquipmentView.AddHandler(EquipmentCard.DetailRequestedEvent, new RoutedEventHandler((_, e) =>
         {
-            if (e.OriginalSource is EquipmentCard { DataContext: Equipment equipment })
-                OpenCatalogDetail(new CatalogDetailWindow(equipment, details));
+            if (e.OriginalSource is not EquipmentCard { DataContext: Equipment equipment }) return;
+            _catalogDetailRequest++;
+            OpenCatalogDetail(new CatalogDetailWindow(equipment, details));
         }));
     }
 
@@ -214,7 +236,12 @@ public partial class SidePanelWindow : Window
         return LineupView.ImportClipboardAsync(this, hash);
     }
 
-    private string? FindLineupOperatorIcon(string name) => _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath;
+    private Task PrepareLineupOperatorsAsync(Lineup lineup) =>
+        _operatorCatalog?.LoadForNamesAsync(lineup.Members.Select(member => member.OperatorName)
+            .Concat(LineupMarkdown.FindOperatorReferences(lineup.Description))) ?? Task.CompletedTask;
+
+    private string? FindLineupOperatorIcon(string name) => _operatorCatalog?.FindPortrait(name)
+        ?? _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath;
     private string? FindLineupStrategyIcon(string name) => _lineupStrategies.FirstOrDefault(strategy => strategy.Name == name)?.IconPath;
 
     private void OpenLineupPreview(Lineup lineup)
@@ -234,17 +261,19 @@ public partial class SidePanelWindow : Window
         window.Show();
     }
 
-    private bool TryOpenLineupEditor(Lineup? lineup)
+    private async Task OpenLineupEditorAsync(Lineup? lineup)
     {
-        if (_lineupLibrary is null) return false;
+        if (_lineupLibrary is null) return;
+        if (lineup is not null) await PrepareLineupOperatorsAsync(lineup);
         if (_lineupEditor is { } existing)
         {
             existing.BringForward(existing.IsComplete
                 ? "当前阵容已保存。请先点击“完成”关闭窗口。"
                 : "已有阵容正在编辑，请先保存或取消当前编辑。");
-            return false;
+            return;
         }
-        var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup, _lineupStrategies, _lineupCovenantTags);
+        var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup,
+            _lineupStrategies, _lineupCovenantTags, _operatorCatalog);
         vm.OperatorBrowser.SetBanChecker(BanVm.IsBanned);
         vm.OperatorBrowser.CovenantAvailability = OperatorBrowseVm.CovenantAvailability;
         void RefreshEditorBans() => Dispatcher.Invoke(() => vm.OperatorBrowser.NotifyBansChanged());
@@ -275,7 +304,6 @@ public partial class SidePanelWindow : Window
         };
         _lineupEditor = editor;
         editor.Show();
-        return true;
     }
 
     public void UpdateManualScanStatus(int pending)
@@ -335,9 +363,19 @@ public partial class SidePanelWindow : Window
 
     private void OnCloseSettings(object sender, RoutedEventArgs e) => SetSettingsVisible(false);
 
+    internal void ConfigureMarkerCalibration(OverlayWindow overlay)
+    {
+        MarkerCalibrationToggle.Checked += (_, _) => overlay.SetMarkerCalibration(true);
+        MarkerCalibrationToggle.Unchecked += (_, _) => overlay.SetMarkerCalibration(false);
+        ResetMarkerOffsetButton.Click += (_, _) => overlay.ResetMarkerOffset();
+        overlay.MarkerOffsetSaveCompleted += saved =>
+            MarkerOffsetSaveError.Visibility = saved ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     private void SetSettingsVisible(bool visible)
     {
         if (visible) RefreshSettingsLineupAccount();
+        else MarkerCalibrationToggle.IsChecked = false;
         SettingsPage.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         MainContent.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
         UpdateFilterHost();
@@ -418,7 +456,7 @@ public partial class SidePanelWindow : Window
             var game = ToWindowCoordinates(gameRect);
             if (!_isUserPositioned)
             {
-                Left = GetAttachedLeft(gameRect, game, attachInside);
+                PositionFilterSidebar();
                 Top = game.Top;
             }
 
@@ -441,24 +479,6 @@ public partial class SidePanelWindow : Window
             : rect;
     }
 
-    private double GetAttachedLeft(RECT gameRect, Rect game, bool attachInside)
-    {
-        if (_sidebarWidth != ExpandedSidebarWidth && !attachInside)
-            return game.Right - _sidebarWidth;
-
-        var monitor = ToWindowCoordinates(User32.GetMonitorRect(gameRect.Right - 1, gameRect.Top));
-        if (_sidebarWidth != ExpandedSidebarWidth)
-            return monitor.Right - Width;
-
-        var rightSpace = monitor.Right - game.Right;
-        var leftSpace = game.Left - monitor.Left;
-        if (rightSpace >= Width) return game.Right;
-        if (leftSpace >= Width) return game.Left - Width;
-
-        // Keep the panel visible and use the side with less overlap when neither side fits.
-        return leftSpace > rightSpace ? monitor.Left : Math.Max(monitor.Left, monitor.Right - Width);
-    }
-
     private void OnLocationChanged(object? sender, EventArgs e)
     {
         if (!_isProgrammaticChange && !_isRestoring)
@@ -473,6 +493,7 @@ public partial class SidePanelWindow : Window
 
     private void OnStateChanged(object? sender, EventArgs e)
     {
+        if (WindowState == WindowState.Minimized) MarkerCalibrationToggle.IsChecked = false;
         if (_previousWindowState != WindowState.Normal && WindowState == WindowState.Normal)
         {
             _isRestoring = true;
