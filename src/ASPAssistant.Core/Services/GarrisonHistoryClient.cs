@@ -48,8 +48,9 @@ public sealed class GarrisonHistoryClient
             .Where(game => game?.AppCode == "arknights")
             .SelectMany(game => game!.BindingList ?? [])
             .OfType<RoleBinding>()
-            .Select(binding => new GarrisonRole(ReadUid(binding.Uid), binding.NickName ?? "", binding.GameId ?? 1))
+            .Select(binding => new GarrisonRole(ReadUid(binding.Uid), binding.NickName ?? "", binding.GameId ?? 1, binding.IsDefault))
             .Where(role => role.Uid.Length > 0 && role.Uid.All(char.IsAsciiDigit) && role.GameId > 0)
+            .OrderByDescending(role => role.IsDefault)
             .DistinctBy(role => role.Header)
             .ToArray();
         return new GarrisonSession(access.Cred!, access.Token!, Array.AsReadOnly(roles));
@@ -128,7 +129,7 @@ public sealed class GarrisonHistoryClient
     private sealed record GrantResponse(string? Cred, string? Token);
     private sealed record BindingResponse(List<GameBinding?>? List);
     private sealed record GameBinding(string? AppCode, List<RoleBinding?>? BindingList);
-    private sealed record RoleBinding(JsonElement Uid, string? NickName, int? GameId);
+    private sealed record RoleBinding(JsonElement Uid, string? NickName, int? GameId, bool IsDefault);
 }
 
 public sealed class GarrisonSession
@@ -141,7 +142,7 @@ public sealed class GarrisonSession
     public IReadOnlyList<GarrisonRole> Roles { get; }
 }
 
-public sealed record GarrisonRole(string Uid, string Name, int GameId)
+public sealed record GarrisonRole(string Uid, string Name, int GameId, bool IsDefault)
 {
     public string DisplayName => string.IsNullOrWhiteSpace(Name) ? Uid : $"{Name} · {Uid}";
     internal string Header => $"{GameId}_{Uid}_0";

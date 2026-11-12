@@ -12,6 +12,12 @@ internal static class HypergryphPassport
         uri.Scheme == Uri.UriSchemeHttps && uri.IsDefaultPort && uri.UserInfo.Length == 0 &&
         uri.Host == LoginUri.Host;
 
+    internal static bool IsSessionSaved(string url, string method, int status) =>
+        method == "POST" && status is >= 200 and < 300 &&
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+        uri.Scheme == Uri.UriSchemeHttps && uri.IsDefaultPort && uri.UserInfo.Length == 0 &&
+        uri.Host == "web-api.hypergryph.com" && uri.AbsolutePath == "/account/info/hg";
+
     internal static async Task<string?> RequestHistoryGrantAsync(CoreWebView2 webView, CancellationToken cancellationToken)
     {
         if (!IsPassportPage(webView.Source)) return null;
@@ -19,8 +25,11 @@ internal static class HypergryphPassport
         // The official SDK handles the passport session and any provider consent UI.
         // Transfer only the one-use code for the Skland service.
         const string script = """
-            (() => {
+            (async () => {
                 if (location.origin !== "https://user.hypergryph.com") return null;
+                for (let attempt = 0; attempt < 40 && !window.HG_ACCOUNT_SDK?.User?.UI; attempt++) {
+                    await new Promise(resolve => setTimeout(resolve, 250));
+                }
                 const accountUi = window.HG_ACCOUNT_SDK?.User?.UI;
                 if (typeof accountUi?.inheritSession !== "function") return { sdkReady: false };
                 return new Promise(resolve => {

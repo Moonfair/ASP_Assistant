@@ -43,14 +43,15 @@ public sealed class GarrisonHistoryClientTests
             if (path.EndsWith("/binding"))
                 return Json("""
                     {"code":0,"data":{"list":[{"appCode":"endfield","bindingList":[{"uid":"9"}]},
-                        {"appCode":"arknights","bindingList":[{"gameId":1,"uid":"123","nickName":"博士"}]}]}}
+                        {"appCode":"arknights","bindingList":[{"gameId":1,"uid":"456","nickName":"另一个角色"}, {"gameId":1,"uid":"123","nickName":"博士","isDefault":true}]}]}}
                     """);
             Assert.Equal("1_123_0", Assert.Single(request.Headers.GetValues("sk-game-role")));
             return Json("""{"code":0,"data":{"records":[{"id":"record1","activityId":"act3autochess"}]}}""");
         }));
         var client = new GarrisonHistoryClient(http, new FixedClock());
         var session = await client.AuthorizeAsync("one-use-grant", default);
-        var role = Assert.Single(session.Roles);
+        Assert.Equal(2, session.Roles.Count);
+        var role = session.Roles[0];
         Assert.Equal("博士", role.Name);
         var result = await client.FetchAsync(session, role, default);
         Assert.Equal("record1", Assert.Single(result.Records).Id);

@@ -19,18 +19,22 @@ public partial class GarrisonHistoryWindow : Window
     private readonly GarrisonHistoryLineupConverter _converter;
     private readonly LineupShareService _share;
     private readonly Func<Lineup, bool> _openEditor;
+    private readonly Func<bool, string, string?> _findIcon;
     private readonly CancellationTokenSource _lifetime = new();
     private GarrisonSession? _session;
     private bool _closed;
     private bool _copying;
     private bool _opening;
     private bool _pulling;
+    private bool _autoLoadPending;
 
-    public GarrisonHistoryWindow(GarrisonHistoryLineupConverter converter, LineupShareService share, Func<Lineup, bool> openEditor)
+    public GarrisonHistoryWindow(GarrisonHistoryLineupConverter converter, LineupShareService share,
+        Func<Lineup, bool> openEditor, Func<bool, string, string?> findIcon)
     {
         _converter = converter;
         _share = share;
         _openEditor = openEditor;
+        _findIcon = findIcon;
         InitializeComponent();
         Browser.CreationProperties = new CoreWebView2CreationProperties
         {
@@ -50,7 +54,6 @@ public partial class GarrisonHistoryWindow : Window
     {
         if (_opening || _pulling) return;
         _opening = true;
-        PullButton.IsEnabled = false;
         Status.Text = "正在打开鹰角官网…";
         try
         {
@@ -65,6 +68,7 @@ public partial class GarrisonHistoryWindow : Window
                 webView.NavigationStarting += OnNavigationStarting;
                 webView.NavigationCompleted += OnNavigationCompleted;
                 webView.NewWindowRequested += OnNewWindowRequested;
+                webView.WebResourceResponseReceived += OnPassportResponse;
             }
             webView.Navigate(HypergryphPassport.LoginUri.AbsoluteUri);
         }
@@ -82,6 +86,7 @@ public partial class GarrisonHistoryWindow : Window
     private async void OnReload(object sender, RoutedEventArgs e)
     {
         if (_pulling || _opening) return;
+        _autoLoadPending = false;
         ResetSession();
         Records.ItemsSource = null;
         await OpenSourceAsync();
@@ -92,20 +97,16 @@ public partial class GarrisonHistoryWindow : Window
         _session = null;
         RolePicker.ItemsSource = null;
         RolePicker.Visibility = Visibility.Collapsed;
-        PullButton.Content = "授权并拉取";
     }
 
-    private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
-    {
-        e.Cancel = !HypergryphPassport.IsPassportPage(e.Uri);
-        if (!e.Cancel && !_pulling) PullButton.IsEnabled = false;
-    }
+    private static void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+        => e.Cancel = !HypergryphPassport.IsPassportPage(e.Uri);
 
     private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
-        if (_closed || _pulling || e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
-        PullButton.IsEnabled = e.IsSuccess;
-        Status.Text = e.IsSuccess ? "" : "鹰角官网加载失败，请检查网络后重新打开。";
+        if (_closed || e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
+        if (e.IsSuccess) QueueAutoLoad();
+        else if (!_pulling) Status.Text = "鹰角官网加载失败，请检查网络后重新打开。";
     }
 
     private static void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
@@ -115,11 +116,54 @@ public partial class GarrisonHistoryWindow : Window
             webView.Navigate(e.Uri);
     }
 
-    private async void OnPull(object sender, RoutedEventArgs e)
+    private void OnPassportResponse(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
     {
-        if (_pulling || _opening || Browser.CoreWebView2 is not { } webView) return;
+        if (!_closed && sender is CoreWebView2 webView &&
+            HypergryphPassport.IsPassportPage(webView.Source) &&
+            HypergryphPassport.IsSessionSaved(e.Request.Uri, e.Request.Method, e.Response.StatusCode))
+            QueueAutoLoad();
+    }
+
+    private void QueueAutoLoad()
+    {
+        if (_closed || _session is not null) return;
+        _autoLoadPending = true;
+        if (!_pulling) _ = LoadAfterPassportSignalAsync();
+    }
+
+    private async Task LoadAfterPassportSignalAsync()
+    {
+        while (_autoLoadPending && !_closed && _session is null && !_pulling)
+        {
+            _autoLoadPending = false;
+            await LoadHistoryAsync();
+        }
+    }
+
+    private async void OnRefresh(object sender, RoutedEventArgs e)
+    {
+        if (_session is null)
+        {
+            HistoryTabs.SelectedItem = SourceTab;
+            QueueAutoLoad();
+            return;
+        }
+
+        await LoadHistoryAsync();
+    }
+
+    private async void OnRoleChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_pulling || _session is null || RolePicker.SelectedItem is not GarrisonRole) return;
+        Records.ItemsSource = null;
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        if (_closed || _pulling || Browser.CoreWebView2 is not { } webView) return;
         _pulling = true;
-        PullButton.IsEnabled = false;
+        RefreshButton.IsEnabled = false;
         ReloadButton.IsEnabled = false;
         RolePicker.IsEnabled = false;
         var cancellationToken = _lifetime.Token;
@@ -127,40 +171,37 @@ public partial class GarrisonHistoryWindow : Window
         {
             if (_session is null)
             {
-                Status.Text = "正在向鹰角请求战绩授权…";
+                Status.Text = "正在检查鹰角登录状态…";
                 var code = await HypergryphPassport.RequestHistoryGrantAsync(webView, cancellationToken);
-                if (string.IsNullOrWhiteSpace(code))
-                    throw new GarrisonAuthorizationException("未取得战绩授权。请确认已登录鹰角通行证，再点击「授权并拉取」。");
-
-                var session = await _client.AuthorizeAsync(code, cancellationToken);
                 if (_closed) return;
-                if (session.Roles.Count == 0)
+                if (string.IsNullOrWhiteSpace(code))
                 {
-                    Status.Text = "这个鹰角通行证没有可读取战绩的明日方舟角色。";
+                    Status.Text = "";
                     return;
                 }
 
+                HistoryTabs.SelectedItem = RecordsTab;
+                Status.Text = "正在读取明日方舟角色…";
+                var session = await _client.AuthorizeAsync(code, cancellationToken);
+                if (_closed) return;
                 _session = session;
+                _autoLoadPending = false;
                 RolePicker.ItemsSource = session.Roles;
-                RolePicker.SelectedIndex = session.Roles.Count == 1 ? 0 : -1;
+                RolePicker.SelectedIndex = session.Roles.Count > 0 ? 0 : -1;
                 RolePicker.Visibility = session.Roles.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
-                PullButton.Content = "拉取战绩";
             }
 
             if (RolePicker.SelectedItem is not GarrisonRole role)
             {
-                Status.Text = "请选择明日方舟角色，再点击「拉取战绩」。";
+                ShowHistoryRows([], "这个鹰角通行证没有可读取战绩的明日方舟角色。");
                 return;
             }
 
-            Status.Text = "正在读取战绩并匹配阵容…";
+            Status.Text = "正在拉取战绩…";
             var result = await _client.FetchAsync(_session, role, cancellationToken);
             var entries = await ConvertRowsAsync(result, cancellationToken);
-            if (_closed) return;
-            Records.ItemsSource = entries;
-            Records.SelectedIndex = entries.Count == 0 ? -1 : 0;
-            HistoryTabs.SelectedItem = RecordsTab;
-            Status.Text = entries.Count == 0 ? "这个角色当前赛季没有战绩。" : $"已拉取 {entries.Count} 场战绩。";
+            if (!_closed)
+                ShowHistoryRows(entries, entries.Count == 0 ? "这个角色当前赛季没有战绩。" : $"已拉取 {entries.Count} 场战绩。");
         }
         catch (GarrisonAuthorizationException ex)
         {
@@ -181,12 +222,22 @@ public partial class GarrisonHistoryWindow : Window
             _pulling = false;
             if (!_closed)
             {
-                PullButton.IsEnabled = true;
+                RefreshButton.IsEnabled = HistoryTabs.SelectedItem == RecordsTab;
                 ReloadButton.IsEnabled = true;
                 RolePicker.IsEnabled = true;
             }
         }
     }
+
+    private void ShowHistoryRows(IReadOnlyList<HistoryRow> entries, string status)
+    {
+        var selectedId = SelectedRow?.Record.Id;
+        Records.ItemsSource = entries;
+        Records.SelectedItem = entries.FirstOrDefault(entry => entry.Record.Id == selectedId) ?? entries.FirstOrDefault();
+        HistoryTabs.SelectedItem = RecordsTab;
+        Status.Text = status;
+    }
+
 
     private async Task<List<HistoryRow>> ConvertRowsAsync(GarrisonHistoryResult result, CancellationToken cancellationToken)
     {
@@ -230,7 +281,10 @@ public partial class GarrisonHistoryWindow : Window
         var lineup = row?.Export.Lineup;
         RecordTitle.Text = row?.Title ?? "选择一场历史对局";
         RecordStrategy.Text = lineup?.AvailableStrategies.FirstOrDefault() is { } strategy ? "策略 · " + strategy : "";
-        Members.ItemsSource = lineup?.Members;
+        Members.ItemsSource = lineup?.Members.Select(member => new HistoryMember(
+            member.OperatorName, member.IsElite, _findIcon(false, member.OperatorName),
+            member.EquipmentSlots.Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => new HistoryEquipment(name, _findIcon(true, name))).ToArray())).ToArray();
         var notes = row?.Export.Omissions ?? [];
         Omissions.Text = lineup is null && row is not null && notes.Count == 0
             ? "这场战绩没有可导出的干员。"
@@ -274,6 +328,8 @@ public partial class GarrisonHistoryWindow : Window
         _closed = true;
         _lifetime.Cancel();
         _session = null;
+        if (Browser.CoreWebView2 is { } webView)
+            webView.WebResourceResponseReceived -= OnPassportResponse;
         Browser.Dispose();
         _lifetime.Dispose();
         base.OnClosed(e);
@@ -281,15 +337,18 @@ public partial class GarrisonHistoryWindow : Window
 
     private sealed record HistoryRow(GarrisonRecord Record, GarrisonLineupExport Export)
     {
-        public string Title => string.Join(" · ", new[]
+        public string Time => Record.EndedAt?.ToLocalTime().ToString("MM-dd HH:mm") ?? "历史战绩";
+        public string Rounds => Record.PassedRounds is { } rounds ? $"{rounds} 回合" : "";
+        public string ModeAndDifficulty => Join(Record.ModeName, Record.Difficulty switch
         {
-            Record.EndedAt?.ToLocalTime().ToString("MM-dd HH:mm") ?? "历史战绩",
-            Record.ModeName,
-            Record.Difficulty switch
-            {
-                "FUNNY" => "趣味", "NORMAL" => "标准", "HARD" => "困难", "ABYSS" => "绝境", _ => Record.Difficulty
-            },
-            Record.PassedRounds is { } rounds ? $"{rounds} 回合" : null
-        }.Where(part => !string.IsNullOrWhiteSpace(part)));
+            "FUNNY" => "趣味", "NORMAL" => "标准", "HARD" => "困难", "ABYSS" => "绝境", _ => Record.Difficulty
+        });
+        public string Title => Join(Time, ModeAndDifficulty, Rounds);
+
+        private static string Join(params string?[] parts) =>
+            string.Join(" · ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
+
+    private sealed record HistoryMember(string Name, bool IsElite, string? IconPath, IReadOnlyList<HistoryEquipment> Equipment);
+    private sealed record HistoryEquipment(string Name, string? IconPath);
 }

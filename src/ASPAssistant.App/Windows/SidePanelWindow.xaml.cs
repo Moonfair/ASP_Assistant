@@ -162,7 +162,7 @@ public partial class SidePanelWindow : Window
             _lineupOperators,
             _lineupEquipment.Select(item => item.Name),
             _lineupStrategies.Select(item => item.Name));
-        var window = new GarrisonHistoryWindow(converter, share, TryOpenLineupEditor) { Owner = this };
+        var window = new GarrisonHistoryWindow(converter, share, TryOpenLineupEditor, FindLineupIcon) { Owner = this };
         window.Closed += (_, _) => _garrisonHistory = null;
         _garrisonHistory = window;
         window.Show();
@@ -209,12 +209,14 @@ public partial class SidePanelWindow : Window
     private string? FindLineupOperatorIcon(string name) => _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath;
     private string? FindLineupStrategyIcon(string name) => _lineupStrategies.FirstOrDefault(strategy => strategy.Name == name)?.IconPath;
 
+    private string? FindLineupIcon(bool equipment, string name) => equipment
+        ? _lineupEquipment.FirstOrDefault(item => item.Name == name)?.IconPath
+        : FindLineupOperatorIcon(name);
+
     private void OpenLineupPreview(Lineup lineup)
     {
         var preview = new ASPAssistant.App.Views.LineupPreviewView { Margin = new Thickness(18) };
-        preview.ShowLineup(lineup, (equipment, name) => equipment
-            ? _lineupEquipment.FirstOrDefault(item => item.Name == name)?.IconPath
-            : FindLineupOperatorIcon(name), FindLineupStrategyIcon);
+        preview.ShowLineup(lineup, FindLineupIcon, FindLineupStrategyIcon);
         var window = new Window
         {
             Title = "阵容预览 · ASP Assistant",
