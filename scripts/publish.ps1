@@ -71,6 +71,10 @@ $requiredPayload = @('ASPAssistant.App.exe', 'ASPAssistant.App.dll', 'ASPAssista
     'data/operators.json', 'data/self-selected-operators.json', 'data/equipment.json', 'data/covenants.json', 'data/strategies.json',
     'data/operator_skills.json', 'data/self-selected-operator-skills.json', 'data/catalog_tips.json',
     'data/model/ocr/det.onnx', 'data/model/ocr/rec.onnx', 'data/model/ocr/keys.txt',
+    'data/maa_resource/image/hud/round-modern.png', 'data/maa_resource/image/hud/round-classic.png',
+    'data/maa_resource/image/hud/gold-modern.png', 'data/maa_resource/image/hud/gold-classic.png',
+    'data/maa_resource/image/hud/level-modern.png', 'data/maa_resource/image/hud/level-classic.png',
+    'data/maa_resource/image/hud/level-light.png', 'data/maa_resource/image/hud/upgrade-badge.png',
     'runtimes/win-x64/native/MaaFramework.dll', 'runtimes/win-x64/native/onnxruntime_maa.dll') +
     @($requiredCrt | ForEach-Object { "runtimes/win-x64/native/$_" })
 foreach ($name in $requiredPayload) {

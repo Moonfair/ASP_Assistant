@@ -145,6 +145,48 @@
                         <TextBlock x:Name="PreparationStatusText" Text="自动 BP 检测已开启，等待准备界面"
                                    Foreground="#FF8CDDE5" FontSize="11" TextWrapping="Wrap" />
                     </Border>
+                    <Border x:Name="MatchStatusBar" DockPanel.Dock="Top" Padding="8,5"
+                            Background="#FF182736" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
+                            DataContext="{Binding GameStateVm, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <UniformGrid Rows="1">
+                            <UniformGrid.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextAlignment" Value="Center" />
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                    <Setter Property="FontSize" Value="11" />
+                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                </Style>
+                                <Style x:Key="MatchStatusValue" TargetType="Run">
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                </Style>
+                            </UniformGrid.Resources>
+                            <TextBlock>
+                                <Run Text="回合 " /><Run Style="{StaticResource MatchStatusValue}"
+                                     Text="{Binding Hud.Round, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                            </TextBlock>
+                            <StackPanel>
+                                <TextBlock>
+                                    <Run Text="升级费用 " /><Run Style="{StaticResource MatchStatusValue}"
+                                         Text="{Binding Hud.UpgradeCost, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                </TextBlock>
+                                <TextBlock>
+                                    <Run Text="商店等级 " /><Run Style="{StaticResource MatchStatusValue}"
+                                         Text="{Binding Hud.ShopLevel, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                </TextBlock>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock>
+                                    <Run Text="金币 " /><Run Style="{StaticResource MatchStatusValue}"
+                                         Text="{Binding Hud.Gold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                </TextBlock>
+                                <TextBlock>
+                                    <Run Text="下回合金币 " /><Run Style="{StaticResource MatchStatusValue}"
+                                         Text="{Binding Hud.NextRoundGold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                </TextBlock>
+                            </StackPanel>
+                        </UniformGrid>
+                    </Border>
                     <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}">
                         <TabItem Header="干员">
                             <views:OperatorBrowseView x:Name="OperatorView" />

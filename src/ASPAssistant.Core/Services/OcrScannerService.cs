@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using System.Diagnostics;
 using System.Timers;
 using ASPAssistant.Core.GameModes;
+using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 using Timer = System.Timers.Timer;
@@ -15,6 +16,7 @@ public class OcrScannerService : IDisposable
     private GameTarget? _recognitionTarget;
     private readonly IOcrStrategy _ocrStrategy;
     private readonly ShopRecognizer _shopRecognizer;
+    private readonly GarrisonHudRecognizer? _hudRecognizer;
     private readonly IOcrEngine _ocrEngine;
     private readonly GameState.GameState _gameState;
     private readonly Func<IReadOnlyList<string>> _getTrackedNames;
@@ -61,12 +63,14 @@ public class OcrScannerService : IDisposable
         Func<IReadOnlyList<BanCandidate>>? getAllOperators = null,
         CovenantCatalog? covenantCatalog = null,
         int intervalMs = 3000,
-        IReadOnlyList<string>? shopNames = null)
+        IReadOnlyList<string>? shopNames = null,
+        GarrisonHudRecognizer? hudRecognizer = null)
     {
         _captureService = captureService;
         _selection = selection;
         _ocrStrategy = ocrStrategy;
         _shopRecognizer = new ShopRecognizer(ocrEngine, shopNames);
+        _hudRecognizer = hudRecognizer;
         _ocrEngine = ocrEngine;
         _gameState = gameState;
         _getTrackedNames = getTrackedNames;
@@ -111,7 +115,7 @@ public class OcrScannerService : IDisposable
             return;
         }
         var timing = Stopwatch.StartNew();
-        long captureMs = 0, preparationMs = 0, targetMs = 0, shopMs = 0, publishMs = 0;
+        long captureMs = 0, preparationMs = 0, hudMs = 0, targetMs = 0, shopMs = 0, publishMs = 0;
         try
         {
             var target = _selection.Current;
@@ -122,12 +126,14 @@ public class OcrScannerService : IDisposable
             if (screenshot == null)
             {
                 _preparation?.NotifyCaptureUnavailable();
+                bool changed = UpdateHud(default);
                 if (target is { Kind: not GameTargetKind.Windows } && _gameState.ShopItems.Count > 0)
                 {
                     _stabilizer.Reset();
                     _gameState.ShopItems = [];
-                    if (IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
+                    changed = true;
                 }
+                if (changed && IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
                 return;
             }
 
@@ -138,29 +144,40 @@ public class OcrScannerService : IDisposable
             {
                 await _preparation.ProcessAsync(screenshot);
                 preparationMs = timing.ElapsedMilliseconds - captureMs;
-                if (!IsCurrentTarget || _preparation.Phase != PreparationPhase.None) return;
+                if (!IsCurrentTarget) return;
+                if (_preparation.Phase != PreparationPhase.None)
+                {
+                    if (UpdateHud(default) && IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
+                    return;
+                }
             }
 
+            var hud = _hudRecognizer == null ? default : await _hudRecognizer.RecognizeAsync(screenshot);
+            hudMs = timing.ElapsedMilliseconds - captureMs - preparationMs;
+            if (!IsCurrentTarget) return;
             var regions = _ocrStrategy.GetScanRegions();
 
             var shopRegion = regions.FirstOrDefault(r => r.Name == "Shop");
             if (shopRegion == null)
+            {
+                if (UpdateHud(hud) && IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
                 return;
+            }
 
             var trackedNames = _getTrackedNames();
-            targetMs = timing.ElapsedMilliseconds - captureMs - preparationMs;
+            targetMs = timing.ElapsedMilliseconds - captureMs - preparationMs - hudMs;
             var rawItems = await _shopRecognizer.RecognizeAsync(
                 screenshot, imgWidth, imgHeight, trackedNames, shopRegion);
-            shopMs = timing.ElapsedMilliseconds - captureMs - preparationMs - targetMs;
+            shopMs = timing.ElapsedMilliseconds - captureMs - preparationMs - hudMs - targetMs;
             if (!IsCurrentTarget) return;
 
-            // Only raise GameStateUpdated when the stable operator set actually changes.
-            if (_stabilizer.TryUpdate(rawItems, out var stableItems))
-            {
+            bool shopChanged = _stabilizer.TryUpdate(rawItems, out var stableItems);
+            if (shopChanged)
                 _gameState.ShopItems = stableItems.ToList();
+            bool hudChanged = UpdateHud(hud);
+            if ((hudChanged || shopChanged) && IsCurrentTarget)
                 GameStateUpdated?.Invoke(target, _gameState);
-            }
-            publishMs = timing.ElapsedMilliseconds - captureMs - preparationMs - targetMs - shopMs;
+            publishMs = timing.ElapsedMilliseconds - captureMs - preparationMs - hudMs - targetMs - shopMs;
         }
         catch (Exception ex)
         {
@@ -175,7 +192,7 @@ public class OcrScannerService : IDisposable
             {
                 _lastTimingLog = now;
                 AppLogger.Info("OcrScanner", $"Scan timing: total={timing.ElapsedMilliseconds}ms capture={captureMs}ms "
-                    + $"preparation={preparationMs}ms targets={targetMs}ms shop={shopMs}ms publish={publishMs}ms "
+                    + $"preparation={preparationMs}ms hud={hudMs}ms targets={targetMs}ms shop={shopMs}ms publish={publishMs}ms "
                     + $"interval={_scanTimer.Interval}ms skippedTicks={Interlocked.Exchange(ref _skippedTicks, 0)} "
                     + $"pendingManual={Volatile.Read(ref _pendingManualScans)}");
             }
@@ -247,6 +264,13 @@ public class OcrScannerService : IDisposable
 
     private bool IsCurrentTarget => ReferenceEquals(_recognitionTarget, _selection.Current);
 
+    private bool UpdateHud(GarrisonHud hud)
+    {
+        if (_gameState.Hud == hud) return false;
+        _gameState.Hud = hud;
+        return true;
+    }
+
     private void UseTarget(GameTarget? target)
     {
         if (ReferenceEquals(_recognitionTarget, target)) return;
@@ -254,6 +278,7 @@ public class OcrScannerService : IDisposable
         _stabilizer.Reset();
         _preparation?.ResetTarget();
         _gameState.ShopItems = [];
+        _gameState.Hud = default;
         if (IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
     }
 

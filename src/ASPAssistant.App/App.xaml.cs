@@ -167,7 +167,8 @@ public partial class App : Application
                 new BanCandidate(o.Name, o.CoreCovenants, o.AdditionalCovenants, [])).ToList(),
             covenantCatalog: covenantCatalog,
             intervalMs: 500,
-            shopNames: shopOperators.Select(o => o.Name).Concat(equipment.Select(e => e.Name)).ToList());
+            shopNames: shopOperators.Select(o => o.Name).Concat(equipment.Select(e => e.Name)).ToList(),
+            hudRecognizer: new GarrisonHudRecognizer(ocrEngine));
 
         _windowTracker = new WindowTrackerService(_gameTarget);
 

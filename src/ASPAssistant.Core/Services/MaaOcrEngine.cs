@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Text.Json;
 using MaaFramework.Binding;
 using MaaFramework.Binding.Buffers;
@@ -20,6 +21,7 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
 {
     private readonly MaaTasker _tasker;
     private readonly NullController _nullController;
+    private readonly bool _hasHudTemplates;
 
     /// <param name="resourcePath">
     /// Directory that contains the <c>model/ocr/</c> folder with PaddleOCR ONNX files.
@@ -34,6 +36,10 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
 
         var ocrModelPath = Path.Combine(resourcePath, "model", "ocr");
         var resource = new MaaResource();
+        var bundlePath = Path.Combine(resourcePath, "maa_resource");
+        _hasHudTemplates = Directory.Exists(Path.Combine(bundlePath, "image", "hud"));
+        if (_hasHudTemplates)
+            resource.AppendBundle(bundlePath).Wait();
         resource.AppendOcrModel(ocrModelPath).Wait();
 
         _tasker = new MaaTasker(controller, resource, DisposeOptions.All);
@@ -57,20 +63,7 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
 
             var paramJson = $$"""{"roi":[{{x}},{{y}},{{width}},{{height}}]}""";
 
-            var job = _tasker.AppendRecognition("OCR", paramJson, imgBuf);
-            var status = job.Wait();
-            if (status != MaaJobStatus.Succeeded)
-                return [];
-
-            _tasker.GetTaskDetail(job.Id, out _, out long[]? nodeIds, out _);
-            if (nodeIds is not { Length: > 0 })
-                return [];
-
-            _tasker.GetNodeDetail(nodeIds[0], out _, out long recoId, out _, out _);
-            _tasker.GetRecognitionDetail(recoId, out _, out _, out _,
-                null, out string detailJson, null, null);
-
-            return ParseOcrDetail(detailJson);
+            return ParseOcrDetail(RunRecognition("OCR", paramJson, imgBuf));
         }
         catch
         {
@@ -78,11 +71,58 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
         }
     }
 
+    internal Rectangle? FindHudTemplate(MaaImageBuffer image, Rectangle area, double threshold,
+        string[] templates, bool greenMask = false)
+    {
+        if (!_hasHudTemplates) return null;
+        var parameters = JsonSerializer.Serialize(new
+        {
+            roi = new[] { area.X, area.Y, area.Width, area.Height },
+            template = templates.Select(name => $"hud/{name}.png").ToArray(),
+            order_by = "Score",
+            green_mask = greenMask,
+            threshold
+        });
+        using var box = new MaaRectBuffer();
+        return RunRecognition("TemplateMatch", parameters, image, box) != null
+            ? new Rectangle(box.X, box.Y, box.Width, box.Height)
+            : null;
+    }
+
+    internal string? ReadHudText(MaaImageBuffer image, Rectangle area, string expected)
+    {
+        var parameters = JsonSerializer.Serialize(new
+        {
+            roi = new[] { area.X, area.Y, area.Width, area.Height },
+            only_rec = true,
+            threshold = 0.60,
+            expected
+        });
+        var detail = RunRecognition("OCR", parameters, image);
+        if (string.IsNullOrEmpty(detail)) return null;
+        using var json = JsonDocument.Parse(detail);
+        return json.RootElement.TryGetProperty("best", out var best) && best.ValueKind == JsonValueKind.Object
+            ? best.GetProperty("text").GetString()
+            : null;
+    }
+
+    private string? RunRecognition(string type, string parameters, MaaImageBuffer image, MaaRectBuffer? box = null)
+    {
+        var job = _tasker.AppendRecognition(type, parameters, image);
+        if (job.Wait() != MaaJobStatus.Succeeded) return null;
+        _tasker.GetTaskDetail(job.Id, out _, out long[]? nodeIds, out _);
+        if (nodeIds is not { Length: > 0 }) return null;
+        _tasker.GetNodeDetail(nodeIds[0], out _, out long recognitionId, out _, out _);
+        _tasker.GetRecognitionDetail(recognitionId, out _, out _, out bool hit,
+            box, out string detail, null, null);
+        return box == null || hit ? detail : null;
+    }
+
     /// <summary>
     /// Parses the JSON returned by MaaFramework OCR recognition detail.
     /// Expected shape: <c>{"all":[{"text":"...","score":0.9,"box":[x,y,w,h]},...]}</c>
     /// </summary>
-    private static IReadOnlyList<OcrTextResult> ParseOcrDetail(string detailJson)
+    private static IReadOnlyList<OcrTextResult> ParseOcrDetail(string? detailJson)
     {
         if (string.IsNullOrWhiteSpace(detailJson))
             return [];

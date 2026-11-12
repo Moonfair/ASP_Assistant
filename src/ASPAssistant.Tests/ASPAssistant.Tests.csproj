@@ -36,5 +36,6 @@
     <Content Include="TestData\**\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\..\docs\screenshot.png" Link="TestData\shop-classic.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

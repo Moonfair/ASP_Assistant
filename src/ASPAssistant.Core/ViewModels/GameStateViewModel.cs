@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.ViewModels;
@@ -7,10 +8,7 @@ namespace ASPAssistant.Core.ViewModels;
 public partial class GameStateViewModel : ObservableObject
 {
     [ObservableProperty]
-    private int _currentRound;
-
-    [ObservableProperty]
-    private int _gold;
+    private GarrisonHud _hud;
 
     [ObservableProperty]
     private ObservableCollection<string> _fieldOperatorSummary = [];
@@ -26,8 +24,7 @@ public partial class GameStateViewModel : ObservableObject
 
     public void UpdateFromGameState(Core.GameState.GameState state)
     {
-        CurrentRound = state.CurrentRound;
-        Gold = state.Gold;
+        Hud = state.Hud;
 
         FieldOperatorSummary = new ObservableCollection<string>(
             state.FieldOperators.Select(o => $"{o.Name}×{o.Count}"));

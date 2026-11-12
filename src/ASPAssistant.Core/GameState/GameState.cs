@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.GameState;
@@ -6,10 +7,7 @@ namespace ASPAssistant.Core.GameState;
 public partial class GameState : ObservableObject
 {
     [ObservableProperty]
-    private int _currentRound;
-
-    [ObservableProperty]
-    private int _gold;
+    private GarrisonHud _hud;
 
     [ObservableProperty]
     private List<(string Name, int Count)> _fieldOperators = [];

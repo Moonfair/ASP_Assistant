@@ -20,7 +20,7 @@
   <ItemGroup>
     <Resource Include="Resources\AppIcon.png" />
     <None Update="LICENSE-FontAwesome.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <!-- Ship active catalogues and UI icons only. Legacy avatar/template matching is no longer used. -->
+    <!-- Ship active catalogues and UI resources. -->
     <Content Include="..\..\data\operators.json;..\..\data\self-selected-operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\strategies.json;..\..\data\source_metadata.json;..\..\data\operator_skills.json;..\..\data\self-selected-operator-skills.json;..\..\data\catalog_tips.json"
              Link="data\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -51,5 +51,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <Content Include="..\..\data\maa_resource\image\hud\*.png"
+             Link="data\maa_resource\image\hud\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

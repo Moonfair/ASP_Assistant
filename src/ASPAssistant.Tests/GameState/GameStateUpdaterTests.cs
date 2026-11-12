@@ -1,11 +1,27 @@
+using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Core.GameState;
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.ViewModels;
 using FluentAssertions;
 
 namespace ASPAssistant.Tests.GameState;
 
 public class GameStateUpdaterTests
 {
+    [Fact]
+    public void HudPreservesZeroGoldAndClearsWhenTheMatchIsUnavailable()
+    {
+        var viewModel = new GameStateViewModel();
+        viewModel.UpdateFromGameState(new Core.GameState.GameState { Hud = new GarrisonHud(12, null, 0, 5) });
+
+        Assert.Equal(new GarrisonHud(12, null, 0, 5), viewModel.Hud);
+        Assert.Equal(16, viewModel.Hud.NextRoundGold);
+
+        viewModel.UpdateFromGameState(new Core.GameState.GameState());
+        Assert.Equal(default, viewModel.Hud);
+        Assert.Null(viewModel.Hud.NextRoundGold);
+    }
+
     [Fact]
     public void UpdateShop_MatchesTrackedItems()
     {
