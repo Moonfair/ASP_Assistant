@@ -63,14 +63,49 @@
                                 <DataTemplate>
                                     <Border Style="{StaticResource DetailSection}">
                                         <StackPanel>
-                                            <TextBlock Style="{StaticResource DetailHeading}" TextWrapping="Wrap">
-                                                <Run Text="{Binding Slot, Mode=OneWay, StringFormat='技能 {0}'}" />
-                                                <Run Text=" · " /><Run Text="{Binding Name, Mode=OneWay}" />
-                                                <Run Text=" · " /><Run Text="{Binding Level, Mode=OneWay}" />
-                                            </TextBlock>
-                                            <TextBlock Text="{Binding Timing}" TextWrapping="Wrap"
-                                                       Foreground="{StaticResource AccentBrush}" Margin="0,0,0,7" />
-                                            <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Width="56" Height="56" CornerRadius="5" Margin="0,0,12,0"
+                                                        VerticalAlignment="Top" Background="{StaticResource PanelBackgroundBrush}"
+                                                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IconPath}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Image x:Name="SkillIcon" Margin="2"
+                                                           controls:DeferredIcon.Path="{Binding IconPath, TargetNullValue=''}" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Style="{StaticResource DetailHeading}" TextWrapping="Wrap">
+                                                        <Run Text="{Binding Slot, Mode=OneWay, StringFormat='技能 {0}'}" />
+                                                        <Run Text=" · " /><Run Text="{Binding Name, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                    <ItemsControl x:Name="SkillTags" ItemsSource="{Binding Tags}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Background="#204FC3F7" BorderBrush="#404FC3F7"
+                                                                        BorderThickness="1" CornerRadius="5"
+                                                                        Padding="6,2" Margin="0,0,5,5">
+                                                                    <TextBlock Text="{Binding}" FontSize="12"
+                                                                               Foreground="{StaticResource AccentBrush}" />
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Grid>
+                                            <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Margin="0,7,0,0" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

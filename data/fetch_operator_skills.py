@@ -4,12 +4,17 @@
 import argparse
 import json
 import re
+from contextlib import closing
+from http.client import HTTPSConnection
+from urllib.parse import quote, urlsplit
 from pathlib import Path
 
 from fetch_spdatabase import SP_CHAR_REDIRECT, TORAPPU_ENDPOINT, fetch_json, strip_rich_text
 
 DATA = Path(__file__).parent
 EXCEL = f"{TORAPPU_ENDPOINT}/gamedata/latest/excel"
+SKILL_ICONS_PATH = "/assets/skill_icon"
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 # Touch in this catalog is the recruitable Integrated Strategies operator.
 CHARACTER_OVERRIDES = {name: char_id for char_id, name in SP_CHAR_REDIRECT.items()}
@@ -67,17 +72,23 @@ def build_skills(operators, characters, skills):
         for index, slot in enumerate(characters[char_id]["skills"], 1):
             if not slot.get("skillId"):
                 continue
-            levels = skills[slot["skillId"]]["levels"]
+            skill = skills[slot["skillId"]]
+            icon_id = skill["iconId"] or skill["skillId"]
+            if not re.fullmatch(r"[a-zA-Z0-9_\[\]-]+", icon_id):
+                raise ValueError(f"无效的技能图标 ID：{icon_id}")
+            levels = skill["levels"]
             number = min(len(levels), 7 + len(slot.get("levelUpCostCond") or []))
             level = levels[number - 1]
             sp = level["spData"]
             entries.append({
                 "slot": index,
                 "name": level["name"],
+                "iconPath": f"icons/skills/{icon_id}.png",
                 "level": f"专{['一', '二', '三'][number - 8]}" if number > 7 else f"{number} 级",
                 "description": describe(level),
                 "recovery": SP_TYPES.get(sp["spType"], ""),
                 "activation": ACTIVATIONS[level["skillType"]],
+                "recoveryPerSecond": sp["increment"] if sp["spType"] == "INCREASE_WITH_TIME" else 0,
                 "spCost": sp["spCost"],
                 "initialSp": sp["initSp"],
                 "duration": max(0, level["duration"]),
@@ -86,6 +97,19 @@ def build_skills(operators, characters, skills):
         if entries:
             result[name] = entries
     return result
+
+
+def fetch_skill_icon(connection, icon_path):
+    path = DATA / icon_path
+    if path.is_file() and path.read_bytes().startswith(PNG_SIGNATURE):
+        return
+    filename = quote("skill_icon_" + path.name)
+    connection.request("GET", f"{SKILL_ICONS_PATH}/{filename}", headers={"User-Agent": "SPDatabase-Scraper/1.0"})
+    response = connection.getresponse()
+    content = response.read()
+    if response.status != 200 or not content.startswith(PNG_SIGNATURE):
+        raise ValueError(f"无法获取技能图标 {path.name}（HTTP {response.status}）")
+    path.write_bytes(content)
 
 
 def main():
@@ -97,13 +121,18 @@ def main():
     skills = read_json(args.skills) if args.skills else fetch_json(f"{EXCEL}/skill_table.json")
     season = read_json(DATA / "source_metadata.json")["seasonCode"]
     entries = build_skills(read_json(DATA / "operators.json")["operators"], characters, skills)
+    icons = sorted({skill["iconPath"] for skills in entries.values() for skill in skills})
+    (DATA / "icons" / "skills").mkdir(parents=True, exist_ok=True)
+    with closing(HTTPSConnection(urlsplit(TORAPPU_ENDPOINT).hostname, timeout=20)) as connection:
+        for icon_path in icons:
+            fetch_skill_icon(connection, icon_path)
     lines = [f'  "season": {json.dumps(season)},', '  "operators": {']
     for index, (name, values) in enumerate(entries.items()):
         suffix = "," if index < len(entries) - 1 else ""
         lines.append(f"    {json.dumps(name, ensure_ascii=False)}: {json.dumps(values, ensure_ascii=False)}{suffix}")
     (DATA / "operator_skills.json").write_text(
         "\n".join(["{", *lines, "  }", "}", ""]), encoding="utf-8", newline="\n")
-    print(f"已生成 {len(entries)} 名干员的本体技能")
+    print(f"已生成 {len(entries)} 名干员的本体技能和 {len(icons)} 张技能图标")
 
 
 if __name__ == "__main__":
