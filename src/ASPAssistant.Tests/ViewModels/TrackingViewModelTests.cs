@@ -7,7 +7,7 @@ namespace ASPAssistant.Tests.ViewModels;
 public class TrackingViewModelTests
 {
     [Fact]
-    public void TrackCovenantCombination_AddsOnlyOperatorsWithBothCovenants_AndNotifiesOnce()
+    public void TrackCovenantCombination_AddsOperatorsWithEitherCovenant_AndNotifiesOnce()
     {
         var vm = new TrackingViewModel([
             new() { Name = "已追踪", CoreCovenants = ["萨尔贡"], AdditionalCovenants = ["迅捷"] },
@@ -15,20 +15,39 @@ public class TrackingViewModelTests
             new() { Name = "多附加", CoreCovenants = ["萨尔贡"], AdditionalCovenants = ["坚守", "迅捷"] },
             new() { Name = "仅核心匹配", CoreCovenants = ["萨尔贡"], AdditionalCovenants = ["坚守"] },
             new() { Name = "仅附加匹配", CoreCovenants = ["莱塔尼亚"], AdditionalCovenants = ["迅捷"] },
-            new() { Name = "无附加盟约", CoreCovenants = ["萨尔贡"] }
+            new() { Name = "无附加盟约", CoreCovenants = ["萨尔贡"] },
+            new() { Name = "不匹配", CoreCovenants = ["莱塔尼亚"], AdditionalCovenants = ["坚守"] },
+            new() { Name = "策略专属", CoreCovenants = ["萨尔贡"], StrategyOnly = true }
         ]);
         vm.AddTracking("已追踪", TrackingType.Operator);
         vm.AddTracking("长剑", TrackingType.Equipment);
         var snapshots = new List<int>();
         vm.TrackingChanged += () => snapshots.Add(vm.AllEntries.Count);
 
-        vm.TrackCovenantCombination("萨尔贡", "迅捷").Should().Be((3, 2));
-        vm.TrackCovenantCombination("萨尔贡", "迅捷").Should().Be((3, 0));
-        vm.TrackCovenantCombination("莱塔尼亚", "坚守").Should().Be((0, 0));
-        vm.TrackedOperators.Select(item => item.Name).Should().Equal("已追踪", "多核心", "多附加");
+        vm.TrackCovenantCombination("萨尔贡", "迅捷").Should().Be((6, 5));
+        vm.TrackCovenantCombination("萨尔贡", "迅捷").Should().Be((6, 0));
+        vm.TrackCovenantCombination("炎", "回收").Should().Be((0, 0));
+        vm.TrackedOperators.Select(item => item.Name).Should().Equal(
+            "已追踪", "多核心", "多附加", "仅核心匹配", "仅附加匹配", "无附加盟约");
         vm.TrackedOperators[1].IconPath.Should().Be("multi-core.png");
         vm.TrackedEquipment.Select(item => item.Name).Should().Equal("长剑");
-        snapshots.Should().Equal(4);
+        snapshots.Should().Equal(7);
+    }
+
+    [Theory]
+    [InlineData("萨尔贡", "", "核心匹配")]
+    [InlineData("", "迅捷", "附加匹配")]
+    public void TrackCovenantCombination_MatchesTheOnlySelectedCovenant(
+        string coreCovenant, string additionalCovenant, string expectedOperator)
+    {
+        var vm = new TrackingViewModel([
+            new() { Name = "核心匹配", CoreCovenants = ["萨尔贡"] },
+            new() { Name = "附加匹配", CoreCovenants = ["莱塔尼亚"], AdditionalCovenants = ["迅捷"] }
+        ]);
+
+        vm.TrackCovenantCombination("", "").Should().Be((0, 0));
+        vm.TrackCovenantCombination(coreCovenant, additionalCovenant).Should().Be((1, 1));
+        vm.TrackedOperators.Select(item => item.Name).Should().Equal(expectedOperator);
     }
 
     [Fact]

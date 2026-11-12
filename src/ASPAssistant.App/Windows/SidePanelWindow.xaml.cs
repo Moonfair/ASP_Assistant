@@ -522,6 +522,7 @@ public partial class SidePanelWindow : Window
     public void ClearGamePosition()
     {
         _trackedGame = null;
+        _lastDockedSidebarWidth = 0;
         UpdateFilterArrows();
     }
 

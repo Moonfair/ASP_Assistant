@@ -7,6 +7,8 @@ namespace ASPAssistant.Core.ViewModels;
 
 public partial class TrackingViewModel : ObservableObject
 {
+    public const string AllCovenantsOption = "全部";
+
     private readonly IReadOnlyList<Operator> _operators;
     private readonly ILookup<string, string> _operatorIcons;
     private readonly ILookup<string, string> _equipmentIcons;
@@ -32,9 +34,9 @@ public partial class TrackingViewModel : ObservableObject
         _operatorIcons = _operators.ToLookup(item => item.Name, item => item.IconPath);
         _equipmentIcons = (equipment ?? []).ToLookup(item => item.Name, item => item.IconPath);
         CoreCovenants = _operators.SelectMany(item => item.CoreCovenants)
-            .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().Order().ToArray();
+            .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().Order().Prepend(AllCovenantsOption).ToArray();
         AdditionalCovenants = _operators.SelectMany(item => item.AdditionalCovenants)
-            .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().Order().ToArray();
+            .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().Order().Prepend(AllCovenantsOption).ToArray();
     }
 
     public void AddTracking(string name, TrackingType type)
@@ -42,14 +44,17 @@ public partial class TrackingViewModel : ObservableObject
         if (TryAddTracking(name, type)) TrackingChanged?.Invoke();
     }
 
-    public (int Matched, int Added) TrackCovenantCombination(string coreCovenant, string additionalCovenant)
+    public (int Matched, int Added) TrackCovenantCombination(string? coreCovenant, string? additionalCovenant)
     {
-        if (string.IsNullOrWhiteSpace(coreCovenant) || string.IsNullOrWhiteSpace(additionalCovenant))
+        coreCovenant = string.IsNullOrWhiteSpace(coreCovenant) ? null : coreCovenant;
+        additionalCovenant = string.IsNullOrWhiteSpace(additionalCovenant) ? null : additionalCovenant;
+        if (coreCovenant is null && additionalCovenant is null)
             return (0, 0);
 
         var names = _operators
-            .Where(item => !item.StrategyOnly && item.CoreCovenants.Contains(coreCovenant)
-                && item.AdditionalCovenants.Contains(additionalCovenant))
+            .Where(item => !item.StrategyOnly &&
+                ((coreCovenant is not null && item.CoreCovenants.Contains(coreCovenant)) ||
+                 (additionalCovenant is not null && item.AdditionalCovenants.Contains(additionalCovenant))))
             .Select(item => item.Name)
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct()

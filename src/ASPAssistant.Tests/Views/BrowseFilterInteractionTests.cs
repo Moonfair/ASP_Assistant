@@ -171,6 +171,7 @@ public class BrowseFilterInteractionTests
             VerifyDisabledCovenantsRemainFilterable();
             VerifySideFilterLayout();
             VerifyLineupPanelFollowsGameWindow();
+            VerifyTabsWithoutFiltersKeepDockedSide();
             VerifyExpandedFiltersAvoidGameWindow();
             VerifyCovenantIcons();
             VerifyShortWindowAllowsFiltering();
@@ -321,6 +322,48 @@ public class BrowseFilterInteractionTests
         game.Right = monitor.Right;
         window.UpdatePosition(game, gameActuallyMoved: true);
         (window.Left + window.Width).Should().Be(game.Right, "the panel remains on-screen in fullscreen");
+    }
+
+    private static void VerifyTabsWithoutFiltersKeepDockedSide()
+    {
+        var window = new ASPAssistant.App.Windows.SidePanelWindow(new(), new(), new(), new(), new());
+        var mainWidth = window.Width;
+        window.UseSideFilters = true;
+        var tabs = (TabControl)window.FindName("MainTabs");
+        var expand = (Button)window.FindName("ExpandSideFiltersButton");
+        var monitor = User32.GetMonitorRect(0, 0);
+        var game = new RECT
+        {
+            Left = monitor.Left + 680, Right = monitor.Right - (int)mainWidth - 12,
+            Top = monitor.Top + 20, Bottom = monitor.Bottom - 60
+        };
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        (window.Left + window.Width).Should().Be(game.Left, "the filter rail only fits on the left");
+
+        tabs.SelectedIndex = 2; // Tracking
+        window.Width.Should().Be(mainWidth);
+        (window.Left + window.Width).Should().Be(game.Left, "hiding the rail keeps the main panel beside the same edge");
+        window.UpdatePosition(game, gameActuallyMoved: false);
+        (window.Left + window.Width).Should().Be(game.Left, "polling the same game bounds keeps the panel in place");
+
+        tabs.SelectedIndex = 1; // Equipment
+        expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.Width.Should().BeGreaterThan(mainWidth);
+        (window.Left + window.Width).Should().Be(game.Left);
+        tabs.SelectedItem = window.FindName("LineupTab");
+        window.Width.Should().Be(mainWidth);
+        (window.Left + window.Width).Should().Be(game.Left, "the lineup tab keeps the same edge when expanded filters are hidden");
+        window.UpdatePosition(game, gameActuallyMoved: false);
+        (window.Left + window.Width).Should().Be(game.Left);
+        tabs.SelectedIndex = 1;
+        (window.Left + window.Width).Should().Be(game.Left, "returning to equipment restores filters beside the main panel");
+
+        tabs.SelectedItem = window.FindName("LineupTab");
+        game.Left = monitor.Left + 20;
+        game.Right = monitor.Right - 680;
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        window.Left.Should().Be(game.Right, "moving the game can still move the assistant to the other side");
+        window.Width.Should().Be(mainWidth);
     }
 
     private static void VerifyExpandedFiltersAvoidGameWindow()

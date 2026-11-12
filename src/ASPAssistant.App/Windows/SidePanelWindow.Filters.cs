@@ -12,6 +12,7 @@ public partial class SidePanelWindow
     private BrowseFilterPresenter? _activeFilters;
     private double _requestedSidebarWidth;
     private double _externalSidebarWidth;
+    private double _lastDockedSidebarWidth;
     private bool _sidebarOnRight;
     private bool _changingFilterHost;
     public bool UseSideFilters
@@ -37,6 +38,7 @@ public partial class SidePanelWindow
 
     private void OnFilterLayoutChanged()
     {
+        if (!UseSideFilters) _lastDockedSidebarWidth = 0;
         UpdateFilterHost();
         FilterLayoutChanged?.Invoke(UseSideFilters);
     }
@@ -95,6 +97,9 @@ public partial class SidePanelWindow
 
     private void PositionFilterSidebar()
     {
+        if (_trackedGame != null && !_isUserPositioned && _requestedSidebarWidth > 0)
+            _lastDockedSidebarWidth = _requestedSidebarWidth;
+
         var mainWidth = Math.Clamp(Width - _externalSidebarWidth, 280, 400);
         var (left, externalWidth, onRight) = GetFilterSidebarPlacement(mainWidth, _requestedSidebarWidth);
 
@@ -159,8 +164,14 @@ public partial class SidePanelWindow
             var monitor = ToWindowCoordinates(User32.GetMonitorRect(bounds.Right - 1, bounds.Top));
             if (!_isUserPositioned)
             {
-                if (externalWidth > 0)
-                    (left, externalWidth, onRight) = DockFilterSidebar(game, monitor, mainWidth, externalWidth);
+                var dockingWidth = externalWidth > 0 ? externalWidth : _lastDockedSidebarWidth;
+                if (dockingWidth > 0)
+                {
+                    (left, var fittedWidth, onRight) = DockFilterSidebar(game, monitor, mainWidth, dockingWidth);
+                    // Pages without filters keep the same main-panel edge when the sidebar disappears.
+                    if (externalWidth > 0) externalWidth = fittedWidth;
+                    else if (!onRight) left += fittedWidth;
+                }
                 else
                     left = monitor.Right - game.Right >= mainWidth ? game.Right : game.Right - mainWidth;
 

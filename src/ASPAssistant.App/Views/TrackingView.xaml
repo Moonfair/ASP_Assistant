@@ -43,21 +43,24 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition />
-                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="核心盟约" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2" />
-                        <ComboBox x:Name="CoreCovenantPicker" ItemsSource="{Binding CoreCovenants}"
-                                  AutomationProperties.Name="核心盟约" MaxDropDownHeight="240"
-                                  SelectionChanged="OnCovenantSelectionChanged" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="附加盟约" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2" />
-                        <ComboBox x:Name="AdditionalCovenantPicker" ItemsSource="{Binding AdditionalCovenants}"
-                                  AutomationProperties.Name="附加盟约" MaxDropDownHeight="240"
-                                  SelectionChanged="OnCovenantSelectionChanged" />
-                    </StackPanel>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="核心盟约" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2" />
+                    <TextBlock Grid.Column="2" Text="附加盟约" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2" />
+                    <ComboBox x:Name="CoreCovenantPicker" Grid.Row="1" ItemsSource="{Binding CoreCovenants}" SelectedIndex="0"
+                              AutomationProperties.Name="核心盟约" MaxDropDownHeight="240"
+                              SelectionChanged="OnCovenantSelectionChanged" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="或" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" Margin="6,0" VerticalAlignment="Center" />
+                    <ComboBox x:Name="AdditionalCovenantPicker" Grid.Row="1" Grid.Column="2"
+                              ItemsSource="{Binding AdditionalCovenants}" SelectedIndex="0"
+                              AutomationProperties.Name="附加盟约" MaxDropDownHeight="240"
+                              SelectionChanged="OnCovenantSelectionChanged" />
                 </Grid>
                 <DockPanel Margin="0,6,0,0">
                     <Button x:Name="TrackCombinationButton" DockPanel.Dock="Right" Content="追踪全部" Margin="6,0,0,0"
