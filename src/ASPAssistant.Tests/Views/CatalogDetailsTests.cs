@@ -25,6 +25,8 @@ public class CatalogDetailsTests
         optional["银灰"].Select(skill => skill.Name).Should().Equal("强力击·γ型", "雪境生存法则", "真银斩");
         var operators = await store.LoadSelfSelectedOperatorsAsync();
         optional.Keys.Should().BeEquivalentTo(operators.Select(op => op.Name));
+        optional.Values.SelectMany(skills => skills).Should().OnlyContain(entry =>
+            entry.IconPath != null && File.Exists(Path.Combine(AppContext.BaseDirectory, "data", entry.IconPath)));
         (await store.LoadSelfSelectedSkillsAsync("other-season")).Should().BeEmpty();
     }
 
@@ -36,7 +38,12 @@ public class CatalogDetailsTests
         details.Season.Should().Be("act3autochess");
         details.Skills["黑键"].Select(skill => skill.Slot).Should().Equal(1, 2, 3);
         details.Skills["黑键"][0].Description.Should().Contain("攻击力50%");
-        details.Skills["黑键"][0].Timing.Should().Contain("技力 15 · 初始 5");
+        var skill = details.Skills["黑键"][0];
+        skill.Tags.Should().Contain(["技力消耗 15", "基础 CD 15 秒", "初始技力 5", "持续 5 秒", "自动回复", "手动触发"]);
+        details.Skills["风丸"][0].Tags.Should().Contain("攻击回复").And.NotContain(tag => tag.Contains("CD"));
+        details.Skills["森蚺"][0].Tags.Should().Contain("被动").And.NotContain(tag => tag.Contains("技力"));
+        details.Skills.Values.SelectMany(skills => skills).Should().OnlyContain(entry =>
+            entry.IconPath != null && File.Exists(Path.Combine(AppContext.BaseDirectory, "data", entry.IconPath)));
         details.Skills["黑键"][2].Description.Should().Contain("\n").And.NotContain(@"\n");
         details.Skills["风丸"].Should().HaveCount(2);
         details.Skills.Values.SelectMany(skills => skills).Should().OnlyContain(skill => !skill.Description.Contains('{'));
@@ -68,10 +75,21 @@ public class CatalogDetailsTests
                 ((WrapPanel)window.FindName("Tags")).Children.Count.Should().BeGreaterThan(0);
                 if (!selfSelected) ((TextBlock)window.FindName("TipText")).Text.Should().Contain("二技能");
                 ((StackPanel)window.FindName("Effects")).Children.Count.Should().Be(selfSelected ? 1 : 2);
-                ((ItemsControl)window.FindName("SkillDetails")).Items.Count.Should().Be(3);
+                var skills = (ItemsControl)window.FindName("SkillDetails");
+                skills.Items.Count.Should().Be(3);
+                var sections = (TabControl)window.FindName("Sections");
+                sections.SelectedItem = window.FindName("SkillsTab");
+                var content = (FrameworkElement)window.Content;
+                content.Measure(new Size(370, 670));
+                content.Arrange(new Rect(0, 0, 370, 670));
+                content.UpdateLayout();
+                var row = (ContentPresenter)skills.ItemContainerGenerator.ContainerFromIndex(0);
+                var icon = (Image)skills.ItemTemplate.FindName("SkillIcon", row);
+                IconLoadingTests.PumpUntil(() => icon.Source != null);
+                var tags = (ItemsControl)skills.ItemTemplate.FindName("SkillTags", row);
+                tags.Items.Cast<string>().Should().Equal(details.Skills[op.Name][0].Tags);
                 handler.Count.Should().Be(0);
-                var votesTab = (TabItem)window.FindName("VotesTab");
-                ((TabControl)window.FindName("Sections")).SelectedItem = votesTab;
+                sections.SelectedItem = window.FindName("VotesTab");
                 var results = (StackPanel)window.FindName("SkillResults");
                 IconLoadingTests.PumpUntil(() => results.Children.Count == 3);
                 ((TextBlock)results.Children[1]).Text.Should().EndWith("9 票");
