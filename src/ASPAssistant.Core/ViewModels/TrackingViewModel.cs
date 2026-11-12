@@ -82,11 +82,21 @@ public partial class TrackingViewModel : ObservableObject
         return added;
     }
 
+    public bool IsLineupTracked(Lineup lineup)
+    {
+        var trackableOperators = lineup.Members.Select(member => member.OperatorName).Where(CanTrackOperator).ToArray();
+        return trackableOperators.Length > 0 &&
+            trackableOperators.All(name => TrackedOperators.Any(entry => entry.Name == name));
+    }
+
+    private bool CanTrackOperator(string name) =>
+        !string.IsNullOrWhiteSpace(name) && !_operators.Any(item => item.StrategyOnly && item.Name == name);
+
     private bool TryAddTracking(string name, TrackingType type)
     {
         if (string.IsNullOrWhiteSpace(name) || IsTracked(name))
             return false;
-        if (type == TrackingType.Operator && _operators.Any(item => item.StrategyOnly && item.Name == name))
+        if (type == TrackingType.Operator && !CanTrackOperator(name))
             return false;
 
         AddEntry(new TrackingEntry { Name = name, Type = type });

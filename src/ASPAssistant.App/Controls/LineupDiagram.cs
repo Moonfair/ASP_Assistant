@@ -55,11 +55,7 @@ internal static partial class LineupDiagram
         diagram = null;
         if (!TryParse(lines, out var graph, out error)) return false;
         if (graph.Nodes.Count == 0) return true;
-        diagram = new ScrollViewer
-        {
-            Content = BuildCanvas(graph, makeIcon), HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 430
-        };
+        diagram = new LineupDiagramPreview(BuildCanvas(graph, makeIcon));
         return true;
     }
 

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using ASPAssistant.App.Controls;
@@ -60,6 +61,47 @@ public class LineupDescriptionTests
             introduction.Document.Blocks.OfType<Section>().Should().ContainSingle();
             introduction.Document.Blocks.OfType<BlockUIContainer>().Should().ContainSingle();
             diagram.Document.Should().BeNull();
+        });
+    }
+
+    [Theory]
+    [InlineData(1020, "DiagramPreview")]
+    [InlineData(620, "Introduction")]
+    public void Preview_WheelOverDiagramZoomsInAndOut(int width, string viewerName)
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var preview = new LineupPreviewView();
+            preview.ShowLineup(new Lineup
+            {
+                Description = "```lineup\nflowchart LR\nA[{{op:地灵}}]\nB[{{gear:长剑}}]\nA --> B\n```"
+            }, (_, _) => null);
+            preview.Measure(new Size(width, 730));
+            preview.Arrange(new Rect(0, 0, width, 730));
+            preview.UpdateLayout();
+
+            var viewer = (FlowDocumentScrollViewer)preview.FindName(viewerName);
+            var surface = (ScrollViewer)viewer.Document.Blocks.OfType<BlockUIContainer>().Single().Child;
+            var canvas = (Canvas)surface.Content;
+            var node = canvas.Children.OfType<Border>().First();
+            var initialWidth = surface.ExtentWidth;
+            initialWidth.Should().BeGreaterThan(0);
+
+            ScrollWheel(120);
+            surface.ExtentWidth.Should().BeGreaterThan(initialWidth);
+            ScrollWheel(-120);
+            surface.ExtentWidth.Should().BeApproximately(initialWidth, 1);
+
+            void ScrollWheel(int delta)
+            {
+                var wheel = new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, delta)
+                {
+                    RoutedEvent = Mouse.PreviewMouseWheelEvent
+                };
+                node.RaiseEvent(wheel);
+                wheel.Handled.Should().BeTrue("the wheel should zoom the diagram in place");
+                preview.UpdateLayout();
+            }
         });
     }
 

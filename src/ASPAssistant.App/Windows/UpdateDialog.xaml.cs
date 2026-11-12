@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
+using ASPAssistant.Core;
 using ASPAssistant.Core.Services;
 
 namespace ASPAssistant.App.Windows;
@@ -8,7 +10,9 @@ public partial class UpdateDialog : Window
 {
     private readonly UpdateService _updateService;
     private readonly UpdateInfo _updateInfo;
-    private bool _isDownloading;
+    private CancellationTokenSource? _updateCancellation;
+    private Task? _updateTask;
+    private Task? _cancelUpdateTask;
 
     public UpdateDialog(UpdateService updateService, UpdateInfo updateInfo)
     {
@@ -33,44 +37,50 @@ public partial class UpdateDialog : Window
             DragMove();
     }
 
-    private void OnClose(object sender, RoutedEventArgs e)
+    protected override void OnClosing(CancelEventArgs e)
     {
-        if (!_isDownloading)
-            Close();
+        base.OnClosing(e);
+        // The installer is already running once the update task succeeds.
+        if (_updateTask?.IsCompletedSuccessfully == true)
+            e.Cancel = true;
     }
 
-    private void OnDefer(object sender, RoutedEventArgs e)
+    protected override void OnClosed(EventArgs e)
     {
-        Close();
+        if (_updateCancellation is { } cancellation && _updateTask?.IsCompletedSuccessfully != true)
+            _cancelUpdateTask = cancellation.CancelAsync();
+
+        base.OnClosed(e);
     }
+
+    private void OnClose(object sender, RoutedEventArgs e) => Close();
 
     private async void OnUpdateClick(object sender, RoutedEventArgs e)
     {
-        if (_isDownloading) return;
-        _isDownloading = true;
+        if (_updateCancellation is not null) return;
+        using var cancellation = new CancellationTokenSource();
+        _updateCancellation = cancellation;
 
         UpdateButton.IsEnabled = false;
         DeferButton.IsEnabled = false;
         ProgressPanel.Visibility = Visibility.Visible;
+        StatusText.Text = "正在下载更新...";
 
-        var cts = new CancellationTokenSource();
         var progress = new Progress<double>(value =>
         {
-            Dispatcher.Invoke(() =>
-            {
-                DownloadProgress.Value = value * 100;
-                ProgressPercent.Text = $"{(int)(value * 100)}%";
+            if (_updateCancellation != cancellation || cancellation.IsCancellationRequested ||
+                _updateTask?.IsCompletedSuccessfully == true)
+                return;
 
-                if (value >= 0.9 && value < 1.0)
-                    StatusText.Text = "正在解压更新包...";
-                else if (value >= 1.0)
-                    StatusText.Text = "准备重启...";
-            });
+            DownloadProgress.Value = value * 100;
+            ProgressPercent.Text = $"{(int)(value * 100)}%";
+            StatusText.Text = value >= 0.9 ? "正在解压更新包..." : "正在下载更新...";
         });
 
         try
         {
-            await _updateService.DownloadAndApplyUpdateAsync(_updateInfo, progress, cts.Token);
+            _updateTask = _updateService.DownloadAndApplyUpdateAsync(_updateInfo, progress, cancellation.Token);
+            await _updateTask;
 
             StatusText.Text = "更新包已就绪，即将重启应用...";
             DownloadProgress.Value = 100;
@@ -79,19 +89,27 @@ public partial class UpdateDialog : Window
             await Task.Delay(1000);
             Application.Current.Shutdown();
         }
-        catch (OperationCanceledException)
-        {
-            ResetToIdle("下载已取消。");
-        }
         catch (Exception ex)
         {
-            ResetToIdle($"下载失败：{ex.Message}");
+            if (!cancellation.IsCancellationRequested)
+                ResetToIdle($"下载失败：{ex.Message}");
+        }
+        finally
+        {
+            if (_cancelUpdateTask is { } cancelTask)
+            {
+                try { await cancelTask; }
+                catch (AggregateException ex) { AppLogger.Error("Updater", "Update cancellation callback failed", ex); }
+            }
+
+            _cancelUpdateTask = null;
+            _updateTask = null;
+            _updateCancellation = null;
         }
     }
 
     private void ResetToIdle(string statusMessage)
     {
-        _isDownloading = false;
         UpdateButton.IsEnabled = true;
         DeferButton.IsEnabled = true;
         StatusText.Text = statusMessage;

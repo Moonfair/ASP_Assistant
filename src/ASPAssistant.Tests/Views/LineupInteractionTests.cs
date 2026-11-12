@@ -2,6 +2,7 @@ using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -353,7 +354,7 @@ public class LineupInteractionTests
     }
 
     [Fact]
-    public void LineupLibrary_ShowsOrderedPortraitsAndUpdatesGrayscaleWithMatchBans()
+    public void LineupLibrary_ShowsOrderedPortraitsAndUpdatesBanOverlays()
     {
         LineupPerformanceTests.RunSta(() =>
         {
@@ -382,14 +383,18 @@ public class LineupInteractionTests
                     _ => null
                 }, bans.IsBanned, name => name == "众志合一" ? strategyPath : null);
                 var data = new JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
+                var browser = new OperatorBrowseViewModel
+                {
+                    CovenantAvailability = new(new HashSet<string> { "炎" }, new HashSet<string> { "精准" })
+                };
                 view.ConfigureCovenantActivation(new(data.LoadCovenantCatalogAsync().GetAwaiter().GetResult(),
-                    data.LoadOperatorsAsync().GetAwaiter().GetResult()));
+                    data.LoadOperatorsAsync().GetAwaiter().GetResult()), browser);
                 bans.BansChanged += view.RefreshBannedPortraits;
                 view.DataContext = library;
                 Layout(view, 278, 500);
                 var cards = (ItemsControl)view.FindName("LineupCards");
-                Descendants<TextBlock>(cards).Single(text => text.Name == "ActiveCovenantList")
-                    .Text.Should().Be("已激活盟约：独行");
+                Descendants<TextBlock>(cards).Select(text => new TextRange(text.ContentStart, text.ContentEnd).Text)
+                    .Should().Contain("已激活盟约：独行");
                 var portraits = Descendants<Image>(cards).Where(image => image.Name == "Portrait").ToArray();
                 portraits.Select(image => ((LineupMember)image.DataContext).OperatorName)
                     .Should().Equal("能天使", "地灵", "旧干员");
@@ -405,6 +410,11 @@ public class LineupInteractionTests
                     .First(i => originalPixels[i + 3] == 255 && originalPixels[i] != originalPixels[i + 2]);
                 grayPixels[colorPixel].Should().Be(grayPixels[colorPixel + 1]).And.Be(grayPixels[colorPixel + 2]);
                 grayPixels.Where((_, i) => i % 4 == 3).Should().Equal(originalPixels.Where((_, i) => i % 4 == 3));
+                Visibility[] BanOverlays() => Descendants<Border>(cards).Where(border => border.Name == "PortraitBanOverlay")
+                    .Select(border => border.Visibility).ToArray();
+                BanOverlays().Should().Equal(Visibility.Visible, Visibility.Collapsed, Visibility.Collapsed);
+                Descendants<Border>(cards).First(border => border.Name == "PortraitTile")
+                    .ToolTip.Should().Be("能天使 · 本局禁用");
                 Descendants<TextBlock>(cards).Single(text => text.Text == "旧干员").Visibility.Should().Be(Visibility.Visible);
                 var strategyStrip = Descendants<ItemsControl>(cards).Single(control => control.Name == "StrategyStrip");
                 ((Lineup)strategyStrip.DataContext).AvailableStrategies.Should().HaveCount(6);
@@ -413,18 +423,202 @@ public class LineupInteractionTests
                 strategyPortraits.Select(DeferredIcon.GetPath).Should().Equal(strategyPath, "", "", "", "", "");
                 IconLoadingTests.PumpUntil(() => strategyPortraits[0].Source is BitmapSource);
                 Descendants<TextBlock>(cards).Should().Contain(text => text.Text == "+1" && text.Visibility == Visibility.Visible);
+                RenderPreview(view, "lineup-ban-states.png", 278, 400);
 
                 bans.SetBans(["地灵"]);
                 portraits[0].Source.Should().BeSameAs(original);
                 portraits[1].Source.Should().NotBeSameAs(otherOriginal);
+                BanOverlays().Should().Equal(Visibility.Collapsed, Visibility.Visible, Visibility.Collapsed);
                 bans.ClearBans();
                 portraits[1].Source.Should().BeSameAs(otherOriginal);
+                BanOverlays().Should().OnlyContain(visibility => visibility == Visibility.Collapsed);
             }
             finally
             {
                 File.Delete(Path.Combine(directory, "lineups.json"));
                 if (Directory.Exists(directory)) Directory.Delete(directory);
             }
+        });
+    }
+
+    [Fact]
+    public void LineupLibrary_StrikesOnlyDisabledActiveCovenantsAndClearsWhenAvailabilityResets()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "ASPA-LineupCovenants", Guid.NewGuid().ToString("N"));
+            try
+            {
+                var store = new LineupStore(directory);
+                store.SaveAsync([new Lineup
+                {
+                    Name = "测试阵容", Author = "测试作者", Members = [new() { OperatorName = "测试干员" }]
+                }]).GetAwaiter().GetResult();
+                var library = new LineupLibraryViewModel(store);
+                library.LoadAsync().GetAwaiter().GetResult();
+                var browser = new OperatorBrowseViewModel();
+                var view = new LineupView();
+                view.ConfigureCovenantActivation(new(new CovenantCatalog
+                {
+                    CoreCovenants = ["炎"], AdditionalCovenants = ["精准"],
+                    ActivationRules = new() { ["炎"] = new(1), ["精准"] = new(1) }
+                }, [new Operator { Name = "测试干员", CoreCovenants = ["炎"], AdditionalCovenants = ["精准"] }]), browser);
+                view.DataContext = library;
+                var cards = (ItemsControl)view.FindName("LineupCards");
+
+                string[] StruckCovenants()
+                {
+                    Layout(view, 278, 500);
+                    var presenter = Descendants<ContentControl>(cards).Single(control => control.Name == "ActiveCovenantList");
+                    var text = presenter.Content.Should().BeOfType<TextBlock>().Subject;
+                    new TextRange(text.ContentStart, text.ContentEnd).Text.Should().Be("已激活盟约：炎 · 精准");
+                    Descendants<TextBlock>(presenter).Contains(text).Should().BeTrue();
+                    return text.Inlines.OfType<Run>()
+                        .Where(run => run.TextDecorations?.Any(d => d.Location == TextDecorationLocation.Strikethrough) == true)
+                        .Select(run => run.Text).ToArray();
+                }
+
+                StruckCovenants().Should().BeEmpty();
+                browser.CovenantAvailability = new(new HashSet<string>(), new HashSet<string> { "精准" });
+                StruckCovenants().Should().Equal("炎");
+                browser.CovenantAvailability = new(new HashSet<string> { "炎" }, new HashSet<string>());
+                StruckCovenants().Should().Equal("精准");
+                browser.CovenantAvailability = null;
+                StruckCovenants().Should().BeEmpty();
+            }
+            finally
+            {
+                if (Directory.Exists(directory))
+                {
+                    File.Delete(Path.Combine(directory, "lineups.json"));
+                    Directory.Delete(directory);
+                }
+            }
+        });
+    }
+
+    [Fact]
+    public void LineupLibrary_UpdatesTrackingLabelWhenAllTrackableOperatorsAreTracked()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var directory = Directory.CreateTempSubdirectory("ASPA-LineupTracking-");
+            try
+            {
+                var operators = new List<Operator>
+                {
+                    new() { Name = "角峰" }, new() { Name = "地灵" },
+                    new() { Name = "策略专属", StrategyOnly = true }
+                };
+                var lineup = new Lineup
+                {
+                    Name = "混合阵容",
+                    Author = "博士",
+                    Members = [new() { OperatorName = "角峰", Equipment1 = "长剑" },
+                        new() { OperatorName = "地灵" }, new() { OperatorName = "策略专属" }]
+                };
+                var strategyOnly = new Lineup
+                {
+                    Name = "策略阵容", Author = "博士", Members = [new() { OperatorName = "策略专属" }]
+                };
+                var store = new LineupStore(directory.FullName);
+                store.SaveAsync([lineup, strategyOnly]).GetAwaiter().GetResult();
+                var library = new LineupLibraryViewModel(store);
+                library.LoadAsync().GetAwaiter().GetResult();
+                var tracking = new TrackingViewModel(operators);
+                tracking.LoadEntries([new TrackingEntry { Name = "角峰", Type = TrackingType.Operator }]);
+                var view = new LineupView { DataContext = library, Tracking = tracking };
+                view.TrackRequested += item => tracking.TrackLineup(item);
+                var cards = (ItemsControl)view.FindName("LineupCards");
+                Layout(view, 278, 500);
+
+                Button TrackButton(Lineup item) => Descendants<Button>(cards).Single(button =>
+                    button.DataContext is Lineup candidate && candidate.Id == item.Id &&
+                    System.Windows.Automation.AutomationProperties.GetName(button).StartsWith("追踪", StringComparison.Ordinal));
+                void CheckLabel(Button button, string label)
+                {
+                    Layout(view, 278, 500);
+                    System.Windows.Automation.AutomationProperties.GetName(button).Should().Be(label);
+                    Descendants<TextBlock>(button).Single().Text.Should().Be(label);
+                }
+
+                var button = TrackButton(lineup);
+                CheckLabel(button, "追踪");
+                tracking.AddTracking("地灵", TrackingType.Operator);
+                CheckLabel(button, "追踪中");
+                CheckLabel(TrackButton(strategyOnly), "追踪");
+                button.IsEnabled.Should().BeTrue();
+                button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                tracking.TrackedEquipment.Should().ContainSingle(entry => entry.Name == "长剑");
+
+                tracking.RemoveTracking("地灵");
+                CheckLabel(button, "追踪");
+                tracking.AddTracking("地灵", TrackingType.Equipment);
+                CheckLabel(button, "追踪");
+                tracking.LoadEntries([new TrackingEntry { Name = "角峰", Type = TrackingType.Operator },
+                    new TrackingEntry { Name = "地灵", Type = TrackingType.Operator }]);
+                CheckLabel(button, "追踪中");
+                tracking.ClearTracking();
+                CheckLabel(button, "追踪");
+            }
+            finally { directory.Delete(recursive: true); }
+        });
+    }
+
+    [Fact]
+    public void LineupLibrary_ReordersVisibleCardsAndRestoresTheOrderFromDisk()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var directory = Directory.CreateTempSubdirectory("ASPA-LineupOrder-");
+            try
+            {
+                var store = new LineupStore(directory.FullName);
+                Lineup MakeLineup(string name, bool imported = false) => new()
+                {
+                    Name = name, Author = "博士", IsImported = imported,
+                    Members = [new() { OperatorName = "能天使" }]
+                };
+                store.SaveAsync([
+                    MakeLineup("自建一"), MakeLineup("导入一", true), MakeLineup("导入二", true),
+                    MakeLineup("自建二"), MakeLineup("导入三", true)
+                ]).GetAwaiter().GetResult();
+                var library = new LineupLibraryViewModel(store);
+                library.LoadAsync().GetAwaiter().GetResult();
+                var view = new LineupView { DataContext = library };
+                var tabs = (ListBox)view.FindName("CategoryTabs");
+                var cards = (ItemsControl)view.FindName("LineupCards");
+                string[] VisibleNames() => cards.Items.Cast<Lineup>().Select(lineup => lineup.Name).ToArray();
+                Button Action(string lineup, string action) => Descendants<Button>(cards).Single(button =>
+                    button.DataContext is Lineup item && item.Name == lineup &&
+                    System.Windows.Automation.AutomationProperties.GetName(button) == action);
+                void Move(string lineup, string action, params string[] expected)
+                {
+                    var button = Action(lineup, action);
+                    button.IsEnabled.Should().BeTrue();
+                    Dispatcher.CurrentDispatcher.InvokeAsync(() => button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent)));
+                    IconLoadingTests.PumpUntil(() => VisibleNames().SequenceEqual(expected));
+                    Layout(view, 278, 500);
+                }
+
+                tabs.SelectedIndex = 2;
+                Layout(view, 278, 500);
+                Action("导入一", "上移").IsEnabled.Should().BeFalse();
+                Action("导入一", "置顶").IsEnabled.Should().BeFalse();
+                Action("导入三", "下移").IsEnabled.Should().BeFalse();
+                Move("导入二", "上移", "导入二", "导入一", "导入三");
+                Move("导入二", "下移", "导入一", "导入二", "导入三");
+                Move("导入三", "置顶", "导入三", "导入一", "导入二");
+                Action("导入三", "置顶").IsEnabled.Should().BeFalse();
+                Action("导入二", "下移").IsEnabled.Should().BeFalse();
+
+                tabs.SelectedIndex = 0;
+                Layout(view, 278, 500);
+                VisibleNames().Should().Equal("自建一", "导入三", "导入一", "导入二", "自建二");
+                Move("自建二", "置顶", "自建二", "自建一", "导入三", "导入一", "导入二");
+                store.LoadAsync().GetAwaiter().GetResult().Select(lineup => lineup.Name).Should().Equal(VisibleNames());
+            }
+            finally { directory.Delete(recursive: true); }
         });
     }
 
@@ -761,7 +955,8 @@ public class LineupInteractionTests
                 Lineup? trackRequested = null;
                 view.TrackRequested += lineup => trackRequested = lineup;
                 var actions = Descendants<Button>(cards).Where(button => button.DataContext is Lineup lineup && lineup.Id == saved.Id).ToArray();
-                actions.Select(System.Windows.Automation.AutomationProperties.GetName).Should().Equal("预览", "追踪", "分享", "上传");
+                actions.Select(System.Windows.Automation.AutomationProperties.GetName)
+                    .Should().Equal("预览", "追踪", "分享", "上传", "上移", "下移", "置顶");
                 var actionBounds = actions.Select(button => button.TransformToAncestor(cards).TransformBounds(new Rect(button.RenderSize))).ToArray();
                 actionBounds.Select(bounds => bounds.Left).Distinct().Should().ContainSingle();
                 actionBounds.Select(bounds => bounds.Top).Should().BeInAscendingOrder();

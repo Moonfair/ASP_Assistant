@@ -44,35 +44,35 @@
 
             <StackPanel x:Name="FilterContentPanel" Margin="0,6,0,2">
 
-                <TextBlock Text="等阶" Foreground="{StaticResource TextSecondaryBrush}"
-                           FontSize="11" Margin="0,0,0,4" />
-                <ListBox x:Name="TierFilterList"
-                         controls:FilterChipSelection.IsEnabled="True"
-                         Style="{StaticResource FilterChipListBox}"
-                         ItemsSource="{Binding AvailableTiers}"
-                         SelectionChanged="OnTierFilterChanged">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
-                                       FontSize="11" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <Expander Header="等阶" Style="{StaticResource FilterSectionExpander}">
+                    <ListBox x:Name="TierFilterList"
+                             controls:FilterChipSelection.IsEnabled="True"
+                             Style="{StaticResource FilterChipListBox}"
+                             ItemsSource="{Binding AvailableTiers}"
+                             SelectionChanged="OnTierFilterChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                                           FontSize="11" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Expander>
 
-                <TextBlock Text="类型" Foreground="{StaticResource TextSecondaryBrush}"
-                           FontSize="11" Margin="0,6,0,4" />
-                <ListBox x:Name="TypeFilterList"
-                         controls:FilterChipSelection.IsEnabled="True"
-                         Style="{StaticResource FilterChipListBox}"
-                         ItemsSource="{Binding AvailableTypes}"
-                         SelectionChanged="OnTypeFilterChanged">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
-                                       FontSize="11" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <Expander Header="类型" Style="{StaticResource FilterSectionExpander}">
+                    <ListBox x:Name="TypeFilterList"
+                             controls:FilterChipSelection.IsEnabled="True"
+                             Style="{StaticResource FilterChipListBox}"
+                             ItemsSource="{Binding AvailableTypes}"
+                             SelectionChanged="OnTypeFilterChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                                           FontSize="11" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Expander>
             </StackPanel>
         </StackPanel>
         <ScrollViewer VerticalScrollBarVisibility="Auto">

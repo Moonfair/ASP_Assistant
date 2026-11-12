@@ -1,5 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using ASPAssistant.App.Controls;
 using ASPAssistant.Core.Interop;
 
@@ -15,6 +18,8 @@ public partial class SidePanelWindow
     private double _lastDockedSidebarWidth;
     private bool _sidebarOnRight;
     private bool _changingFilterHost;
+    private BrowseFilterPresenter? _filtersToDismiss;
+    private readonly List<(Expander Section, Button Top, Button Bottom)> _filterShortcuts = [];
     public bool UseSideFilters
     {
         get => LayoutToggle.IsChecked == true;
@@ -33,6 +38,18 @@ public partial class SidePanelWindow
         };
         LayoutToggle.Checked += (_, _) => OnFilterLayoutChanged();
         LayoutToggle.Unchecked += (_, _) => OnFilterLayoutChanged();
+        PreviewMouseDown += OnFilterOutsideMouseDown;
+        AddHandler(Mouse.MouseUpEvent, new MouseButtonEventHandler(OnFilterOutsideMouseUp), handledEventsToo: true);
+        Deactivated += (_, _) =>
+        {
+            _filtersToDismiss = null;
+            CloseFilterSidebar();
+        };
+        SideFilterPanel.PreviewMouseWheel += OnSideFilterMouseWheel;
+        SideFilterScroll.ScrollChanged += (_, e) =>
+        {
+            if (ReferenceEquals(e.OriginalSource, SideFilterScroll)) RefreshFilterShortcuts();
+        };
         UpdateFilterHost();
     }
 
@@ -67,6 +84,7 @@ public partial class SidePanelWindow
             }
         }
         finally { _changingFilterHost = false; }
+        RebuildFilterShortcuts();
         RefreshFilterSidebar();
     }
 
@@ -74,6 +92,8 @@ public partial class SidePanelWindow
     {
         if (_changingFilterHost) return;
         bool expanded = _activeFilters?.IsExpanded == true;
+        if (expanded && SideFilterPanel.Visibility != Visibility.Visible)
+            Dispatcher.InvokeAsync(RefreshFilterShortcuts, DispatcherPriority.Loaded);
         SideFilterPanel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         FilterRail.Visibility = _activeFilters != null && !expanded ? Visibility.Visible : Visibility.Collapsed;
         var count = _activeFilters?.ActiveCount ?? 0;
@@ -83,6 +103,95 @@ public partial class SidePanelWindow
         FilterRailCount.Text = count.ToString();
         ResetSideFiltersButton.IsEnabled = count > 0;
         SetSidebarWidth(_activeFilters == null ? 0 : expanded ? ExpandedSidebarWidth : FilterRailWidth);
+    }
+
+    private void OnFilterOutsideMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _filtersToDismiss = _activeFilters is { IsExpanded: true } filters && !IsWithin(SideFilterPanel, e.OriginalSource)
+            ? filters : null;
+    }
+
+    private void OnFilterOutsideMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        // A docked sidebar can resize the window. Wait until the clicked control has processed the release.
+        var filters = _filtersToDismiss;
+        _filtersToDismiss = null;
+        if (filters is not null) filters.IsExpanded = false;
+    }
+
+    private void OnSideFilterMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (IsWithin(SideFilterScroll, e.OriginalSource)) return;
+        if (IsWithin(SideFilterTagScroll, e.OriginalSource) &&
+            (e.Delta < 0 ? SideFilterTagScroll.VerticalOffset < SideFilterTagScroll.ScrollableHeight
+                         : SideFilterTagScroll.VerticalOffset > 0)) return;
+
+        var wheel = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta) { RoutedEvent = Mouse.MouseWheelEvent };
+        SideFilterScroll.RaiseEvent(wheel);
+        e.Handled = wheel.Handled;
+    }
+
+    private static bool IsWithin(Visual ancestor, object originalSource)
+    {
+        var source = originalSource as DependencyObject;
+        while (source is ContentElement content)
+            source = ContentOperations.GetParent(content) ?? LogicalTreeHelper.GetParent(content);
+
+        return source is Visual visual && (visual == ancestor || ancestor.IsAncestorOf(visual));
+    }
+
+    private void RebuildFilterShortcuts()
+    {
+        _filterShortcuts.Clear();
+        TopFilterShortcuts.Children.Clear();
+        BottomFilterShortcuts.Children.Clear();
+        if (_activeFilters is not { } filters) return;
+
+        var style = (Style)SideFilterPanel.FindResource("FilterShortcutButton");
+        foreach (var section in filters.Sections)
+        {
+            Button MakeShortcut(Panel edge)
+            {
+                var button = new Button
+                {
+                    Content = section.Header,
+                    Style = style,
+                    ToolTip = $"定位到{section.Header}",
+                    Visibility = Visibility.Collapsed
+                };
+                button.Click += (_, _) => JumpToFilterSection(section);
+                edge.Children.Add(button);
+                return button;
+            }
+
+            _filterShortcuts.Add((section, MakeShortcut(TopFilterShortcuts), MakeShortcut(BottomFilterShortcuts)));
+        }
+        Dispatcher.InvokeAsync(RefreshFilterShortcuts, DispatcherPriority.Loaded);
+    }
+
+    private void RefreshFilterShortcuts()
+    {
+        if (SideFilterPanel.Visibility != Visibility.Visible || SideFilterScroll.ViewportHeight <= 0) return;
+
+        foreach (var (section, top, bottom) in _filterShortcuts)
+        {
+            if (!section.IsArrangeValid ||
+                section.Template.FindName("FilterSectionHeader", section) is not FrameworkElement header) continue;
+
+            double y = header.TranslatePoint(new Point(), SideFilterScroll).Y;
+            // A clipped title still needs a shortcut. Ignore subpixel differences at the viewport edges.
+            bool above = y < -0.5;
+            top.Visibility = above ? Visibility.Visible : Visibility.Collapsed;
+            bottom.Visibility = !above && y + header.ActualHeight > SideFilterScroll.ViewportHeight + 0.5
+                ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void JumpToFilterSection(Expander section)
+    {
+        double y = section.TranslatePoint(new Point(), SideFilterScroll).Y;
+        section.IsExpanded = true;
+        SideFilterScroll.ScrollToVerticalOffset(SideFilterScroll.VerticalOffset + y);
     }
 
     private void SetSidebarWidth(double width)
@@ -226,9 +335,11 @@ public partial class SidePanelWindow
     {
         if (_activeFilters != null) _activeFilters.IsExpanded = true;
     }
-    private void OnCollapseSideFilters(object sender, RoutedEventArgs e)
+    private void OnCollapseSideFilters(object sender, RoutedEventArgs e) => CloseFilterSidebar();
+
+    private void CloseFilterSidebar()
     {
-        if (_activeFilters != null) _activeFilters.IsExpanded = false;
+        if (_activeFilters is { IsExpanded: true } filters) filters.IsExpanded = false;
     }
     private void OnResetSideFilters(object sender, RoutedEventArgs e) => _activeFilters?.Reset();
 }

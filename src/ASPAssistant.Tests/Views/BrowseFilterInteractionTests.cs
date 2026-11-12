@@ -170,6 +170,8 @@ public class BrowseFilterInteractionTests
             VerifyDuplicateLabelsAndEmptyResults();
             VerifyDisabledCovenantsRemainFilterable();
             VerifySideFilterLayout();
+            VerifySideFilterWheelOverChips();
+            VerifySideFilterOutsideClickAndShortcuts();
             VerifyLineupPanelFollowsGameWindow();
             VerifyTabsWithoutFiltersKeepDockedSide();
             VerifyExpandedFiltersAvoidGameWindow();
@@ -297,6 +299,95 @@ public class BrowseFilterInteractionTests
         settingsPage.Visibility.Should().Be(Visibility.Collapsed);
         ((FrameworkElement)window.FindName("MainContent")).Visibility.Should().Be(Visibility.Visible);
         tabs.SelectedItem.Should().BeSameAs(window.FindName("LineupTab"));
+    }
+
+    private static void VerifySideFilterWheelOverChips()
+    {
+        var window = CreateShortFilterWindow();
+        var view = (OperatorBrowseView)window.FindName("OperatorView");
+        var scroll = (ScrollViewer)window.FindName("SideFilterScroll");
+        var chips = (ListBox)view.FindName("TierFilterList");
+        var chip = (ListBoxItem)chips.ItemContainerGenerator.ContainerFromIndex(1);
+        scroll.ScrollableHeight.Should().BeGreaterThan(0);
+
+        chip.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120)
+        {
+            RoutedEvent = Mouse.MouseWheelEvent
+        });
+        LayoutFilterWindow(window);
+
+        scroll.VerticalOffset.Should().BeGreaterThan(0, "the filter panel should keep scrolling when the pointer enters a chip list");
+    }
+
+    private static void VerifySideFilterOutsideClickAndShortcuts()
+    {
+        var window = CreateShortFilterWindow();
+        var view = (OperatorBrowseView)window.FindName("OperatorView");
+        var scroll = (ScrollViewer)window.FindName("SideFilterScroll");
+        var tier = (ListBox)view.FindName("TierFilterList");
+        tier.SelectedItems.Add(1);
+        LayoutFilterWindow(window);
+
+        var bottom = Shortcuts("BottomFilterShortcuts");
+        bottom.Select(button => button.Content.ToString()).Should().Contain("触发时机");
+        var last = bottom.Single(button => Equals(button.Content, "触发时机"));
+        last.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120)
+        {
+            RoutedEvent = Mouse.PreviewMouseWheelEvent
+        });
+        LayoutFilterWindow(window);
+        scroll.VerticalOffset.Should().BeGreaterThan(0, "edge shortcuts should still let the panel scroll");
+
+        last.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        LayoutFilterWindow(window);
+        scroll.VerticalOffset.Should().BeGreaterThan(0);
+        var section = VisualChildren<Expander>(scroll).Single(expander => Equals(expander.Header, "触发时机"));
+        section.IsExpanded.Should().BeTrue();
+        section.TranslatePoint(new Point(), scroll).Y.Should().BeInRange(0, scroll.ViewportHeight - 1);
+        Shortcuts("BottomFilterShortcuts").Should().NotContain(button => Equals(button.Content, "触发时机"));
+
+        var first = Shortcuts("TopFilterShortcuts").Single(button => Equals(button.Content, "本局状态"));
+        first.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        LayoutFilterWindow(window);
+        Shortcuts("TopFilterShortcuts").Should().BeEmpty();
+
+        var panel = (FrameworkElement)window.FindName("SideFilterPanel");
+        Click((UIElement)tier.ItemContainerGenerator.ContainerFromIndex(1));
+        panel.Visibility.Should().Be(Visibility.Visible);
+        Click((UIElement)window.FindName("MainSurface"));
+        LayoutFilterWindow(window);
+        panel.Visibility.Should().Be(Visibility.Collapsed);
+        tier.SelectedItems.Cast<int>().Should().Equal(1);
+
+        Button[] Shortcuts(string name) => ((Panel)window.FindName(name)).Children.OfType<Button>()
+            .Where(button => button.Visibility == Visibility.Visible).ToArray();
+
+        static void Click(UIElement target)
+        {
+            foreach (var routedEvent in new[] { Mouse.PreviewMouseDownEvent, Mouse.MouseUpEvent })
+            {
+                var args = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+                {
+                    RoutedEvent = routedEvent
+                };
+                target.RaiseEvent(args);
+                args.Handled.Should().BeFalse();
+            }
+        }
+    }
+
+    private static Window CreateShortFilterWindow()
+    {
+        var vm = new OperatorBrowseViewModel();
+        vm.LoadOperators(Enumerable.Range(1, 40).Select(i => new Operator
+        {
+            Name = $"干员{i}", Tier = 1, CoreCovenants = [$"盟约{i:00}"]
+        }).ToList());
+        var window = new ASPAssistant.App.Windows.SidePanelWindow(vm, new(), new(), new(), new())
+            { Left = 400, Top = 20, Height = 320, UseSideFilters = true };
+        ((Button)window.FindName("ExpandSideFiltersButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        LayoutFilterWindow(window);
+        return window;
     }
 
     private static void VerifyLineupPanelFollowsGameWindow()

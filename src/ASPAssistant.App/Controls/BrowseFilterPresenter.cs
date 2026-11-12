@@ -17,6 +17,7 @@ public sealed class BrowseFilterPresenter
     public FrameworkElement? Actions { get; }
     public FrameworkElement? ActiveTags { get; }
     public FrameworkElement Content { get; }
+    internal IEnumerable<Expander> Sections => _sideExpansion.Keys;
     public bool IsSideLayout { get; private set; }
     public bool IsExpanded { get => _toggle.IsChecked == true; set => _toggle.IsChecked = value; }
     public int ActiveCount => _lists.Sum(l => l.SelectedItems.Cast<object>().Count(item => l.Items.IndexOf(item) > 0));

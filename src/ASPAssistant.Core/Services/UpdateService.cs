@@ -86,20 +86,27 @@ public class UpdateService
         var installerStarted = false;
         try
         {
-            // Use a fixed local name: release metadata is never interpreted as a path.
-            var zipPath = Path.Combine(tempDir, "update.zip");
-            await DownloadPackageAsync(info, zipPath, progress, ct);
+            var scriptPath = await Task.Run(async () =>
+            {
+                // Use a fixed local name: release metadata is never interpreted as a path.
+                var zipPath = Path.Combine(tempDir, "update.zip");
+                await DownloadPackageAsync(info, zipPath, progress, ct);
 
-            progress?.Report(0.92);
-            var extractDir = Path.Combine(tempDir, "extracted");
-            ZipFile.ExtractToDirectory(zipPath, extractDir);
-            ct.ThrowIfCancellationRequested();
-            var sourceDir = File.Exists(Path.Combine(extractDir, "ASPAssistant.App.exe"))
-                ? extractDir : Path.Combine(extractDir, "win-x64");
-            var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "ASPAssistant", "logs");
-            var scriptPath = await UpdateInstaller.PrepareAsync(
-                sourceDir, AppContext.BaseDirectory, tempDir, Environment.ProcessId, logDir, ct);
+                progress?.Report(0.92);
+                var extractDir = Path.Combine(tempDir, "extracted");
+                ct.ThrowIfCancellationRequested();
+                ZipFile.ExtractToDirectory(zipPath, extractDir);
+                ct.ThrowIfCancellationRequested();
+
+                var sourceDir = File.Exists(Path.Combine(extractDir, "ASPAssistant.App.exe"))
+                    ? extractDir : Path.Combine(extractDir, "win-x64");
+                var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "ASPAssistant", "logs");
+                return await UpdateInstaller.PrepareAsync(
+                    sourceDir, AppContext.BaseDirectory, tempDir, Environment.ProcessId, logDir, ct);
+            }, ct);
+
+            // Launch on the caller's context so a dialog close cannot race this final check.
             progress?.Report(0.97);
             ct.ThrowIfCancellationRequested();
 
@@ -123,7 +130,7 @@ public class UpdateService
             // Once launched, the installer owns cleanup, including copy/restart failures.
             if (!installerStarted)
             {
-                try { UpdateInstaller.DeleteJobDirectory(tempDir); }
+                try { await Task.Run(() => UpdateInstaller.DeleteJobDirectory(tempDir)); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     AppLogger.Error("Updater", "Could not clean failed download", ex);

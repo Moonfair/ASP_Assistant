@@ -18,8 +18,28 @@
         <DockPanel>
             <!-- Custom title bar -->
             <Border DockPanel.Dock="Top" Background="#FF12122A" MouseLeftButtonDown="OnTitleBarDrag">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="{StaticResource AspaLogo}" Width="16" Height="16" Margin="10,0,0,0" />
+                        <TextBlock Text="ASP Assistant" Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </StackPanel>
+                    <Button x:Name="GameSourceButton" Grid.Column="1" Click="OnSelectGameSource"
+                            Style="{StaticResource TrackingButton}" Padding="5,2" Margin="4,0"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            ToolTip="{Binding Text, ElementName=GameSourceStatus}" AutomationProperties.Name="选择游戏来源">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="▾" Margin="4,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="GameSourceStatus" Text="游戏来源" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Button>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
                         <Button x:Name="SettingsButton" Content="⚙" FontFamily="Segoe UI Symbol"
                                 Click="OnOpenSettings" ToolTip="设置" AutomationProperties.Name="设置"
                                 Style="{StaticResource TitleBarButton}" />
@@ -28,12 +48,7 @@
                         <Button Content="✕" Click="OnClose"
                                 Style="{StaticResource CloseButton}" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Image Source="{StaticResource AspaLogo}" Width="16" Height="16" Margin="10,0,0,0" />
-                        <TextBlock Text="ASP Assistant" Foreground="{StaticResource TextPrimaryBrush}"
-                                   FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0" />
-                    </StackPanel>
-                </DockPanel>
+                </Grid>
             </Border>
 
             <Grid>
@@ -44,6 +59,13 @@
                 </Grid.ColumnDefinitions>
                 <Border x:Name="SideFilterPanel" Grid.Column="0" Panel.ZIndex="1" Visibility="Collapsed"
                         Background="#FF202039" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                    <Border.Resources>
+                        <Style x:Key="FilterShortcutButton" TargetType="Button" BasedOn="{StaticResource TrackingButton}">
+                            <Setter Property="Padding" Value="5,2" />
+                            <Setter Property="Margin" Value="0,2,4,2" />
+                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                        </Style>
+                    </Border.Resources>
                     <DockPanel Margin="8">
                         <DockPanel DockPanel.Dock="Top" Margin="0,5,0,12">
                             <Button x:Name="CollapseSideFiltersButton" DockPanel.Dock="Left" Content="› 收起" Click="OnCollapseSideFilters"
@@ -60,6 +82,8 @@
                             <ContentControl x:Name="SideFilterTags" />
                         </ScrollViewer>
                         <ContentControl x:Name="SideFilterActions" DockPanel.Dock="Bottom" />
+                        <WrapPanel x:Name="TopFilterShortcuts" DockPanel.Dock="Top" />
+                        <WrapPanel x:Name="BottomFilterShortcuts" DockPanel.Dock="Bottom" />
                         <ScrollViewer x:Name="SideFilterScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" />
                     </DockPanel>
                 </Border>
@@ -182,18 +206,6 @@
                                           Foreground="{StaticResource TextPrimaryBrush}" />
                                 <TextBlock Text="开启时，干员和装备筛选显示在侧边。关闭后，筛选回到列表顶部。"
                                            Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                            </StackPanel>
-                        </Border>
-                        <Border Background="{StaticResource CardBackgroundBrush}"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                                CornerRadius="7" Padding="10" Margin="0,10,0,0">
-                            <StackPanel>
-                                <TextBlock Text="游戏来源" FontSize="14" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
-                                <TextBlock x:Name="GameSourceStatus" Foreground="{StaticResource TextSecondaryBrush}"
-                                           TextWrapping="Wrap" Margin="0,0,0,8" />
-                                <Button Content="选择游戏来源" Click="OnSelectGameSource"
-                                        Style="{StaticResource TrackingButton}" HorizontalAlignment="Left" Padding="8,5" />
                             </StackPanel>
                         </Border>
                         <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"

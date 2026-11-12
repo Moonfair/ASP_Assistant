@@ -2,7 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:ASPAssistant.App.Controls"
-             xmlns:converters="clr-namespace:ASPAssistant.App.Converters">
+             xmlns:converters="clr-namespace:ASPAssistant.App.Converters"
+             xmlns:viewModels="clr-namespace:ASPAssistant.Core.ViewModels;assembly=ASPAssistant.Core"
+             xmlns:views="clr-namespace:ASPAssistant.App.Views">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -12,6 +14,8 @@
             <CollectionViewSource x:Key="FilteredLineups" Source="{Binding Lineups}" Filter="OnFilterLineup" />
             <converters:StrategyCardPortraitsConverter x:Key="StrategyCardPortraits" />
             <converters:LineupActiveCovenantsConverter x:Key="LineupActiveCovenants" />
+            <converters:LineupMoveEnabledConverter x:Key="LineupMoveEnabled" />
+            <converters:LineupTrackingConverter x:Key="LineupTracking" />
             <Style x:Key="LineupCardAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                 <Setter Property="MinHeight" Value="27" />
                 <Setter Property="Padding" Value="5,3" />
@@ -25,6 +29,17 @@
                 <Setter Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                 <Setter Property="Margin" Value="0,0,5,0" />
                 <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+            <Style x:Key="LineupMoveAction" TargetType="Button" BasedOn="{StaticResource LineupCardAction}">
+                <Setter Property="IsEnabled">
+                    <Setter.Value>
+                        <MultiBinding Converter="{StaticResource LineupMoveEnabled}">
+                            <Binding Path="(ItemsControl.AlternationIndex)" RelativeSource="{RelativeSource AncestorType=ContentPresenter}" />
+                            <Binding Path="Items.Count" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                            <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                        </MultiBinding>
+                    </Setter.Value>
+                </Setter>
             </Style>
             <Style x:Key="CategorySegment" TargetType="ListBoxItem">
                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
@@ -106,7 +121,9 @@
                 </TextBlock.Style>
             </TextBlock>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl x:Name="LineupCards" ItemsSource="{Binding Source={StaticResource FilteredLineups}}">
+                <!-- Use the alternation index as the visible card index without wrapping. -->
+                <ItemsControl x:Name="LineupCards" ItemsSource="{Binding Source={StaticResource FilteredLineups}}"
+                              AlternationCount="2147483647">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource ItemCardBorder}" Margin="0,0,6,10">
@@ -126,20 +143,14 @@
                                     <TextBlock Text="{Binding Author, StringFormat=作者：{0}}" Foreground="{StaticResource AccentBrush}" Margin="0,5,0,0" TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding Members.Count, StringFormat=干员：{0}}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0" />
                                     <TextBlock Text="{Binding CovenantTagSummary}" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="ActiveCovenantList"
-                                               Text="{Binding Converter={StaticResource LineupActiveCovenants}}"
-                                               Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"
-                                               ToolTip="按阵容中列出的干员、精锐状态和装备计算">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-                                                <Style.Triggers>
-                                                    <Trigger Property="Text" Value="">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                    </Trigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                    <ContentControl x:Name="ActiveCovenantList" Focusable="False" IsTabStop="False">
+                                        <ContentControl.Content>
+                                            <MultiBinding Converter="{StaticResource LineupActiveCovenants}">
+                                                <Binding />
+                                                <Binding Path="CovenantAvailability" RelativeSource="{RelativeSource AncestorType=views:LineupView}" />
+                                            </MultiBinding>
+                                        </ContentControl.Content>
+                                    </ContentControl>
                                     <ItemsControl ItemsSource="{Binding Members}" Margin="0,8,0,5">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -147,14 +158,28 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border x:Name="PortraitTile" Width="40" Height="40" Margin="0,0,5,5"
-                                                        CornerRadius="4" Background="#FF12122A" ToolTip="{Binding OperatorName}"
+                                                        CornerRadius="4" Background="#FF12122A"
                                                         AutomationProperties.Name="{Binding OperatorName}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="ToolTip" Value="{Binding OperatorName}" />
+                                                        </Style>
+                                                    </Border.Style>
                                                     <Grid>
                                                         <Image x:Name="Portrait" Stretch="Uniform" Loaded="OnPortraitLoaded"
                                                                DataContextChanged="OnPortraitMemberChanged" />
                                                         <TextBlock x:Name="PortraitFallback" Text="{Binding OperatorName}" Visibility="Collapsed"
                                                                    TextAlignment="Center" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                                                    VerticalAlignment="Center" FontSize="10" Margin="2" />
+                                                        <Border x:Name="PortraitBanOverlay" CornerRadius="4" Background="#55000000"
+                                                                Visibility="Collapsed" IsHitTestVisible="False">
+                                                            <Grid>
+                                                                <Path Data="M 5,35 L 35,5" Stroke="#DF22121D" StrokeThickness="6"
+                                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                                                <Path Data="M 5,35 L 35,5" Stroke="#FFFF767E" StrokeThickness="3"
+                                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                                            </Grid>
+                                                        </Border>
                                                     </Grid>
                                                 </Border>
                                                 <DataTemplate.Triggers>
@@ -162,8 +187,11 @@
                                                         <Setter TargetName="PortraitFallback" Property="Visibility" Value="Visible" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding (controls:DeferredIcon.IsGrayscale), ElementName=Portrait}" Value="True">
-                                                        <Setter TargetName="PortraitTile" Property="Opacity" Value="0.72" />
-                                                        <Setter TargetName="PortraitTile" Property="AutomationProperties.HelpText" Value="本局禁用" />
+                                                        <Setter TargetName="PortraitBanOverlay" Property="Visibility" Value="Visible" />
+                                                        <Setter TargetName="PortraitTile" Property="ToolTip"
+                                                                Value="{Binding Path=(AutomationProperties.HelpText), RelativeSource={RelativeSource Self}}" />
+                                                        <Setter TargetName="PortraitTile" Property="AutomationProperties.HelpText"
+                                                                Value="{Binding OperatorName, StringFormat='{}{0} · 本局禁用'}" />
                                                     </DataTrigger>
                                                 </DataTemplate.Triggers>
                                             </DataTemplate>
@@ -215,11 +243,34 @@
                                                 <TextBlock Text="预览" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                             </StackPanel>
                                         </Button>
-                                        <Button Click="OnTrackLineup" Style="{StaticResource LineupCardAction}" AutomationProperties.Name="追踪">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path Style="{StaticResource LineupCardActionIcon}" Data="{StaticResource LineupTrackIcon}" />
-                                                <TextBlock Text="追踪" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                            </StackPanel>
+                                        <Button Click="OnTrackLineup" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource LineupCardAction}">
+                                                    <Setter Property="Content" Value="追踪" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Value="True">
+                                                            <DataTrigger.Binding>
+                                                                <MultiBinding Converter="{StaticResource LineupTracking}">
+                                                                    <Binding />
+                                                                    <Binding Path="Tracking" RelativeSource="{RelativeSource AncestorType=views:LineupView}" />
+                                                                    <!-- Reevaluate when operators are added or removed. -->
+                                                                    <Binding Path="Tracking.TrackedOperators.Count" RelativeSource="{RelativeSource AncestorType=views:LineupView}" />
+                                                                </MultiBinding>
+                                                            </DataTrigger.Binding>
+                                                            <Setter Property="Content" Value="追踪中" />
+                                                            <Setter Property="Tag" Value="tracked" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <Button.ContentTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path Style="{StaticResource LineupCardActionIcon}" Data="{StaticResource LineupTrackIcon}" />
+                                                        <TextBlock Text="{Binding}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </Button.ContentTemplate>
                                         </Button>
                                         <Button Click="OnSharePublicLink" Style="{StaticResource LineupCardAction}" AutomationProperties.Name="分享"
                                                 ToolTip="复制阵容短链接，持链接者可在 90 天内查看或导入">
@@ -228,7 +279,7 @@
                                                 <TextBlock Text="分享" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                             </StackPanel>
                                         </Button>
-                                        <Button Click="OnUpload" Margin="0" AutomationProperties.Name="上传" ToolTipService.ShowOnDisabled="True">
+                                        <Button Click="OnUpload" AutomationProperties.Name="上传" ToolTipService.ShowOnDisabled="True">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource LineupCardAction}">
                                                     <Setter Property="ToolTip" Value="上传到卫戍阵容库" />
@@ -245,6 +296,12 @@
                                                 <TextBlock Text="上传" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                             </StackPanel>
                                         </Button>
+                                        <Button Content="上移" AutomationProperties.Name="上移" Tag="{x:Static viewModels:LineupMove.Up}"
+                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" />
+                                        <Button Content="下移" AutomationProperties.Name="下移" Tag="{x:Static viewModels:LineupMove.Down}"
+                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" />
+                                        <Button Content="置顶" AutomationProperties.Name="置顶" Tag="{x:Static viewModels:LineupMove.Top}"
+                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" Margin="0" />
                                     </StackPanel>
                                 </Grid>
                             </Border>

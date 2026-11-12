@@ -92,6 +92,7 @@ public partial class SidePanelWindow : Window
         OperatorView.DataContext = operatorVm;
         EquipmentView.DataContext = equipmentVm;
         TrackingView.DataContext = trackingVm;
+        LineupView.Tracking = trackingVm;
 
         OperatorView.IsTrackedCheck = trackingVm.IsTracked;
         EquipmentView.IsTrackedCheck = trackingVm.IsTracked;
@@ -135,7 +136,7 @@ public partial class SidePanelWindow : Window
         _lineupCovenantTags = covenantCatalog is null ? null :
             [.. covenantCatalog.CoreCovenants, .. covenantCatalog.AdditionalCovenants];
         if (covenantCatalog is { ActivationRules.Count: > 0 })
-            LineupView.ConfigureCovenantActivation(new(covenantCatalog, operators, operatorCatalog));
+            LineupView.ConfigureCovenantActivation(new(covenantCatalog, operators, operatorCatalog), OperatorBrowseVm);
         LineupView.ConfigurePortraits(FindLineupOperatorIcon, BanVm.IsBanned, FindLineupStrategyIcon);
         LineupView.DataContext = library;
         LineupView.ShareService = LineupShareService.FromCatalog(operators, equipment.Select(e => e.Name), operatorCatalog);

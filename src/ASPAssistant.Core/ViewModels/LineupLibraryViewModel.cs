@@ -6,6 +6,8 @@ using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.ViewModels;
 
+public enum LineupMove { Up, Down, Top }
+
 public partial class LineupLibraryViewModel : ObservableObject
 {
     private readonly LineupStore _store;
@@ -39,24 +41,56 @@ public partial class LineupLibraryViewModel : ObservableObject
         }
     }
 
-    public Task<bool> SaveAsync(Lineup lineup) => ChangeAsync(lineup, delete: false);
-    public Task<bool> DeleteAsync(Lineup lineup) => ChangeAsync(lineup, delete: true);
+    public Task<bool> SaveAsync(Lineup lineup) => SaveOrDeleteAsync(lineup, delete: false);
+    public Task<bool> DeleteAsync(Lineup lineup) => SaveOrDeleteAsync(lineup, delete: true);
 
-    private async Task<bool> ChangeAsync(Lineup lineup, bool delete)
+    public Task<bool> MoveAsync(Guid lineupId, LineupMove move, bool? isImported = null) => PersistChangeAsync(next =>
+    {
+        bool MatchesCategory(Lineup item) => isImported is null || item.IsImported == isImported;
+        var index = next.FindIndex(item => item.Id == lineupId && MatchesCategory(item));
+        if (index < 0) return null;
+
+        var destination = move switch
+        {
+            LineupMove.Up when index > 0 => next.FindLastIndex(index - 1, MatchesCategory),
+            LineupMove.Down => next.FindIndex(index + 1, MatchesCategory),
+            LineupMove.Top => next.FindIndex(MatchesCategory),
+            _ => -1
+        };
+        if (destination < 0 || destination == index) return null;
+
+        var lineup = next[index];
+        next.RemoveAt(index);
+        next.Insert(destination, lineup);
+        return () => _lineups.Move(index, destination);
+    }, "阵容顺序已保存。");
+
+    private Task<bool> SaveOrDeleteAsync(Lineup lineup, bool delete) => PersistChangeAsync(next =>
+    {
+        var index = next.FindIndex(x => x.Id == lineup.Id);
+        if (delete) next.RemoveAll(x => x.Id == lineup.Id);
+        else if (index >= 0) next[index] = lineup;
+        else next.Add(lineup);
+
+        return () =>
+        {
+            _lineups.Clear();
+            foreach (var item in next) _lineups.Add(item);
+        };
+    }, delete ? "阵容已删除。" : "阵容已保存。");
+
+    private async Task<bool> PersistChangeAsync(Func<List<Lineup>, Action?> prepareChange, string successStatus)
     {
         await _gate.WaitAsync();
         try
         {
-            if (!_loaded) { Status = "本地阵容尚未成功读取，暂不能保存或删除，以免覆盖原文件。"; return false; }
+            if (!_loaded) { Status = "本地阵容尚未成功读取，暂不能修改，以免覆盖原文件。"; return false; }
             var next = _lineups.ToList();
-            var index = next.FindIndex(x => x.Id == lineup.Id);
-            if (delete) next.RemoveAll(x => x.Id == lineup.Id);
-            else if (index >= 0) next[index] = lineup;
-            else next.Add(lineup);
+            var applyChange = prepareChange(next);
+            if (applyChange is null) return false;
             await _store.SaveAsync(next);
-            _lineups.Clear();
-            foreach (var item in next) _lineups.Add(item);
-            Status = delete ? "阵容已删除。" : "阵容已保存。";
+            applyChange();
+            Status = successStatus;
             return true;
         }
         catch (Exception ex) when (IsStorageError(ex))

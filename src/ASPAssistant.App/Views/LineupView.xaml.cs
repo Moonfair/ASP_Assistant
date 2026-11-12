@@ -16,6 +16,24 @@ namespace ASPAssistant.App.Views;
 
 public partial class LineupView : UserControl
 {
+    public static readonly DependencyProperty CovenantAvailabilityProperty = DependencyProperty.Register(
+        nameof(CovenantAvailability), typeof(CovenantAvailability), typeof(LineupView));
+
+    public static readonly DependencyProperty TrackingProperty = DependencyProperty.Register(
+        nameof(Tracking), typeof(TrackingViewModel), typeof(LineupView));
+
+    public CovenantAvailability? CovenantAvailability
+    {
+        get => (CovenantAvailability?)GetValue(CovenantAvailabilityProperty);
+        set => SetValue(CovenantAvailabilityProperty, value);
+    }
+
+    public TrackingViewModel? Tracking
+    {
+        get => (TrackingViewModel?)GetValue(TrackingProperty);
+        set => SetValue(TrackingProperty, value);
+    }
+
     public event Action? NewRequested;
     public event Action? HistoryRequested;
     public event Action<Lineup>? EditRequested;
@@ -43,8 +61,14 @@ public partial class LineupView : UserControl
         _isBanned = isBanned;
     }
 
-    internal void ConfigureCovenantActivation(LineupCovenantCalculator calculator)
-        => ((LineupActiveCovenantsConverter)Resources["LineupActiveCovenants"]).Calculator = calculator;
+    internal void ConfigureCovenantActivation(LineupCovenantCalculator calculator, OperatorBrowseViewModel operatorBrowser)
+    {
+        ((LineupActiveCovenantsConverter)Resources["LineupActiveCovenants"]).Calculator = calculator;
+        SetBinding(CovenantAvailabilityProperty, new Binding(nameof(OperatorBrowseViewModel.CovenantAvailability))
+        {
+            Source = operatorBrowser
+        });
+    }
 
     private void OnPortraitLoaded(object sender, RoutedEventArgs e) => UpdatePortrait((Image)sender);
 
@@ -93,15 +117,23 @@ public partial class LineupView : UserControl
         if ((sender as FrameworkElement)?.DataContext is Lineup lineup) TrackRequested?.Invoke(lineup);
     }
 
+    private async void OnMoveLineup(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: Lineup lineup, Tag: LineupMove move } && Vm is { } library)
+            await library.MoveAsync(lineup.Id, move, ImportedCategory);
+    }
+
     private void OnFilterLineup(object sender, FilterEventArgs e)
         => e.Accepted = e.Item is Lineup lineup && MatchesCategory(lineup);
 
-    private bool MatchesCategory(Lineup lineup) => CategoryTabs?.SelectedIndex switch
+    private bool? ImportedCategory => CategoryTabs?.SelectedIndex switch
     {
-        1 => !lineup.IsImported,
-        2 => lineup.IsImported,
-        _ => true
+        1 => false,
+        2 => true,
+        _ => null
     };
+
+    private bool MatchesCategory(Lineup lineup) => ImportedCategory is not bool imported || lineup.IsImported == imported;
 
     private void OnCategoryChanged(object sender, SelectionChangedEventArgs e)
     {

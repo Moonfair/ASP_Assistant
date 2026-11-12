@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Resources\AppIcon.ico</ApplicationIcon>
     <WindowsSdkPackageVersion>10.0.17763.56</WindowsSdkPackageVersion>
     <!-- Version is overridden by CI via -p:Version=x.y.z during release builds -->
     <Version>0.0.0</Version>
@@ -17,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Resources\AppIcon.png" />
     <None Update="LICENSE-FontAwesome.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Ship active catalogues and UI icons only. Legacy avatar/template matching is no longer used. -->
     <Content Include="..\..\data\operators.json;..\..\data\self-selected-operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\strategies.json;..\..\data\source_metadata.json;..\..\data\operator_skills.json;..\..\data\self-selected-operator-skills.json;..\..\data\catalog_tips.json"
