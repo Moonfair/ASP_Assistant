@@ -9,13 +9,18 @@
         <TextBlock x:Name="Status" DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap"
                    Foreground="{StaticResource TextSecondaryBrush}" AutomationProperties.LiveSetting="Polite" />
         <TabControl x:Name="HistoryTabs" Style="{StaticResource DarkTabControl}">
-            <TabItem Header="从森空岛拉取" x:Name="SourceTab">
+            <TabItem Header="登录与拉取" x:Name="SourceTab">
                 <DockPanel Margin="8">
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <Button DockPanel.Dock="Right" Content="重新打开森空岛" Click="OnReload" Margin="8,0,0,0" />
-                        <TextBlock Text="在森空岛登录并选择角色，然后点击页面中的「导入历史战绩」。"
-                                   VerticalAlignment="Center" TextWrapping="Wrap" />
-                    </DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="在下方鹰角官网登录，然后点击「授权并拉取」。"
+                                   TextWrapping="Wrap" Margin="0,0,0,8" />
+                        <WrapPanel>
+                            <Button x:Name="PullButton" Content="授权并拉取" Click="OnPull" IsEnabled="False" Margin="0,0,8,0" />
+                            <Button x:Name="ReloadButton" Content="重新打开鹰角官网" Click="OnReload" Margin="0,0,8,0" />
+                            <ComboBox x:Name="RolePicker" DisplayMemberPath="DisplayName" MinWidth="180" Visibility="Collapsed"
+                                      AutomationProperties.Name="明日方舟角色" />
+                        </WrapPanel>
+                    </StackPanel>
                     <wv:WebView2 x:Name="Browser" />
                 </DockPanel>
             </TabItem>

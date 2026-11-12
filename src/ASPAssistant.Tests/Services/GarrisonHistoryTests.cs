@@ -5,14 +5,6 @@ namespace ASPAssistant.Tests.Services;
 
 public sealed class GarrisonHistoryTests
 {
-    [Theory]
-    [InlineData("https://zonai.skland.com/web/v1/game/garrison/guide/history-log?seasonId=act3autochess", true)]
-    [InlineData("https://zonai.skland.com/api/v1/game/garrison/guide/history-log?seasonId=act3autochess", false)]
-    [InlineData("https://zonai.skland.com.evil.example/web/v1/game/garrison/guide/history-log", false)]
-    [InlineData("http://zonai.skland.com/web/v1/game/garrison/guide/history-log", false)]
-    public void ReadsOnlyOfficialWebHistoryResponses(string url, bool expected)
-        => Assert.Equal(expected, GarrisonHistory.IsHistoryEndpoint(url));
-
     [Fact]
     public async Task OfficialRecordPreservesMemberEquipmentAndStrategyInShare()
     {

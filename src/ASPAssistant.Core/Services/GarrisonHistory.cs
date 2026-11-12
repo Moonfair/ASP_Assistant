@@ -5,19 +5,15 @@ namespace ASPAssistant.Core.Services;
 
 public static class GarrisonHistory
 {
-    public static readonly Uri EditorUri = new("https://game.skland.com/arknights/stronghold-guide/edit");
     private const string ApiBase = "https://zonai.skland.com/web/v1/game/garrison/guide/";
-    private const string HistoryPath = "/web/v1/game/garrison/guide/history-log";
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
         MaxDepth = 32,
         NumberHandling = JsonNumberHandling.AllowReadingFromString
     };
 
-    public static bool IsHistoryEndpoint(string value) =>
-        Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
-        uri.Scheme == Uri.UriSchemeHttps && uri.Host == "zonai.skland.com" &&
-        uri.IsDefaultPort && uri.UserInfo.Length == 0 && uri.AbsolutePath == HistoryPath;
+    internal static Uri HistoryUri(string season) =>
+        new(ApiBase + $"history-log?seasonId={Uri.EscapeDataString(season)}");
 
     public static Uri CatalogUri(string? season = null, string? version = null) =>
         string.IsNullOrEmpty(season) || string.IsNullOrEmpty(version)
@@ -44,15 +40,15 @@ public static class GarrisonHistory
         return new GarrisonCatalog(
             Names(data.Chars, item => item.CharId),
             Names(data.Items, item => item.ItemId),
-            Names(data.Strategies, item => item.StrategyId));
+            Names(data.Strategies, item => item.StrategyId), data.VersionInfo?.SeasonId, data.VersionInfo?.VersionId);
     }
 
-    private static async Task<T> ReadDataAsync<T>(Stream stream, CancellationToken cancellationToken) where T : class
+    internal static async Task<T> ReadDataAsync<T>(Stream stream, CancellationToken cancellationToken) where T : class
     {
         try
         {
             var response = await JsonSerializer.DeserializeAsync<Response<T>>(stream, Options, cancellationToken);
-            if (response?.Code == 10002) throw new FormatException("请先在森空岛页面登录并绑定明日方舟角色。");
+            if (response?.Code == 10002) throw new FormatException("战绩授权已失效，请重新使用鹰角通行证授权。");
             if (response?.Code != 0 || response.Data is null)
                 throw new FormatException("森空岛未返回有效数据，请稍后重试。");
             return response.Data;
@@ -71,7 +67,8 @@ public static class GarrisonHistory
 
     private sealed record Response<T>(int? Code, T? Data);
     private sealed record HistoryData(List<GarrisonRecord?>? Records);
-    private sealed record CatalogData(List<ResourceItem?>? Chars, List<ResourceItem?>? Items, List<ResourceItem?>? Strategies);
+    private sealed record CatalogData(List<ResourceItem?>? Chars, List<ResourceItem?>? Items, List<ResourceItem?>? Strategies, SeasonVersion? VersionInfo);
+    private sealed record SeasonVersion(string? SeasonId, string? VersionId);
     private sealed record ResourceItem(string? CharId, string? ItemId, string? StrategyId, string? Name);
 }
 
@@ -105,4 +102,6 @@ public sealed record GarrisonRecordEquipment(string? EquipId);
 public sealed record GarrisonCatalog(
     IReadOnlyDictionary<string, string> Operators,
     IReadOnlyDictionary<string, string> Equipment,
-    IReadOnlyDictionary<string, string> Strategies);
+    IReadOnlyDictionary<string, string> Strategies,
+    string? SeasonId,
+    string? VersionId);

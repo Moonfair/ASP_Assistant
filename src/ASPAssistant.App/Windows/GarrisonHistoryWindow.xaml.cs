@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using ASPAssistant.App.Services;
@@ -14,24 +15,16 @@ namespace ASPAssistant.App.Windows;
 
 public partial class GarrisonHistoryWindow : Window
 {
-    private static readonly HttpClient CatalogClient = new(new HttpClientHandler
-    {
-        AllowAutoRedirect = false,
-        UseCookies = false
-    })
-    {
-        Timeout = TimeSpan.FromSeconds(15),
-        MaxResponseContentBufferSize = 8 * 1024 * 1024
-    };
-
+    private readonly GarrisonHistoryClient _client = new();
     private readonly GarrisonHistoryLineupConverter _converter;
     private readonly LineupShareService _share;
     private readonly Func<Lineup, bool> _openEditor;
     private readonly CancellationTokenSource _lifetime = new();
-    private int _requestNumber;
+    private GarrisonSession? _session;
     private bool _closed;
     private bool _copying;
     private bool _opening;
+    private bool _pulling;
 
     public GarrisonHistoryWindow(GarrisonHistoryLineupConverter converter, LineupShareService share, Func<Lineup, bool> openEditor)
     {
@@ -42,7 +35,7 @@ public partial class GarrisonHistoryWindow : Window
         Browser.CreationProperties = new CoreWebView2CreationProperties
         {
             UserDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ASPAssistant", "SklandWebView")
+                "ASPAssistant", "PassportWebView")
         };
         Loaded += OnLoaded;
     }
@@ -55,10 +48,10 @@ public partial class GarrisonHistoryWindow : Window
 
     private async Task OpenSourceAsync()
     {
-        if (_opening) return;
+        if (_opening || _pulling) return;
         _opening = true;
-        _requestNumber++;
-        Status.Text = "正在打开森空岛…";
+        PullButton.IsEnabled = false;
+        Status.Text = "正在打开鹰角官网…";
         try
         {
             var webView = Browser.CoreWebView2;
@@ -66,126 +59,169 @@ public partial class GarrisonHistoryWindow : Window
             {
                 await Browser.EnsureCoreWebView2Async();
                 if (_closed) return;
-                webView = Browser.CoreWebView2 ?? throw new InvalidOperationException("WebView2 initialization returned no browser.");
+                webView = Browser.CoreWebView2 ?? throw new InvalidOperationException();
                 webView.Settings.AreHostObjectsAllowed = false;
                 webView.Settings.IsWebMessageEnabled = false;
                 webView.NavigationStarting += OnNavigationStarting;
                 webView.NavigationCompleted += OnNavigationCompleted;
                 webView.NewWindowRequested += OnNewWindowRequested;
-                webView.WebResourceResponseReceived += OnWebResponse;
             }
-            webView.Navigate(GarrisonHistory.EditorUri.AbsoluteUri);
+            webView.Navigate(HypergryphPassport.LoginUri.AbsoluteUri);
         }
         catch (WebView2RuntimeNotFoundException)
         {
-            if (!_closed) Status.Text = "请安装 Microsoft Edge WebView2 运行时后，再重新打开森空岛。";
+            if (!_closed) Status.Text = "请安装 Microsoft Edge WebView2 运行时后，再打开鹰角官网。";
         }
         catch (Exception ex) when (ex is COMException or InvalidOperationException or IOException)
         {
-            if (!_closed) Status.Text = "无法打开森空岛，请重试。";
+            if (!_closed) Status.Text = "无法打开鹰角官网，请重试。";
         }
         finally { _opening = false; }
     }
 
     private async void OnReload(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button) return;
-        button.IsEnabled = false;
-        try { await OpenSourceAsync(); }
-        finally { button.IsEnabled = true; }
+        if (_pulling || _opening) return;
+        ResetSession();
+        Records.ItemsSource = null;
+        await OpenSourceAsync();
     }
 
-    private static void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
-        => e.Cancel = !IsSklandPage(e.Uri);
+    private void ResetSession()
+    {
+        _session = null;
+        RolePicker.ItemsSource = null;
+        RolePicker.Visibility = Visibility.Collapsed;
+        PullButton.Content = "授权并拉取";
+    }
+
+    private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    {
+        e.Cancel = !HypergryphPassport.IsPassportPage(e.Uri);
+        if (!e.Cancel && !_pulling) PullButton.IsEnabled = false;
+    }
 
     private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
-        if (_closed || e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
-        Status.Text = e.IsSuccess ? "" : "森空岛页面加载失败，请检查网络后重新打开。";
+        if (_closed || _pulling || e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
+        PullButton.IsEnabled = e.IsSuccess;
+        Status.Text = e.IsSuccess ? "" : "鹰角官网加载失败，请检查网络后重新打开。";
     }
 
     private static void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
     {
         e.Handled = true;
-        if (e.IsUserInitiated && IsSklandPage(e.Uri) && sender is CoreWebView2 webView)
+        if (e.IsUserInitiated && HypergryphPassport.IsPassportPage(e.Uri) && sender is CoreWebView2 webView)
             webView.Navigate(e.Uri);
     }
 
-    private static bool IsSklandPage(string value) =>
-        Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
-        uri.Scheme == Uri.UriSchemeHttps && uri.IsDefaultPort && uri.UserInfo.Length == 0 &&
-        (uri.Host is "skland.com" or "hypergryph.com" ||
-         uri.Host.EndsWith(".skland.com", StringComparison.Ordinal) ||
-         uri.Host.EndsWith(".hypergryph.com", StringComparison.Ordinal));
-
-    private async void OnWebResponse(object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
+    private async void OnPull(object sender, RoutedEventArgs e)
     {
-        if (_closed || sender is not CoreWebView2 webView ||
-            !Uri.TryCreate(webView.Source, UriKind.Absolute, out var source) ||
-            source.GetLeftPart(UriPartial.Path) != GarrisonHistory.EditorUri.AbsoluteUri ||
-            e.Request.Method != "GET" || !GarrisonHistory.IsHistoryEndpoint(e.Request.Uri))
-            return;
-
-        var request = ++_requestNumber;
+        if (_pulling || _opening || Browser.CoreWebView2 is not { } webView) return;
+        _pulling = true;
+        PullButton.IsEnabled = false;
+        ReloadButton.IsEnabled = false;
+        RolePicker.IsEnabled = false;
         var cancellationToken = _lifetime.Token;
-        Status.Text = "正在读取战绩并匹配阵容…";
         try
         {
-            if (e.Response.StatusCode == 401) throw new FormatException("请先在森空岛登录，再重新拉取战绩。");
-            if (e.Response.StatusCode != 200) throw new FormatException("森空岛战绩请求失败，请稍后重试。");
-            using var content = await e.Response.GetContentAsync();
-            if (content is null) throw new FormatException("没有收到森空岛战绩响应，请重新拉取。");
-            var records = await GarrisonHistory.ReadRecordsAsync(content, cancellationToken);
-            var entries = new List<HistoryRow>(records.Count);
-            var catalogs = new Dictionary<(string?, string?), GarrisonCatalog?>();
-            foreach (var record in records)
+            if (_session is null)
             {
-                if (!IsCurrent(request)) return;
-                var key = (record.SeasonId, record.VersionId);
-                if (!catalogs.TryGetValue(key, out var catalog))
+                Status.Text = "正在向鹰角请求战绩授权…";
+                var code = await HypergryphPassport.RequestHistoryGrantAsync(webView, cancellationToken);
+                if (string.IsNullOrWhiteSpace(code))
+                    throw new GarrisonAuthorizationException("未取得战绩授权。请确认已登录鹰角通行证，再点击「授权并拉取」。");
+
+                var session = await _client.AuthorizeAsync(code, cancellationToken);
+                if (_closed) return;
+                if (session.Roles.Count == 0)
                 {
-                    catalog = await LoadCatalogAsync(key.SeasonId, key.VersionId, cancellationToken);
-                    catalogs.Add(key, catalog);
+                    Status.Text = "这个鹰角通行证没有可读取战绩的明日方舟角色。";
+                    return;
                 }
-                var export = catalog is null
-                    ? new GarrisonLineupExport(null, ["该赛季资料暂时无法读取，请重新拉取战绩。"])
-                    : _converter.Convert(record, catalog);
-                entries.Add(new HistoryRow(record, export));
+
+                _session = session;
+                RolePicker.ItemsSource = session.Roles;
+                RolePicker.SelectedIndex = session.Roles.Count == 1 ? 0 : -1;
+                RolePicker.Visibility = session.Roles.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+                PullButton.Content = "拉取战绩";
             }
 
-            if (!IsCurrent(request)) return;
+            if (RolePicker.SelectedItem is not GarrisonRole role)
+            {
+                Status.Text = "请选择明日方舟角色，再点击「拉取战绩」。";
+                return;
+            }
+
+            Status.Text = "正在读取战绩并匹配阵容…";
+            var result = await _client.FetchAsync(_session, role, cancellationToken);
+            var entries = await ConvertRowsAsync(result, cancellationToken);
+            if (_closed) return;
             Records.ItemsSource = entries;
             Records.SelectedIndex = entries.Count == 0 ? -1 : 0;
             HistoryTabs.SelectedItem = RecordsTab;
             Status.Text = entries.Count == 0 ? "这个角色当前赛季没有战绩。" : $"已拉取 {entries.Count} 场战绩。";
         }
-        catch (FormatException ex)
+        catch (GarrisonAuthorizationException ex)
         {
-            if (IsCurrent(request)) Status.Text = ex.Message;
+            if (_closed) return;
+            ResetSession();
+            Status.Text = ex.Message;
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidOperationException or COMException or OperationCanceledException)
+        catch (Exception ex) when (ex is FormatException or InvalidOperationException or TimeoutException)
         {
-            if (IsCurrent(request)) Status.Text = "读取战绩或赛季资料失败，请检查网络后重试。";
+            if (!_closed) Status.Text = ex.Message;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or COMException or OperationCanceledException or JsonException)
+        {
+            if (!_closed) Status.Text = "读取战绩或赛季资料失败，请检查网络后重试。";
+        }
+        finally
+        {
+            _pulling = false;
+            if (!_closed)
+            {
+                PullButton.IsEnabled = true;
+                ReloadButton.IsEnabled = true;
+                RolePicker.IsEnabled = true;
+            }
         }
     }
 
-    private static async Task<GarrisonCatalog?> LoadCatalogAsync(string? season, string? version, CancellationToken cancellationToken)
+    private async Task<List<HistoryRow>> ConvertRowsAsync(GarrisonHistoryResult result, CancellationToken cancellationToken)
     {
-        try
+        var entries = new List<HistoryRow>(result.Records.Count);
+        var catalogs = new Dictionary<(string?, string?), GarrisonCatalog?>();
+        var current = result.Catalog;
+        foreach (var record in result.Records)
         {
-            using var response = await CatalogClient.GetAsync(GarrisonHistory.CatalogUri(season, version), cancellationToken);
-            response.EnsureSuccessStatusCode();
-            using var resource = await response.Content.ReadAsStreamAsync(cancellationToken);
-            return await GarrisonHistory.ReadCatalogAsync(resource, cancellationToken);
+            var key = (record.SeasonId ?? current.SeasonId, record.VersionId ?? current.VersionId);
+            if (!catalogs.TryGetValue(key, out var catalog))
+            {
+                catalog = key == (current.SeasonId, current.VersionId)
+                    ? current
+                    : await LoadCatalogAsync(key.Item1, key.Item2, cancellationToken);
+                catalogs.Add(key, catalog);
+            }
+            var export = catalog is null
+                ? new GarrisonLineupExport(null, ["该赛季资料暂时无法读取，请重新拉取战绩。"])
+                : _converter.Convert(record, catalog);
+            entries.Add(new HistoryRow(record, export));
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or FormatException ||
+        return entries;
+    }
+
+    private async Task<GarrisonCatalog?> LoadCatalogAsync(string? season, string? version, CancellationToken cancellationToken)
+    {
+        try { return await _client.ReadCatalogAsync(season, version, cancellationToken); }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or FormatException or GarrisonAuthorizationException ||
                                    ex is OperationCanceledException && !cancellationToken.IsCancellationRequested)
         {
             return null;
         }
     }
 
-    private bool IsCurrent(int request) => !_closed && request == _requestNumber;
+
     private HistoryRow? SelectedRow => Records.SelectedItem as HistoryRow;
 
     private void OnRecordSelected(object sender, SelectionChangedEventArgs e)
@@ -237,8 +273,7 @@ public partial class GarrisonHistoryWindow : Window
     {
         _closed = true;
         _lifetime.Cancel();
-        if (Browser.CoreWebView2 is { } webView)
-            webView.WebResourceResponseReceived -= OnWebResponse;
+        _session = null;
         Browser.Dispose();
         _lifetime.Dispose();
         base.OnClosed(e);
