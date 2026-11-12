@@ -131,10 +131,15 @@ function mountDiagramEditor(form, catalog, draft) {
   const property = queryDiagram('#diagram-property');
   const highlight = queryDiagram('#diagram-highlight');
   const prose = form.elements.Description;
+  const originalAuthorInput = form.elements.originalAuthor;
+  const originalVideoInput = form.elements.originalVideoUrl;
+  const originalVideoLink = $('#editor-original-video', form);
+  const originalVideoStatus = $('#editor-original-video-status', form);
   const arrowId = 'diagram-arrow-' + ++diagramArrowSequence;
   const view = { x: 0, y: 0, scale: 1 };
   let selected = null, connectFrom = null, index = 0;
   let graph = null, positions = new Map(), diagramSource = '', introduction = '';
+  let originalAuthor = '', originalVideoUrl = '';
   let gesture = null, repaint = 0;
   const pointers = new Map();
   const control = action => queryDiagram(`[data-diagram="${action}"]`);
@@ -144,16 +149,48 @@ function mountDiagramEditor(form, catalog, draft) {
     status.classList.toggle('form-error', failed);
   }
 
-  function store(proseText, diagramText) {
-    const description = combineDiagramDescription(proseText, diagramText);
+  function store(proseText, diagramText, author = originalAuthor, video = originalVideoUrl) {
+    const description = combineLineupDescription(proseText, diagramText, author, video);
     if (description.length > DESCRIPTION_LIMIT) {
-      report('阵容介绍和流程图合计最多支持 12,000 字。', true);
+      report('阵容介绍、攻略来源和流程图合计最多支持 12,000 字。', true);
       return false;
     }
     introduction = proseText;
     diagramSource = diagramText;
+    originalAuthor = author;
+    originalVideoUrl = video;
     draft.Description = description;
     return true;
+  }
+
+  function updateOriginalVideoLink(message = '') {
+    const href = lineupSourceHref(originalVideoUrl);
+    if (href) {
+      originalVideoLink.href = href;
+      originalVideoLink.firstElementChild.textContent = isSklandGuideHref(href) ? '在森空岛打开' : '在哔哩哔哩观看';
+    } else originalVideoLink.removeAttribute('href');
+    originalVideoLink.hidden = !href;
+    const invalidUrl = Boolean(originalVideoUrl.trim() && !href);
+    originalVideoInput.setAttribute('aria-invalid', String(invalidUrl));
+    originalVideoStatus.textContent = message || (invalidUrl ? '请输入有效的哔哩哔哩视频或森空岛卫戍协议攻略链接。' : '');
+    originalVideoStatus.hidden = !originalVideoStatus.textContent;
+  }
+
+  function updateOriginalVideo() {
+    const author = originalAuthorInput.value;
+    const video = originalVideoInput.value;
+    let message = '';
+    if (/^`{3,}$/.test(author.trim()) || /^`{3,}$/.test(video.trim())) {
+      message = '原作者和来源链接不能使用代码块结束标记。';
+    } else if (!store(introduction, diagramSource, author, video)) {
+      message = status.textContent;
+      report('');
+    }
+    if (message) {
+      originalAuthorInput.value = originalAuthor;
+      originalVideoInput.value = originalVideoUrl;
+    }
+    updateOriginalVideoLink(message);
   }
 
   function blocksForEditing() {
@@ -273,7 +310,7 @@ function mountDiagramEditor(form, catalog, draft) {
   function refreshMembers() {
     for (const [selector, items, names] of [
       ['#diagram-operator', catalog.operators, draft.Members.map(member => member.OperatorName)],
-      ['#diagram-gear', catalog.equipment, draft.Members.flatMap(member => [member.Equipment1, member.Equipment2])]
+      ['#diagram-gear', catalog.equipment, draft.Members.flatMap(memberEquipmentSlots)]
     ]) {
       const select = queryDiagram(selector);
       const selection = select.value;
@@ -374,6 +411,8 @@ function mountDiagramEditor(form, catalog, draft) {
     if (!store(prose.value, diagramSource)) prose.value = introduction;
     else if (status.classList.contains('form-error')) { report(''); render(); }
   });
+  originalAuthorInput.addEventListener('input', updateOriginalVideo);
+  originalVideoInput.addEventListener('input', updateOriginalVideo);
   property.addEventListener('keydown', event => {
     if (event.key === 'Enter') { event.preventDefault(); property.blur(); }
   });
@@ -483,9 +522,12 @@ function mountDiagramEditor(form, catalog, draft) {
   new ResizeObserver(() => applyView()).observe(svg);
   return {
     load(description) {
-      const split = splitDiagramDescription(description ?? '');
+      const split = splitLineupDescription(description ?? '');
       prose.value = introduction = split.prose;
       source.value = diagramSource = split.diagrams;
+      originalAuthorInput.value = originalAuthor = split.originalAuthor;
+      originalVideoInput.value = originalVideoUrl = split.originalVideoUrl;
+      updateOriginalVideoLink();
       selected = connectFrom = null;
       index = 0;
       report('');
@@ -495,36 +537,10 @@ function mountDiagramEditor(form, catalog, draft) {
   };
 }
 
-function renderStrategyProse(prose, strategies) {
-  const tokens = /`[^`\r\n]+`|\\\{\{|\{\{strategy:([^{}\r\n]{1,100})\}\}/g;
-  let inCodeBlock = false, imageCount = 0;
-  return prose.split('\n').map(line => {
-    const trimmed = line.trim();
-    if (inCodeBlock || trimmed.startsWith('```')) {
-      inCodeBlock = inCodeBlock ? trimmed !== '```' : true;
-      return escape(line);
-    }
-    let rendered = '', cursor = 0;
-    for (const match of line.matchAll(tokens)) {
-      const name = match[1]?.trim();
-      const image = name && Object.hasOwn(strategies, name) && strategies[name].image;
-      rendered += escape(line.slice(cursor, match.index));
-      if (image && imageCount++ < 160) {
-        rendered += `<img class="description-strategy" src="${escape(image)}" alt="${escape(name)}" title="${escape(name)}" loading="lazy">`;
-      } else {
-        rendered += name ? '[' + escape(name) + ']' : escape(match[0]);
-      }
-      cursor = match.index + match[0].length;
-    }
-    return rendered + escape(line.slice(cursor));
-  }).join('\n');
-}
-
-async function renderPublishedDescription(container, description) {
-  const { prose, diagrams } = splitDiagramDescription(description);
+async function renderPublishedDescription(container, { prose, diagrams }) {
   const { blocks } = findDiagramBlocks(diagrams);
-  if (!blocks.length && !prose.includes('{{strategy:')) return;
-  const catalog = await getEditorCatalog();
+  if (!blocks.length && !/\{\{(?:op|gear|strategy):/.test(prose)) return;
+  const catalog = await getEditorCatalog().catch(() => ({ equipment: {}, operators: {} }));
   if (!container.isConnected) return;
   const plots = blocks.slice(0, DIAGRAM_LIMITS.diagrams).map((block, index) => {
     try {
@@ -533,12 +549,14 @@ async function renderPublishedDescription(container, description) {
       if (!graph.nodes.size) return '';
       const arrowId = 'diagram-arrow-' + ++diagramArrowSequence;
       const { markup, bounds } = diagramScene(graph, arrangeDiagram(graph), catalog, arrowId);
-      return `<figure class="diagram-preview"><figcaption>流程图 ${index + 1}</figcaption><div class="diagram-preview-scroll">
-        <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="流程图 ${index + 1}" viewBox="0 0 ${bounds.width} ${bounds.height}"
+      const title = blocks.length > 1 ? `流程图 ${index + 1}` : '流程图';
+      return `<figure class="diagram-preview"><figcaption>${title}</figcaption><div class="diagram-preview-scroll">
+        <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${title}" viewBox="0 0 ${bounds.width} ${bounds.height}"
           width="${bounds.width}" height="${bounds.height}">${markup}</svg></div></figure>`;
     } catch (error) {
       return `<p class="form-error">${escape(error.message)}</p><pre class="description">${escape(diagrams.slice(block.start, block.end))}</pre>`;
     }
-  });
-  container.innerHTML = (prose ? `<p class="description">${renderStrategyProse(prose, catalog.strategies ?? {})}</p>` : '') + plots.join('');
+  }).join('');
+  container.innerHTML = (prose ? `<div class="description">${renderDescriptionProse(prose, catalog)}</div>` : '')
+    + (plots ? `<div class="description-diagrams">${plots}</div>` : '');
 }

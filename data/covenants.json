@@ -29,6 +29,118 @@
     "聚合",
     "奥术"
   ],
+  "activationRules": {
+    "炎": {
+      "minimumCount": 3
+    },
+    "萨尔贡": {
+      "minimumCount": 3
+    },
+    "维多利亚": {
+      "minimumCount": 3
+    },
+    "谢拉格": {
+      "minimumCount": 3
+    },
+    "阿戈尔": {
+      "minimumCount": 3
+    },
+    "叙拉古": {
+      "minimumCount": 3
+    },
+    "卡西米尔": {
+      "minimumCount": 3
+    },
+    "乌萨斯": {
+      "minimumCount": 3
+    },
+    "伊比利亚": {
+      "minimumCount": 3
+    },
+    "莱塔尼亚": {
+      "minimumCount": 3
+    },
+    "精准": {
+      "minimumCount": 2
+    },
+    "迅捷": {
+      "minimumCount": 2
+    },
+    "灵巧": {
+      "minimumCount": 2
+    },
+    "坚守": {
+      "minimumCount": 2
+    },
+    "助力": {
+      "minimumCount": 2
+    },
+    "远见": {
+      "minimumCount": 2
+    },
+    "奇迹": {
+      "minimumCount": 2
+    },
+    "投资人": {
+      "minimumCount": 3
+    },
+    "突袭": {
+      "minimumCount": 2
+    },
+    "不屈": {
+      "minimumCount": 2
+    },
+    "调和": {
+      "minimumCount": 1,
+      "coreActivationBonus": 1
+    },
+    "协防干员": {
+      "minimumCount": 2
+    },
+    "独行": {
+      "minimumCount": 1,
+      "maximumCount": 1
+    },
+    "绝技": {
+      "minimumCount": 2,
+      "requiresElite": true
+    },
+    "聚合": {
+      "minimumCount": 2
+    },
+    "奥术": {
+      "minimumCount": 2
+    }
+  },
+  "jobChangeActivators": [
+    "变形同构体"
+  ],
+  "jobChangeEquipment": {
+    "维式重锤": "维多利亚",
+    "坚守盾牌": "坚守",
+    "不屈弹射器": "不屈",
+    "战栗维式重锤": "维多利亚",
+    "萨尔贡浓茶": "萨尔贡",
+    "聚合急救箱": "聚合",
+    "灵巧涡轮手套": "灵巧",
+    "叙拉古正装": "叙拉古",
+    "精准狙击镜": "精准",
+    "炎国短刀": "炎",
+    "迅捷作战粮": "迅捷",
+    "阿戈尔重刃": "阿戈尔",
+    "奥术法阵": "奥术",
+    "坚固维式重锤": "维多利亚",
+    "加速维式重锤": "维多利亚",
+    "突袭手雷": "突袭",
+    "乌萨斯呼吸器": "乌萨斯",
+    "伊比利亚骨刺刀": "伊比利亚",
+    "卡西米尔竞技旗": "卡西米尔",
+    "灼燃维式重锤": "维多利亚",
+    "莱塔尼亚小鼓": "莱塔尼亚",
+    "谢拉格不融冰": "谢拉格",
+    "电流维式重锤": "维多利亚",
+    "终极维式重锤": "维多利亚"
+  },
   "modePools": {
     "入门协议": {
       "coreCovenants": [

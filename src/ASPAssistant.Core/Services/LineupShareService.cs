@@ -4,7 +4,8 @@ using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.Services;
 
-public sealed class LineupShareService(IEnumerable<string> operators, IEnumerable<string> equipment)
+public sealed class LineupShareService(IEnumerable<string> operators, IEnumerable<string> equipment,
+    IReadOnlyDictionary<string, int>? equipmentSlotCounts = null)
 {
     public const int MaxShareTextLength = 100_000;
     private const string LegacyHeader = "ASPA-LINEUP/1";
@@ -12,6 +13,10 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
     private const string ShareComment = "# ASP Assistant · 明日方舟「卫戍协议」实时辅助工具 · 官网 https://aspa.moonfair.cn";
     private readonly HashSet<string> _operators = new(operators, StringComparer.Ordinal);
     private readonly HashSet<string> _equipment = new(equipment, StringComparer.Ordinal);
+
+    public static LineupShareService FromCatalog(IReadOnlyList<Operator> operators, IEnumerable<string> equipment) =>
+        new(operators.Select(op => op.Name), equipment, operators.Where(op => op.EquipmentSlotCount != 2)
+            .ToDictionary(op => op.Name, op => op.EquipmentSlotCount, StringComparer.Ordinal));
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -26,8 +31,13 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
         // The share carries content and attribution, never the local identity.
         var description = lineup.Description.Length == 0 ? null : lineup.Description;
         var strategies = lineup.AvailableStrategies.Count == 0 ? null : lineup.AvailableStrategies;
-        return (description is null && strategies is null ? LegacyHeader : Header) + "\n" + ShareComment + "\n" +
-            JsonSerializer.Serialize(new ShareContent(lineup.Name, lineup.Author, lineup.Members, description, strategies), JsonOptions);
+        var tags = lineup.CovenantTags is { Count: > 0 } ? lineup.CovenantTags : null;
+        var usesExtraSlots = lineup.Members.Any(member => member.Equipment3 is not null || member.Equipment4 is not null);
+        var hasEliteMembers = lineup.Members.Any(member => member.IsElite);
+        var header = description is null && strategies is null && tags is null && !usesExtraSlots && !hasEliteMembers
+            ? LegacyHeader : Header;
+        return header + "\n" + ShareComment + "\n" +
+            JsonSerializer.Serialize(new ShareContent(lineup.Name, lineup.Author, lineup.Members, description, strategies, tags), JsonOptions);
     }
 
     public Lineup Import(string text)
@@ -52,7 +62,7 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
             {
                 Name = content.Name, Author = content.Author, Members = content.Members,
                 Description = content.Description ?? "", IsImported = true,
-                AvailableStrategies = content.AvailableStrategies ?? []
+                AvailableStrategies = content.AvailableStrategies ?? [], CovenantTags = content.CovenantTags
             };
             Validate(lineup);
             return lineup;
@@ -67,7 +77,11 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
         {
             if (!_operators.Contains(member.OperatorName))
                 throw new FormatException($"当前数据中没有干员“{member.OperatorName}”，请检查赛季或更新数据。");
-            foreach (var name in new[] { member.Equipment1, member.Equipment2 })
+            var slots = member.EquipmentSlots;
+            var slotCount = equipmentSlotCounts?.GetValueOrDefault(member.OperatorName, 2) ?? 2;
+            if (slots.Skip(slotCount).Any(name => name.Length > 0))
+                throw new FormatException($"干员“{member.OperatorName}”最多可携带 {slotCount} 件装备。");
+            foreach (var name in slots)
                 if (name.Length > 0 && !_equipment.Contains(name))
                     throw new FormatException($"当前数据中没有装备“{name}”，请检查赛季或更新数据。");
         }
@@ -80,18 +94,21 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
         if (!ValidName(lineup.Author, 80)) throw new FormatException("请填写作者名称（1–80 字）。");
         if (lineup.Description is null || lineup.Description.Length > Lineup.MaxDescriptionLength)
             throw new FormatException($"阵容介绍最多支持 {Lineup.MaxDescriptionLength} 字。");
-        if (lineup.Members is null || lineup.Members.Count is < 1 or > 10)
-            throw new FormatException("每个阵容需要 1–10 名干员。");
+        if (lineup.Members is null || lineup.Members.Count is < 1 or > Lineup.MaxMembers)
+            throw new FormatException($"每个阵容需要 1–{Lineup.MaxMembers} 名干员。");
         if (lineup.AvailableStrategies is null || lineup.AvailableStrategies.Count > 100 ||
             lineup.AvailableStrategies.Any(name => !ValidName(name, 100)) ||
             lineup.AvailableStrategies.Distinct(StringComparer.Ordinal).Count() != lineup.AvailableStrategies.Count)
             throw new FormatException("可用策略需为有效且不重复的名称，最多 100 项。");
+        if (lineup.CovenantTags is { } tags && (tags.Count > 100 ||
+            tags.Any(tag => !ValidName(tag, 100)) || tags.Distinct(StringComparer.Ordinal).Count() != tags.Count))
+            throw new FormatException("盟约标签需为有效且不重复的名称，最多 100 项。");
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var member in lineup.Members)
         {
             if (member is null || !ValidName(member.OperatorName, 100)) throw new FormatException("阵容中存在无效干员。");
             if (!names.Add(member.OperatorName)) throw new FormatException($"干员“{member.OperatorName}”重复加入了阵容。");
-            foreach (var name in new[] { member.Equipment1, member.Equipment2 })
+            foreach (var name in member.EquipmentSlots)
                 if (name is null || (name.Length > 0 && !ValidName(name, 100)))
                     throw new FormatException("装备名称无效。");
         }
@@ -104,5 +121,7 @@ public sealed class LineupShareService(IEnumerable<string> operators, IEnumerabl
         [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
         string? Description = null,
         [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-        List<string>? AvailableStrategies = null);
+        List<string>? AvailableStrategies = null,
+        [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        List<string>? CovenantTags = null);
 }

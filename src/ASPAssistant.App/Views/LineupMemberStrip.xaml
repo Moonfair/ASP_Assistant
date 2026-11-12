@@ -28,16 +28,19 @@
                         <TextBlock Text="{Binding OperatorName}" ToolTip="{Binding OperatorName}" FontSize="11"
                                    Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center"
                                    TextTrimming="CharacterEllipsis" Margin="0,2,0,2" />
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <Border Width="17" Height="17" Background="#FF12122A" CornerRadius="2" ToolTip="{Binding Equipment1}"
-                                    Tag="gear1" PreviewMouseLeftButtonDown="OnIconMouseDown">
-                                <Image controls:DeferredIcon.Path="{Binding Equipment1IconPath}" />
-                            </Border>
-                            <Border Width="17" Height="17" Background="#FF12122A" CornerRadius="2" ToolTip="{Binding Equipment2}" Margin="4,0,0,0"
-                                    Tag="gear2" PreviewMouseLeftButtonDown="OnIconMouseDown">
-                                <Image controls:DeferredIcon.Path="{Binding Equipment2IconPath}" />
-                            </Border>
-                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding EquipmentSlots}" HorizontalAlignment="Center">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="17" Height="17" Margin="2,1" Background="#FF12122A" CornerRadius="2"
+                                            ToolTip="{Binding Name}" PreviewMouseLeftButtonDown="OnIconMouseDown">
+                                        <Image controls:DeferredIcon.Path="{Binding IconPath}" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </Border>
             </DataTemplate>

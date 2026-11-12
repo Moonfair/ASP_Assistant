@@ -40,7 +40,7 @@
             </DataTemplate>
             <DataTemplate DataType="{x:Type models:Operator}">
                 <StackPanel>
-                    <TextBlock Text="{Binding Tier, StringFormat=等阶 {0}}" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding TierLabel, StringFormat=等阶 {0}}" Foreground="{StaticResource TextSecondaryBrush}" />
                     <TextBlock Text="普通效果" Style="{StaticResource EffectHeading}" />
                     <ContentControl Content="{Binding Normal}" />
                     <TextBlock Text="精英效果" Style="{StaticResource EffectHeading}" />
@@ -198,6 +198,10 @@
             </StackPanel>
         </DockPanel>
         <Grid x:Name="IdentityFields" Grid.Row="1" Margin="0,0,0,14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition />
@@ -216,6 +220,20 @@
                     <Border x:Name="MissingAuthorOutline" Style="{StaticResource MissingFieldOutline}" DataContext="{Binding IsAuthorMissing}" />
                 </Grid>
             </StackPanel>
+            <Expander Grid.Row="1" Grid.ColumnSpan="2" Header="{Binding CovenantTagSummary}" Margin="0,8,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="100">
+                    <ItemsControl ItemsSource="{Binding CovenantTagOptions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Margin="0,4,12,0" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Expander>
         </Grid>
         <Grid x:Name="RosterWorkspace" Grid.Row="2">
             <Grid.ColumnDefinitions>
@@ -238,7 +256,7 @@
                 </DockPanel>
                 <Border x:Name="RosterDropZone" Grid.Row="1" AllowDrop="True" DragOver="OnRosterDragOver" Drop="OnRosterDrop" Style="{StaticResource RosterDropSurface}" CornerRadius="6" BorderThickness="1" Padding="8">
                     <Grid>
-                        <TextBlock Text="将左侧干员拖到这里&#xA;最多可加入 10 名干员" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" LineHeight="24">
+                        <TextBlock Text="将左侧干员拖到这里&#xA;最多可加入 30 名干员" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" LineHeight="24">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -274,28 +292,25 @@
                                                     <TextBlock Text="攻" Foreground="White" FontSize="10" />
                                                 </Border>
                                             </Grid>
-                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
-                                                <Grid Width="36" Height="36" Margin="3,0" Tag="1" AllowDrop="True" DragOver="OnSlotDragOver" Drop="OnSlotDrop" ToolTip="{Binding Equipment1, StringFormat=装备1：{0}（拖入可替换）}">
-                                                    <Border Margin="0,4,4,0" Background="#FF12122A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4">
-                                                        <Grid>
-                                                            <Border Style="{StaticResource EmptyEquipmentHint}" DataContext="{Binding HasEquipment1}" />
-                                                            <TextBlock Text="＋" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            <Image controls:DeferredIcon.Path="{Binding Equipment1IconPath}" Stretch="Uniform" />
+                                            <ItemsControl ItemsSource="{Binding EquipmentSlots}" HorizontalAlignment="Center" Margin="0,4,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Width="36" Height="36" Margin="3,0" Tag="{Binding Tag}" AllowDrop="True" DragOver="OnSlotDragOver" Drop="OnSlotDrop" ToolTip="{Binding Name, StringFormat=装备：{0}（拖入可替换）}">
+                                                            <Border Margin="0,4,4,0" Background="#FF12122A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4">
+                                                                <Grid>
+                                                                    <Border Style="{StaticResource EmptyEquipmentHint}" DataContext="{Binding HasEquipment}" />
+                                                                    <TextBlock Text="＋" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    <Image controls:DeferredIcon.Path="{Binding IconPath}" Stretch="Uniform" />
+                                                                </Grid>
+                                                            </Border>
+                                                            <Button Content="×" Click="OnClearEquipment" HorizontalAlignment="Right" VerticalAlignment="Top" Width="15" Height="15" Padding="0" FontSize="11" Background="#FF893F50" Foreground="White" Visibility="{Binding HasEquipment, Converter={StaticResource BoolVisibility}}" ToolTip="{Binding Label, StringFormat=清除{0}}" AutomationProperties.Name="{Binding Label, StringFormat=清除{0}}" />
                                                         </Grid>
-                                                    </Border>
-                                                    <Button Content="×" Tag="1" Click="OnClearEquipment" HorizontalAlignment="Right" VerticalAlignment="Top" Width="15" Height="15" Padding="0" FontSize="11" Background="#FF893F50" Foreground="White" Visibility="{Binding HasEquipment1, Converter={StaticResource BoolVisibility}}" ToolTip="清除装备1" AutomationProperties.Name="清除装备1" />
-                                                </Grid>
-                                                <Grid Width="36" Height="36" Margin="3,0" Tag="2" AllowDrop="True" DragOver="OnSlotDragOver" Drop="OnSlotDrop" ToolTip="{Binding Equipment2, StringFormat=装备2：{0}（拖入可替换）}">
-                                                    <Border Margin="0,4,4,0" Background="#FF12122A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="4">
-                                                        <Grid>
-                                                            <Border Style="{StaticResource EmptyEquipmentHint}" DataContext="{Binding HasEquipment2}" />
-                                                            <TextBlock Text="＋" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            <Image controls:DeferredIcon.Path="{Binding Equipment2IconPath}" Stretch="Uniform" />
-                                                        </Grid>
-                                                    </Border>
-                                                    <Button Content="×" Tag="2" Click="OnClearEquipment" HorizontalAlignment="Right" VerticalAlignment="Top" Width="15" Height="15" Padding="0" FontSize="11" Background="#FF893F50" Foreground="White" Visibility="{Binding HasEquipment2, Converter={StaticResource BoolVisibility}}" ToolTip="清除装备2" AutomationProperties.Name="清除装备2" />
-                                                </Grid>
-                                            </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                             <TextBlock Text="{Binding OperatorName}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" TextAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding OperatorName}" Margin="0,5,0,0" />
                                         </StackPanel>
                                     </Border>
@@ -351,28 +366,26 @@
                                 <WrapPanel Margin="0,0,0,12">
                                     <CheckBox Content="叠层核心" IsChecked="{Binding IsStackingCore}" />
                                     <CheckBox Content="输出核心" IsChecked="{Binding IsDamageCore}" />
+                                    <CheckBox Content="精锐" IsChecked="{Binding IsElite}" Margin="10,0,0,0"
+                                              Visibility="{Binding CanBecomeElite, Converter={StaticResource BoolVisibility}}"
+                                              ToolTip="用于计算精锐干员激活的盟约" />
                                 </WrapPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition />
-                                        <ColumnDefinition Width="10" />
-                                        <ColumnDefinition />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <TextBlock Text="装备一" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
-                                        <Grid>
-                                            <ComboBox ItemsSource="{Binding DataContext.EquipmentNames, RelativeSource={RelativeSource AncestorType=Window}}" Text="{Binding Equipment1, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" IsTextSearchEnabled="True" MaxDropDownHeight="240" AutomationProperties.Name="装备一" Tag="1" AllowDrop="True" PreviewDragEnter="OnEditorSlotDragOver" PreviewDragOver="OnEditorSlotDragOver" PreviewDrop="OnEditorSlotDrop" />
-                                            <Border Style="{StaticResource EmptyEquipmentHint}" DataContext="{Binding HasEquipment1}" />
-                                        </Grid>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="装备二" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
-                                        <Grid>
-                                            <ComboBox ItemsSource="{Binding DataContext.EquipmentNames, RelativeSource={RelativeSource AncestorType=Window}}" Text="{Binding Equipment2, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" IsTextSearchEnabled="True" MaxDropDownHeight="240" AutomationProperties.Name="装备二" Tag="2" AllowDrop="True" PreviewDragEnter="OnEditorSlotDragOver" PreviewDragOver="OnEditorSlotDragOver" PreviewDrop="OnEditorSlotDrop" />
-                                            <Border Style="{StaticResource EmptyEquipmentHint}" DataContext="{Binding HasEquipment2}" />
-                                        </Grid>
-                                    </StackPanel>
-                                </Grid>
+                                <ItemsControl ItemsSource="{Binding EquipmentSlots}" Margin="-5,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="5,0,5,4">
+                                                <TextBlock Text="{Binding Label}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                                                <Grid>
+                                                    <ComboBox ItemsSource="{Binding DataContext.EquipmentNames, RelativeSource={RelativeSource AncestorType=Window}}" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" IsTextSearchEnabled="True" MaxDropDownHeight="240" AutomationProperties.Name="{Binding Label}" AllowDrop="True" PreviewDragEnter="OnEditorSlotDragOver" PreviewDragOver="OnEditorSlotDragOver" PreviewDrop="OnEditorSlotDrop" />
+                                                    <Border Style="{StaticResource EmptyEquipmentHint}" DataContext="{Binding HasEquipment}" />
+                                                </Grid>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <ContentControl Content="{Binding Operator}" Margin="0,10,0,0" />
                                 <TextBlock Text="当前目录中没有此干员的效果资料。" Margin="0,6,0,0">
                                     <TextBlock.Style>
@@ -422,7 +435,9 @@
                     <TextBlock Text="头像和装备可拖入流程图" DockPanel.Dock="Right" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                     <TextBlock Text="当前阵容干员" FontWeight="SemiBold" />
                 </DockPanel>
-                <views:LineupMemberStrip x:Name="CurrentMemberStrip" DataContext="{Binding Members}" CanDragIcons="True" />
+                <ScrollViewer MaxHeight="140" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <views:LineupMemberStrip x:Name="CurrentMemberStrip" DataContext="{Binding Members}" CanDragIcons="True" />
+                </ScrollViewer>
             </StackPanel>
             <views:LineupDescriptionView x:Name="DescriptionWorkspace" Visibility="Collapsed" />
         </DockPanel>

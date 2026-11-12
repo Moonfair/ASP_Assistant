@@ -2864,6 +2864,59 @@
       }
     },
     {
+      "name": "盟约·辅助干员",
+      "iconPath": "icons/operators/盟约·辅助干员.png",
+      "tier": 3,
+      "coreCovenants": [],
+      "additionalCovenants": [
+        "调和"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>攻击力和生命上限+20%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>攻击力和生命上限+40%"
+          }
+        ]
+      },
+      "strategyOnly": true
+    },
+    {
+      "name": "“暴躁铁皮”",
+      "iconPath": "icons/operators/“暴躁铁皮”.png",
+      "tier": 5,
+      "coreCovenants": [],
+      "additionalCovenants": [
+        "协防干员"
+      ],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>攻击力和生命上限+60%"
+          }
+        ]
+      },
+      "elite": {
+        "traits": [
+          {
+            "traitType": "作战能力",
+            "traitDescription": "<战斗中>攻击力和生命上限+120%"
+          }
+        ]
+      },
+      "strategyOnly": true,
+      "equipmentSlotCount": 4
+    },
+    {
       "name": "矩",
       "iconPath": "icons/operators/矩.png",
       "tier": 2,
@@ -3690,6 +3743,44 @@
             "traitDescription": "<休整期结束时>使自身以及身前一格干员已激活的盟约层数+18"
           }
         ]
+      }
+    },
+    {
+      "name": "预备干员-医疗",
+      "iconPath": "icons/operators/预备干员-医疗.png",
+      "tier": 0,
+      "strategyOnly": true,
+      "coreCovenants": [],
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "开局策略",
+            "traitDescription": "被动效果：所有玩家场上出现一名<预备干员-医疗>；战斗开始时，若场上至少有2名精锐干员，则替换为<Touch>"
+          }
+        ]
+      },
+      "elite": {
+        "traits": []
+      }
+    },
+    {
+      "name": "Touch",
+      "iconPath": "icons/operators/Touch.png",
+      "tier": 0,
+      "strategyOnly": true,
+      "coreCovenants": [],
+      "additionalCovenants": [],
+      "normal": {
+        "traits": [
+          {
+            "traitType": "开局策略",
+            "traitDescription": "被动效果：所有玩家场上出现一名<预备干员-医疗>；战斗开始时，若场上至少有2名精锐干员，则替换为<Touch>"
+          }
+        ]
+      },
+      "elite": {
+        "traits": []
       }
     }
   ]

@@ -9,9 +9,9 @@ public class TierToRomanConverter : IValueConverter
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is int tier && tier >= 1 && tier <= 6)
-            return RomanNumerals[tier];
-        return value?.ToString() ?? "";
+        if (value is int tier && tier >= 0 && tier <= 6)
+            return tier == 0 ? "特殊" : RomanNumerals[tier];
+        return value?.ToString() ?? parameter?.ToString() ?? "";
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

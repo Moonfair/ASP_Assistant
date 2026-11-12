@@ -2,13 +2,15 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 const read = async (path) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
-const [previous, { operators }, { equipment }, { coreCovenants }, { strategies }] = await Promise.all([
+const [previous, { operators }, { equipment }, covenantCatalog, { strategies }] = await Promise.all([
   read('../web/catalog.json'),
   read('../../../data/operators.json'),
   read('../../../data/equipment.json'),
   read('../../../data/covenants.json'),
   read('../../../data/strategies.json')
 ]);
+const { coreCovenants, additionalCovenants, activationRules = {}, jobChangeActivators = [],
+  jobChangeEquipment = {} } = covenantCatalog;
 
 async function bundleCatalogIcons(entries, folder) {
   const assets = await Promise.all(entries.map(async ({ name, iconPath, ...details }) => {
@@ -29,11 +31,17 @@ const [gear, strategyCatalog] = await Promise.all([
   bundleCatalogIcons(strategies, 'strategy-icons')
 ]);
 const catalog = {
-  operators: Object.fromEntries(operators.map(({ name, tier, coreCovenants }) => [
-    name, { tier, covenants: coreCovenants ?? [], image: previous.operators[name]?.image ?? null }
+  operators: Object.fromEntries(operators.map(({ name, tier, coreCovenants, additionalCovenants, equipmentSlotCount }) => [
+    name, { tier, covenants: coreCovenants ?? [], image: previous.operators[name]?.image ?? null,
+      ...(additionalCovenants?.length ? { additionalCovenants } : {}),
+      ...(equipmentSlotCount ? { equipmentSlotCount } : {}) }
   ])),
   equipment: gear,
   covenants: Object.fromEntries(coreCovenants.map(name => [name, previous.covenants[name] ?? null])),
+  covenantTags: [...new Set([...coreCovenants, ...additionalCovenants])],
+  activationRules,
+  jobChangeActivators,
+  jobChangeEquipment,
   strategies: strategyCatalog
 };
 await writeFile(new URL('../web/catalog.json', import.meta.url), JSON.stringify(catalog) + '\n');

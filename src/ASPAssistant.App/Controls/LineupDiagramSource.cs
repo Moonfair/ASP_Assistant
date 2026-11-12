@@ -7,27 +7,49 @@ internal static partial class LineupDiagramSource
 {
     internal sealed record Block(int Start, int End, string Kind, string[] Lines, bool Closed);
 
+    internal sealed record Fence(int Start, int End, int LineIndex, int LastLineIndex, string Opening,
+        string? Closing, string Marker, string Kind, string[] Lines)
+    {
+        internal bool IsDiagram => Marker == "```" && Kind is "lineup" or "mermaid";
+    }
+
     internal static List<Block> FindBlocks(string source, out bool hasUnclosedFence)
     {
-        hasUnclosedFence = false;
-        var result = new List<Block>();
+        var fences = FindFences(source);
+        hasUnclosedFence = fences.Any(fence => fence.Closing is null);
+        return fences.Where(fence => fence.IsDiagram)
+            .Select(fence => new Block(fence.Start, fence.End, fence.Kind, fence.Lines, fence.Closing is not null))
+            .ToList();
+    }
+
+    internal static List<Fence> FindFences(string source)
+    {
+        var result = new List<Fence>();
         var lines = LinePattern().Matches(source);
         for (var i = 0; i < lines.Count; i++)
         {
-            var opener = lines[i].Groups[1].Value.Trim();
-            if (!opener.StartsWith("```", StringComparison.Ordinal)) continue;
-            var start = lines[i].Index;
-            var kind = opener[3..].Trim();
+            var opening = lines[i].Groups[1].Value.TrimEnd(' ', '\t');
+            var fence = FencePattern().Match(opening);
+            if (!fence.Success) continue;
+            var marker = fence.Groups[1].Value;
+            var kind = fence.Groups[2].Value.Trim();
+            if (marker[0] == '`' && kind.Contains('`')) continue;
+            var first = i;
             var body = new List<string>();
-            while (++i < lines.Count && lines[i].Groups[1].Value.Trim() != "```")
+            while (++i < lines.Count && !ClosesFence(lines[i].Groups[1].Value, marker))
                 body.Add(lines[i].Groups[1].Value);
             var closed = i < lines.Count;
-            if (!closed) hasUnclosedFence = true;
-            if (kind is not ("lineup" or "mermaid")) continue;
             var end = closed ? lines[i].Index + lines[i].Groups[1].Length : source.Length;
-            result.Add(new Block(start, end, kind, body.ToArray(), closed));
+            var closing = closed ? lines[i].Groups[1].Value.TrimEnd(' ', '\t') : null;
+            result.Add(new Fence(lines[first].Index, end, first, i, opening, closing, marker, kind, body.ToArray()));
         }
         return result;
+    }
+
+    internal static bool ClosesFence(string value, string opener)
+    {
+        var line = value.Trim();
+        return line.Length >= opener.Length && line.All(character => character == opener[0]);
     }
 
     internal static string Format(LineupDiagram.Graph graph, string kind, string newline)
@@ -98,4 +120,7 @@ internal static partial class LineupDiagramSource
 
     [GeneratedRegex(@"([^\r\n]*)(?:\r\n|\r|\n|\z)")]
     private static partial Regex LinePattern();
+
+    [GeneratedRegex(@"^[ \t]*(`{3,}|~{3,})(.*)$")]
+    private static partial Regex FencePattern();
 }

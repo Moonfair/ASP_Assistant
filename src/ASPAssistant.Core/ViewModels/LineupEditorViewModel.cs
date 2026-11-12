@@ -7,42 +7,71 @@ namespace ASPAssistant.Core.ViewModels;
 
 public partial class LineupMemberViewModel : ObservableObject
 {
-    private readonly IReadOnlyDictionary<string, Equipment> _equipment;
     public string OperatorName { get; }
     public Operator? Operator { get; }
     public string IconPath => Operator?.IconPath ?? "";
-    public string Equipment1IconPath => _equipment.GetValueOrDefault(Equipment1 ?? "")?.IconPath ?? "";
-    public string Equipment2IconPath => _equipment.GetValueOrDefault(Equipment2 ?? "")?.IconPath ?? "";
-    public bool HasEquipment1 => !string.IsNullOrEmpty(Equipment1);
-    public bool HasEquipment2 => !string.IsNullOrEmpty(Equipment2);
+    public IReadOnlyList<LineupEquipmentSlotViewModel> EquipmentSlots { get; }
+    public string Equipment1 { get => EquipmentSlots[0].Name; set => EquipmentSlots[0].Name = value; }
+    public string Equipment2 { get => EquipmentSlots[1].Name; set => EquipmentSlots[1].Name = value; }
+    public string Equipment1IconPath => EquipmentSlots[0].IconPath;
+    public string Equipment2IconPath => EquipmentSlots[1].IconPath;
+    public bool CanBecomeElite => Operator is { Tier: > 0 };
     [ObservableProperty] private bool _isStackingCore;
     [ObservableProperty] private bool _isDamageCore;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(Equipment1IconPath)), NotifyPropertyChangedFor(nameof(HasEquipment1))]
-    private string _equipment1;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(Equipment2IconPath)), NotifyPropertyChangedFor(nameof(HasEquipment2))]
-    private string _equipment2;
+    [ObservableProperty] private bool _isElite;
 
     public LineupMemberViewModel(LineupMember member, Operator? op = null, IReadOnlyDictionary<string, Equipment>? equipment = null)
     {
         Operator = op;
-        _equipment = equipment ?? new Dictionary<string, Equipment>();
         OperatorName = member.OperatorName;
         _isStackingCore = member.IsStackingCore;
         _isDamageCore = member.IsDamageCore;
-        _equipment1 = member.Equipment1;
-        _equipment2 = member.Equipment2;
+        _isElite = member.IsElite;
+        var slots = member.EquipmentSlots;
+        EquipmentSlots = slots.Take(op?.EquipmentSlotCount == 4 ? 4 : 2)
+            .Select((name, index) => new LineupEquipmentSlotViewModel(this, index + 1, name, equipment)).ToArray();
+        foreach (var slot in EquipmentSlots)
+            slot.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(LineupEquipmentSlotViewModel.Name))
+                    OnPropertyChanged(nameof(EquipmentSlots));
+            };
     }
 
     public LineupMember Snapshot() => new()
     {
         OperatorName = OperatorName, IsStackingCore = IsStackingCore, IsDamageCore = IsDamageCore,
-        Equipment1 = Equipment1 ?? "", Equipment2 = Equipment2 ?? ""
+        IsElite = IsElite,
+        Equipment1 = Equipment1 ?? "", Equipment2 = Equipment2 ?? "",
+        Equipment3 = ExtraEquipment(3), Equipment4 = ExtraEquipment(4)
     };
+
+    private string? ExtraEquipment(int number) =>
+        EquipmentSlots.ElementAtOrDefault(number - 1) is { HasEquipment: true } slot ? slot.Name : null;
+}
+
+public sealed partial class LineupEquipmentSlotViewModel(LineupMemberViewModel member, int number, string name,
+    IReadOnlyDictionary<string, Equipment>? equipment) : ObservableObject
+{
+    public LineupMemberViewModel Member { get; } = member;
+    public int Number { get; } = number;
+    public string Tag => Number.ToString();
+    public string Label => $"装备 {Number}";
+    public string IconPath => equipment?.GetValueOrDefault(Name ?? "")?.IconPath ?? "";
+    public bool HasEquipment => !string.IsNullOrEmpty(Name);
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IconPath)), NotifyPropertyChangedFor(nameof(HasEquipment))]
+    private string _name = name;
 }
 
 public sealed partial class LineupStrategyOption(Strategy strategy, bool isSelected) : ObservableObject
 {
     public Strategy Strategy { get; } = strategy;
+    [ObservableProperty] private bool _isSelected = isSelected;
+}
+
+public sealed partial class LineupCovenantOption(string name, bool isSelected) : ObservableObject
+{
+    public string Name { get; } = name;
     [ObservableProperty] private bool _isSelected = isSelected;
 }
 
@@ -72,6 +101,15 @@ public partial class LineupEditorViewModel : ObservableObject
     public IReadOnlyList<string> EquipmentNames { get; }
     public IReadOnlyList<Operator> CatalogOperators => _operators;
     public IReadOnlyList<LineupStrategyOption> StrategyOptions { get; }
+    public IReadOnlyList<LineupCovenantOption> CovenantTagOptions { get; }
+    public string CovenantTagSummary
+    {
+        get
+        {
+            var count = CovenantTagOptions.Count(option => option.IsSelected);
+            return count == 0 ? "盟约标签" : $"盟约标签（已选 {count}）";
+        }
+    }
     public IEnumerable<LineupStrategyOption> FilteredStrategyOptions => StrategyOptions.Where(option =>
         option.Strategy.Name.Contains(StrategyQuery.Trim(), StringComparison.OrdinalIgnoreCase) ||
         option.Strategy.Sponsor.Contains(StrategyQuery.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -80,18 +118,18 @@ public partial class LineupEditorViewModel : ObservableObject
     public string? FindIcon(bool equipment, string name) => equipment
         ? _equipment.GetValueOrDefault(name)?.IconPath
         : _operators.FirstOrDefault(op => op.Name == name)?.IconPath;
-    public string MemberCount => $"已选 {Members.Count} / 10";
-    public bool CanAddOperator => Members.Count < 10;
+    public string MemberCount => $"已选 {Members.Count} / {Lineup.MaxMembers}";
+    public bool CanAddOperator => Members.Count < Lineup.MaxMembers;
     public bool IsNameMissing => string.IsNullOrWhiteSpace(Name);
     public bool IsAuthorMissing => string.IsNullOrWhiteSpace(Author);
 
     public LineupEditorViewModel(IEnumerable<Operator> operators, IEnumerable<Equipment> equipment, Lineup? lineup = null,
-        IEnumerable<Strategy>? strategies = null)
+        IEnumerable<Strategy>? strategies = null, IEnumerable<string>? covenantTags = null)
     {
         _operators = operators.OrderBy(o => o.Tier).ThenBy(o => o.Name).ToList();
         var gear = equipment.ToList();
         _equipment = gear.ToDictionary(e => e.Name, StringComparer.Ordinal);
-        _share = new(_operators.Select(o => o.Name), gear.Select(e => e.Name));
+        _share = LineupShareService.FromCatalog(_operators, gear.Select(e => e.Name));
         EquipmentNames = ["", .. gear.OrderBy(e => e.Tier).ThenBy(e => e.Name).Select(e => e.Name).Distinct()];
         _id = lineup?.Id ?? Guid.NewGuid();
         _isImported = lineup?.IsImported ?? false;
@@ -107,6 +145,12 @@ public partial class LineupEditorViewModel : ObservableObject
             .Concat(catalog.Values.Where(strategy => !selectedStrategies.Contains(strategy.Name)))
             .Select(strategy => new LineupStrategyOption(strategy, selectedStrategies.Contains(strategy.Name))).ToArray();
         foreach (var option in StrategyOptions) option.PropertyChanged += (_, _) => IsDirty = true;
+        var savedTags = lineup?.CovenantTags ?? [];
+        var covenantNames = covenantTags ?? _operators.SelectMany(op => op.CoreCovenants.Concat(op.AdditionalCovenants));
+        CovenantTagOptions = savedTags.Concat(covenantNames).Distinct(StringComparer.Ordinal)
+            .Select(name => new LineupCovenantOption(name, savedTags.Contains(name))).ToArray();
+        foreach (var option in CovenantTagOptions)
+            option.PropertyChanged += (_, _) => { IsDirty = true; OnPropertyChanged(nameof(CovenantTagSummary)); };
         Members = new(_members);
         OperatorBrowser.LoadOperators(_operators);
         EquipmentBrowser.LoadEquipment(gear);
@@ -135,7 +179,7 @@ public partial class LineupEditorViewModel : ObservableObject
             Status = "该干员已在阵容中，已选中以便编辑。";
             return;
         }
-        if (!CanAddOperator) { Status = "阵容最多容纳 10 名干员，请先移除一名。"; return; }
+        if (!CanAddOperator) { Status = $"阵容最多容纳 {Lineup.MaxMembers} 名干员，请先移除一名。"; return; }
         AddMember(new() { OperatorName = op.Name });
         SelectedMember = Members.Last();
         ChangedMembers();
@@ -162,17 +206,18 @@ public partial class LineupEditorViewModel : ObservableObject
 
     public bool Equip(LineupMemberViewModel member, string equipmentName, int? slot = null)
     {
-        if (!Members.Contains(member) || !_equipment.ContainsKey(equipmentName) || (slot is not null && slot is not (1 or 2)))
+        if (!Members.Contains(member) || !_equipment.ContainsKey(equipmentName) ||
+            (slot is int number && (number < 1 || number > member.EquipmentSlots.Count)))
             return false;
         SelectedMember = member;
-        slot ??= !member.HasEquipment1 ? 1 : !member.HasEquipment2 ? 2 : null;
-        if (slot is null)
+        var target = slot is int index ? member.EquipmentSlots[index - 1] :
+            member.EquipmentSlots.FirstOrDefault(item => !item.HasEquipment);
+        if (target is null)
         {
-            Status = "该干员的两个装备槽已满，请拖到指定装备槽替换，或先清除装备。";
+            Status = "该干员的装备槽已满，请拖到指定装备槽替换，或先清除装备。";
             return false;
         }
-        if (slot == 1) member.Equipment1 = equipmentName;
-        else member.Equipment2 = equipmentName;
+        target.Name = equipmentName;
         CatalogPreview = null;
         Status = $"已为{member.OperatorName}装备{equipmentName}。";
         return true;
@@ -180,10 +225,9 @@ public partial class LineupEditorViewModel : ObservableObject
 
     public void ClearEquipment(LineupMemberViewModel member, int slot)
     {
-        if (!Members.Contains(member) || slot is not (1 or 2)) return;
+        if (!Members.Contains(member) || slot < 1 || slot > member.EquipmentSlots.Count) return;
         SelectedMember = member;
-        if (slot == 1) member.Equipment1 = "";
-        else member.Equipment2 = "";
+        member.EquipmentSlots[slot - 1].Name = "";
         Status = "装备已清除。";
     }
 
@@ -214,11 +258,13 @@ public partial class LineupEditorViewModel : ObservableObject
 
     public Lineup BuildLineup(bool includeDescription = true)
     {
+        var tags = CovenantTagOptions.Where(option => option.IsSelected).Select(option => option.Name).ToList();
         var lineup = new Lineup
         {
             Id = _id, Name = Name.Trim(), Author = Author.Trim(), Description = includeDescription ? Description : "", IsImported = _isImported,
             PublishedLink = _publishedLink,
             AvailableStrategies = StrategyOptions.Where(option => option.IsSelected).Select(option => option.Strategy.Name).ToList(),
+            CovenantTags = tags.Count > 0 ? tags : null,
             Members = Members.Select(m => m.Snapshot()).ToList()
         };
         _share.Validate(lineup);

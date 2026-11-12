@@ -25,6 +25,15 @@ public class Operator
     [JsonPropertyName("tier")]
     public int Tier { get; set; }
 
+    [JsonPropertyName("strategyOnly")]
+    public bool StrategyOnly { get; set; }
+
+    [JsonPropertyName("equipmentSlotCount")]
+    public int EquipmentSlotCount { get; set; } = 2;
+
+    [JsonIgnore]
+    public string TierLabel => Tier == 0 ? "特殊" : Tier.ToString();
+
     [JsonPropertyName("coreCovenants")]
     public List<string> CoreCovenants { get; set; } = [];
 

@@ -22,7 +22,8 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ProgressBar">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="3"
+                        <Border x:Name="PART_Track"
+                                Background="{TemplateBinding Background}" CornerRadius="3"
                                 Height="{TemplateBinding Height}">
                             <Border x:Name="PART_Indicator"
                                     Background="{TemplateBinding Foreground}"

@@ -7,6 +7,7 @@
              Background="{StaticResource PanelBackgroundBrush}">
     <UserControl.Resources>
         <converters:NullToStringConverter x:Key="NullToAll" />
+        <converters:TierToRomanConverter x:Key="TierLabel" />
         <converters:CovenantDisabledConverter x:Key="CovenantDisabled" />
         <Style x:Key="CoreCovenantFilterChip" TargetType="ListBoxItem" BasedOn="{StaticResource FilterChipItem}">
             <Style.Triggers>
@@ -291,7 +292,7 @@
                          SelectionChanged="OnMultiFilterChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource NullToAll}, ConverterParameter=全部}"
+                            <TextBlock Text="{Binding Converter={StaticResource TierLabel}, ConverterParameter=全部}"
                                        FontSize="11" />
                         </DataTemplate>
                     </ListBox.ItemTemplate>

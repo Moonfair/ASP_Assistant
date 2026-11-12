@@ -93,7 +93,7 @@ public class LineupShareTests
     }
 
     [Fact]
-    public void Import_EnforcesCatalogAndExactlyTwoSlots_AndAcceptsTenMembers()
+    public void Import_EnforcesCatalogAndDefaultSlots_AndAcceptsThirtyMembersWithTags()
     {
         var source = _service.Export(Example());
         foreach (var text in new[]
@@ -103,9 +103,14 @@ public class LineupShareTests
         })
             ((Action)(() => _service.Import(text))).Should().Throw<FormatException>();
 
-        var names = Enumerable.Range(0, 10).Select(i => $"干员{i}").ToList();
+        var names = Enumerable.Range(0, 31).Select(i => $"干员{i}").ToList();
         var codec = new LineupShareService(names, []);
-        var lineup = Example() with { Members = names.Select(n => new LineupMember { OperatorName = n }).ToList() };
-        codec.Import(codec.Export(lineup)).Members.Should().HaveCount(10);
+        var lineup = Example() with { Members = names.Take(30).Select(n => new LineupMember { OperatorName = n }).ToList() };
+        var share = codec.Export(lineup);
+        codec.Import(share).Members.Should().HaveCount(30);
+        var tagged = share.Insert(share.LastIndexOf('}'), ", \"CovenantTags\": [\"炎\", \"迅捷\"]");
+        codec.Export(codec.Import(tagged)).Should().Contain("\"CovenantTags\"").And.Contain("\"迅捷\"");
+        lineup.Members.Add(new() { OperatorName = names.Last() });
+        ((Action)(() => codec.Export(lineup))).Should().Throw<FormatException>();
     }
 }

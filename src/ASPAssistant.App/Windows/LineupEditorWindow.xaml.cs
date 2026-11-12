@@ -59,9 +59,9 @@ public partial class LineupEditorWindow : Window
 
     private void OnClearEquipment(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: LineupMemberViewModel member } button)
+        if (sender is Button { DataContext: LineupEquipmentSlotViewModel slot })
         {
-            _vm.ClearEquipment(member, int.Parse((string)button.Tag));
+            _vm.ClearEquipment(slot.Member, slot.Number);
             e.Handled = true;
         }
     }
@@ -133,8 +133,8 @@ public partial class LineupEditorWindow : Window
     private void OnMemberDrop(object sender, DragEventArgs e) => ApplyDrop(e, (sender as FrameworkElement)?.DataContext as LineupMemberViewModel);
     private void OnSlotDrop(object sender, DragEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: LineupMemberViewModel member, Tag: string tag })
-            ApplyDrop(e, member, int.Parse(tag));
+        if (sender is FrameworkElement { DataContext: LineupEquipmentSlotViewModel slot })
+            ApplyDrop(e, slot.Member, slot.Number);
     }
     private void ApplyDrop(DragEventArgs e, LineupMemberViewModel? member = null, int? slot = null)
     {
@@ -145,7 +145,7 @@ public partial class LineupEditorWindow : Window
     private async void OnSave(object sender, RoutedEventArgs e)
     {
         if (_step != Step.Description || _saving) return;
-        if (!DescriptionWorkspace.TryApplyPendingGraphProperties()) return;
+        if (!DescriptionWorkspace.TryValidateSourceVideo() || !DescriptionWorkspace.TryApplyPendingGraphProperties()) return;
         try
         {
             var lineup = _vm.BuildLineup() with { Description = LineupDiagramSource.RemoveLegacyPositions(_vm.Description) };

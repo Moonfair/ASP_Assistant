@@ -6,6 +6,7 @@ namespace ASPAssistant.Core.ViewModels;
 
 public partial class TrackingViewModel : ObservableObject
 {
+    private readonly IReadOnlyList<Operator> _operators;
     private readonly ILookup<string, string> _operatorIcons;
     private readonly ILookup<string, string> _equipmentIcons;
 
@@ -17,17 +18,46 @@ public partial class TrackingViewModel : ObservableObject
 
     public IReadOnlyList<TrackingEntry> AllEntries =>
         [.. TrackedOperators, .. TrackedEquipment];
+    public IReadOnlyList<string> CoreCovenants { get; }
+    public IReadOnlyList<string> AdditionalCovenants { get; }
     public event Action? TrackingChanged;
 
     public TrackingViewModel(IEnumerable<Operator>? operators = null, IEnumerable<Equipment>? equipment = null)
     {
-        _operatorIcons = (operators ?? []).ToLookup(item => item.Name, item => item.IconPath);
+        _operators = (operators ?? []).ToArray();
+        _operatorIcons = _operators.ToLookup(item => item.Name, item => item.IconPath);
         _equipmentIcons = (equipment ?? []).ToLookup(item => item.Name, item => item.IconPath);
+        CoreCovenants = _operators.SelectMany(item => item.CoreCovenants)
+            .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().Order().ToArray();
+        AdditionalCovenants = _operators.SelectMany(item => item.AdditionalCovenants)
+            .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().Order().ToArray();
     }
 
     public void AddTracking(string name, TrackingType type)
     {
         if (TryAddTracking(name, type)) TrackingChanged?.Invoke();
+    }
+
+    public (int Matched, int Added) TrackCovenantCombination(string coreCovenant, string additionalCovenant)
+    {
+        if (string.IsNullOrWhiteSpace(coreCovenant) || string.IsNullOrWhiteSpace(additionalCovenant))
+            return (0, 0);
+
+        var names = _operators
+            .Where(item => !item.StrategyOnly && item.CoreCovenants.Contains(coreCovenant)
+                && item.AdditionalCovenants.Contains(additionalCovenant))
+            .Select(item => item.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct()
+            .ToArray();
+
+        var added = 0;
+        foreach (var name in names)
+        {
+            if (TryAddTracking(name, TrackingType.Operator)) added++;
+        }
+        if (added > 0) TrackingChanged?.Invoke();
+        return (names.Length, added);
     }
 
     public int TrackLineup(Lineup lineup)
@@ -36,8 +66,8 @@ public partial class TrackingViewModel : ObservableObject
         foreach (var member in lineup.Members)
         {
             if (TryAddTracking(member.OperatorName, TrackingType.Operator)) added++;
-            if (TryAddTracking(member.Equipment1, TrackingType.Equipment)) added++;
-            if (TryAddTracking(member.Equipment2, TrackingType.Equipment)) added++;
+            foreach (var name in member.EquipmentSlots)
+                if (TryAddTracking(name, TrackingType.Equipment)) added++;
         }
         if (added > 0) TrackingChanged?.Invoke();
         return added;
@@ -46,6 +76,8 @@ public partial class TrackingViewModel : ObservableObject
     private bool TryAddTracking(string name, TrackingType type)
     {
         if (string.IsNullOrWhiteSpace(name) || IsTracked(name))
+            return false;
+        if (type == TrackingType.Operator && _operators.Any(item => item.StrategyOnly && item.Name == name))
             return false;
 
         AddEntry(new TrackingEntry { Name = name, Type = type });

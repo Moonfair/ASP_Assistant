@@ -23,6 +23,45 @@ namespace ASPAssistant.Tests.Views;
 public class LineupInteractionTests
 {
     [Fact]
+    public void VisualEditor_SelectsCovenantTagsAndDropsIntoIronhideFourthSlot()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var ironhide = new Operator { Name = "“暴躁铁皮”", Tier = 5, EquipmentSlotCount = 4 };
+            var vm = new LineupEditorViewModel([ironhide], [new() { Name = "坚守盾牌" }],
+                covenantTags: ["炎", "迅捷"]) { Name = "四槽阵容", Author = "博士" };
+            vm.AddOperator(ironhide);
+            var window = new LineupEditorWindow(vm, _ => Task.FromResult(true));
+            try
+            {
+                var content = (FrameworkElement)window.Content;
+                Layout(content, 1020, 730);
+                var tags = Descendants<Expander>((FrameworkElement)window.FindName("IdentityFields")).Single();
+                tags.IsExpanded = true;
+                Layout(content, 1020, 730);
+                Descendants<CheckBox>(tags).Single(box => Equals(box.Content, "迅捷")).IsChecked = true;
+
+                var roster = (ListBox)window.FindName("RosterList");
+                var slot = Descendants<Grid>(roster).Single(grid => Equals(grid.Tag, "4"));
+                Drop(slot, LineupDragDrop.EquipmentFormat, "坚守盾牌").Should().Be(DragDropEffects.Copy);
+                var slots = Descendants<ComboBox>((FrameworkElement)window.FindName("MemberEditor")).ToList();
+                slots.Should().HaveCount(4);
+                slots[3].Text.Should().Be("坚守盾牌");
+                Descendants<CheckBox>(content).Single(box => Equals(box.Content, "精锐")).IsChecked = true;
+                var lineup = vm.BuildLineup();
+                lineup.Members.Single().Equipment4.Should().Be("坚守盾牌");
+                lineup.Members.Single().IsElite.Should().BeTrue();
+                lineup.CovenantTags.Should().Equal("迅捷");
+            }
+            finally
+            {
+                window.ApprovePanelClose();
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public void StrategyTab_MultiSelectsAndInsertsPortraitIntoSavedPreview()
     {
         LineupPerformanceTests.RunSta(() =>
@@ -342,10 +381,15 @@ public class LineupInteractionTests
                     "地灵" => secondPath,
                     _ => null
                 }, bans.IsBanned, name => name == "众志合一" ? strategyPath : null);
+                var data = new JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
+                view.ConfigureCovenantActivation(new(data.LoadCovenantCatalogAsync().GetAwaiter().GetResult(),
+                    data.LoadOperatorsAsync().GetAwaiter().GetResult()));
                 bans.BansChanged += view.RefreshBannedPortraits;
                 view.DataContext = library;
                 Layout(view, 278, 500);
                 var cards = (ItemsControl)view.FindName("LineupCards");
+                Descendants<TextBlock>(cards).Single(text => text.Name == "ActiveCovenantList")
+                    .Text.Should().Be("已激活盟约：独行");
                 var portraits = Descendants<Image>(cards).Where(image => image.Name == "Portrait").ToArray();
                 portraits.Select(image => ((LineupMember)image.DataContext).OperatorName)
                     .Should().Equal("能天使", "地灵", "旧干员");
@@ -461,7 +505,8 @@ public class LineupInteractionTests
                 editor.Members.Should().ContainSingle();
                 authorOutline.Opacity.Should().Be(0);
                 rosterZone.BorderBrush.Should().NotBeSameAs(window.FindResource("MissingFieldBrush"));
-                var checks = Descendants<CheckBox>(content).ToList();
+                var checks = Descendants<CheckBox>(content)
+                    .Where(check => check.Content is "叠层核心" or "输出核心").ToList();
                 checks.Should().HaveCount(2);
                 checks.ForEach(c => c.IsChecked = true);
                 var slots = Descendants<ComboBox>((FrameworkElement)window.FindName("MemberEditor")).ToList();
@@ -684,7 +729,9 @@ public class LineupInteractionTests
                 var completed = (LineupPreviewView)window.FindName("CompletedPreview");
                 Layout(content, 1020, 730);
                 Descendants<TextBlock>(completed).Select(text => text.Text).Should().Contain(["测试阵容", "作者：测试作者", "能天使"]);
-                ((FlowDocumentScrollViewer)completed.FindName("Introduction")).Document!.Blocks.Count.Should().Be(3);
+                ((FlowDocumentScrollViewer)completed.FindName("Introduction")).Document!.Blocks.Count.Should().Be(2);
+                ((FlowDocumentScrollViewer)completed.FindName("DiagramPreview")).Document!.Blocks
+                    .OfType<System.Windows.Documents.BlockUIContainer>().Should().ContainSingle();
                 RenderPreview(content, "lineup-save-completed.png", 1020, 730);
                 window.Close();
 

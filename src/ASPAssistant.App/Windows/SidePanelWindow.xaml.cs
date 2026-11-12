@@ -32,6 +32,7 @@ public partial class SidePanelWindow : Window
     private List<Operator> _lineupOperators = [];
     private List<Equipment> _lineupEquipment = [];
     private IReadOnlyList<Strategy> _lineupStrategies = [];
+    private IReadOnlyList<string>? _lineupCovenantTags;
     private LineupEditorWindow? _lineupEditor;
 
     // 用户意图追踪
@@ -121,22 +122,26 @@ public partial class SidePanelWindow : Window
     }
 
     public void ConfigureLineups(LineupLibraryViewModel library, List<Operator> operators, List<Equipment> equipment,
-        IReadOnlyList<Strategy>? strategies = null)
+        IReadOnlyList<Strategy>? strategies = null, CovenantCatalog? covenantCatalog = null)
     {
         _lineupLibrary = library;
         _lineupOperators = operators;
         _lineupEquipment = equipment;
         _lineupStrategies = strategies ?? [];
+        _lineupCovenantTags = covenantCatalog is null ? null :
+            [.. covenantCatalog.CoreCovenants, .. covenantCatalog.AdditionalCovenants];
+        if (covenantCatalog is { ActivationRules.Count: > 0 })
+            LineupView.ConfigureCovenantActivation(new(covenantCatalog, operators));
         LineupView.ConfigurePortraits(FindLineupOperatorIcon, BanVm.IsBanned, FindLineupStrategyIcon);
         LineupView.DataContext = library;
-        LineupView.ShareService = new LineupShareService(operators.Select(o => o.Name), equipment.Select(e => e.Name));
+        LineupView.ShareService = LineupShareService.FromCatalog(operators, equipment.Select(e => e.Name));
         LineupView.NewRequested += () => TryOpenLineupEditor(null);
         LineupView.EditRequested += lineup => TryOpenLineupEditor(lineup);
         LineupView.PreviewRequested += OpenLineupPreview;
         LineupView.TrackRequested += lineup =>
         {
             var added = TrackingVm.TrackLineup(lineup);
-            library.Status = added > 0 ? $"已加入 {added} 项干员或装备追踪。" : "这个阵容的干员和装备已全部在追踪列表中。";
+            library.Status = added > 0 ? $"已加入 {added} 项干员或装备追踪。" : "这个阵容没有新的可追踪干员或装备。";
         };
     }
 
@@ -208,7 +213,7 @@ public partial class SidePanelWindow : Window
                 : "已有阵容正在编辑，请先保存或取消当前编辑。");
             return false;
         }
-        var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup, _lineupStrategies);
+        var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup, _lineupStrategies, _lineupCovenantTags);
         vm.OperatorBrowser.SetBanChecker(BanVm.IsBanned);
         vm.OperatorBrowser.CovenantAvailability = OperatorBrowseVm.CovenantAvailability;
         void RefreshEditorBans() => Dispatcher.Invoke(() => vm.OperatorBrowser.NotifyBansChanged());

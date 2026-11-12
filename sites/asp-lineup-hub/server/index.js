@@ -32,17 +32,19 @@ function parseShare(value) {
   const { content: data, share } = parsed;
   const factions = new Map();
   const members = data.Members.map((member) => {
-    const { OperatorName: name, IsStackingCore: stacking, IsDamageCore: damage,
-      Equipment1: first, Equipment2: second } = member;
+    const { OperatorName: name, IsStackingCore: stacking, IsDamageCore: damage } = member;
     const op = catalog.operators[name];
     for (const covenant of op.covenants) factions.set(covenant, (factions.get(covenant) ?? 0) + 1);
-    return { name, stacking, damage, equipment: [first, second].filter(Boolean), image: op.image, tier: op.tier };
+    return { name, stacking, damage, equipment: memberEquipmentSlots(member).filter(Boolean), image: op.image, tier: op.tier,
+      ...(member.IsElite && op.tier > 0 ? { elite: true } : {}) };
   });
+  const covenants = data.CovenantTags?.length ? data.CovenantTags :
+    [...factions].sort((a, b) => b[1] - a[1]).map(pair => pair[0]);
   return {
     title: data.Name, author: data.Author, description: data.Description ?? '', members,
     strategies: data.AvailableStrategies ?? [],
-    covenants: [...factions].sort((a, b) => b[1] - a[1]).map(pair => pair[0]),
-    search: [data.Name, data.Author, ...members.flatMap(member => [member.name, ...member.equipment]), ...factions.keys()]
+    covenants,
+    search: [data.Name, data.Author, ...members.flatMap(member => [member.name, ...member.equipment]), ...covenants, ...factions.keys()]
       .join(' ').normalize('NFKC').toLowerCase(),
     share,
     sample: false
@@ -86,6 +88,33 @@ const summary = `id, created_at, data,
   (SELECT COUNT(*) FROM ratings WHERE lineup_id = visible.id) AS rating_count,
   (SELECT AVG(score) FROM ratings WHERE lineup_id = visible.id) AS rating`;
 
+function activeCovenantsFor(members) {
+  const counts = new Map();
+  let eliteCount = 0;
+  for (const member of members) {
+    if (!hasOwn(catalog.operators, member.name)) continue;
+    const op = catalog.operators[member.name];
+    const memberships = new Set([...op.covenants, ...(op.additionalCovenants ?? [])]);
+    if (member.equipment.some(name => catalog.jobChangeActivators.includes(name))) {
+      for (const name of member.equipment) {
+        if (hasOwn(catalog.jobChangeEquipment, name)) memberships.add(catalog.jobChangeEquipment[name]);
+      }
+    }
+    for (const name of memberships) counts.set(name, (counts.get(name) ?? 0) + 1);
+    if (member.elite && op.tier > 0) eliteCount++;
+  }
+
+  const rules = Object.entries(catalog.activationRules);
+  const meets = (rule, count) => count >= rule.minimumCount && (rule.maximumCount == null || count <= rule.maximumCount);
+  const coreBonus = rules.reduce((bonus, [name, rule]) =>
+    meets(rule, counts.get(name) ?? 0) ? bonus + (rule.coreActivationBonus ?? 0) : bonus, 0);
+  return rules.filter(([name, rule]) => {
+    if (rule.requiresElite) return meets(rule, eliteCount);
+    const count = counts.get(name) ?? 0;
+    return meets(rule, count > 0 && hasOwn(catalog.covenants, name) ? count + coreBonus : count);
+  }).map(([name]) => name);
+}
+
 function lineupFromRow(row, detail = false) {
   const { title, author, description, covenants, members, strategies = [], sample, share } = JSON.parse(row.data);
   const visibleStrategies = detail ? strategies : strategies.slice(0, 5);
@@ -96,7 +125,8 @@ function lineupFromRow(row, detail = false) {
   return {
     id: row.id, createdAt: row.created_at, title, author,
     description: detail ? description : description.slice(0, 160),
-    covenants, members, strategyPortraits, strategyCount: strategies.length, sample, commentCount: row.comment_count,
+    covenants, activeCovenants: activeCovenantsFor(members), members, strategyPortraits,
+    strategyCount: strategies.length, sample, commentCount: row.comment_count,
     ratingCount: row.rating_count, rating: row.rating === null ? null : Math.round(row.rating * 10) / 10,
     shortPath: shortPathFor(row.id), ...(detail ? { strategies, share } : {})
   };
@@ -214,7 +244,8 @@ async function api(request, url, env) {
     const { lineup } = await findLineup(db, idFromShortToken(short[1]));
     return reply({ share: lineup.share, shortPath: lineup.shortPath });
   }
-  if (method === 'GET' && path === '/api/catalog') return reply({ covenants: catalog.covenants });
+  if (method === 'GET' && path === '/api/catalog') return reply({ covenants: Object.fromEntries(
+    catalog.covenantTags.map(name => [name, catalog.covenants[name] ?? null])) });
   if (method === 'GET' && path === '/api/editor-catalog') return reply(catalog);
   if (method === 'GET' && path === '/api/lineups') return reply(await listLineups(db, url.searchParams));
   if (method === 'POST' && path === '/api/captcha') {

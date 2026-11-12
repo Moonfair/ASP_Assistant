@@ -82,9 +82,9 @@ public partial class OperatorBrowseViewModel : ObservableObject
         }
     }
 
-    private static readonly string[] _romanNumerals = ["", "Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
+    private static readonly string[] _romanNumerals = ["特殊", "Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
     private static string TierToRoman(int tier) =>
-        tier >= 1 && tier <= 6 ? _romanNumerals[tier] : tier.ToString();
+        tier >= 0 && tier <= 6 ? _romanNumerals[tier] : tier.ToString();
 
     public void LoadOperators(List<Operator> operators)
     {

@@ -114,6 +114,7 @@ public partial class App : Application
         // Load data
         AppLogger.Info("App", "Loading operators...");
         var operators = await dataStore.LoadOperatorsAsync();
+        var shopOperators = operators.Where(op => !op.StrategyOnly).ToList();
         var covenantCatalog = await dataStore.LoadCovenantCatalogAsync();
         var strategies = await dataStore.LoadStrategiesAsync();
         AppLogger.Info("App", $"Loaded {operators.Count} operators");
@@ -161,11 +162,11 @@ public partial class App : Application
         _ocrScanner = new OcrScannerService(
             captureService, _gameTarget, garrisonMode.OcrStrategy, ocrEngine, gameState,
             () => Dispatcher.Invoke(() => trackingVm.AllEntries.Select(o => o.Name).ToList()),
-            getAllOperators: () => operators.Select(o =>
+            getAllOperators: () => shopOperators.Select(o =>
                 new BanCandidate(o.Name, o.CoreCovenants, o.AdditionalCovenants, [])).ToList(),
             covenantCatalog: covenantCatalog,
             intervalMs: 500,
-            shopNames: operators.Select(o => o.Name).Concat(equipment.Select(e => e.Name)).ToList());
+            shopNames: shopOperators.Select(o => o.Name).Concat(equipment.Select(e => e.Name)).ToList());
 
         _windowTracker = new WindowTrackerService(_gameTarget);
 
@@ -177,7 +178,7 @@ public partial class App : Application
             try { _settingsManager.SaveSideFilterLayout(side); }
             catch (Exception ex) { AppLogger.Error("Settings", "Could not save filter layout", ex); }
         };
-        _sidePanel.ConfigureLineups(lineupVm, operators, equipment, strategies);
+        _sidePanel.ConfigureLineups(lineupVm, operators, equipment, strategies, covenantCatalog);
         _sidePanel.ConfigureLineupSite(_lineupSite);
         _overlay = new OverlayWindow();
         ConfigureGameSource();

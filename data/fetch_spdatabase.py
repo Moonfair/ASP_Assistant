@@ -218,6 +218,27 @@ def classify_bonds(chess_entry: dict, bond_info_dict: dict) -> tuple[list[str], 
     return core_covenants, additional_covenants
 
 
+def get_strategy_units(season_data: dict) -> tuple[set[str], dict[str, str]]:
+    granted_chess_ids: set[str] = set()
+    map_units: dict[str, str] = {}
+    effects = season_data.get("effectBuffInfoDataDict") or {}
+    for band in (season_data.get("bandDataListDict") or {}).values():
+        for buff in effects.get(band.get("effectId"), []):
+            blackboard = buff.get("blackboard") or []
+            if buff["key"] == "preparation_start_gain_chess_from_round":
+                values = {entry["key"]: entry.get("valueStr") for entry in blackboard}
+                if values.get("type") == "char" and values.get("chess"):
+                    granted_chess_ids.add(values["chess"])
+            elif buff["key"] == "auto_chess_change_map":
+                description = strip_rich_text(band["bandDesc"]).partition("】")[2]
+                description = description.replace("\\n", "\n").strip()
+                for entry in blackboard:
+                    char_id, marker, _ = entry["key"].partition("#")
+                    if marker and char_id.startswith("char_") and entry["value"] > 0:
+                        map_units.setdefault(char_id, description)
+    return granted_chess_ids, map_units
+
+
 def process_operators(
     char_table: dict,
     season_data: dict,
@@ -227,6 +248,7 @@ def process_operators(
     char_chess_dict = season_data["charChessDataDict"]
     char_shop_dict = season_data["charShopChessDatas"]
     garrison_dict = season_data["garrisonDataDict"]
+    granted_chess_ids, map_units = get_strategy_units(season_data)
 
     operators = []
 
@@ -238,7 +260,8 @@ def process_operators(
         shop_entry = char_shop_dict.get(chess_id)
         if not shop_entry:
             continue
-        if shop_entry["isHidden"]:
+        strategy_only = shop_entry["isHidden"]
+        if strategy_only and chess_id not in granted_chess_ids:
             continue
 
         char_id = shop_entry["charId"]
@@ -276,7 +299,28 @@ def process_operators(
                 "traits": elite_traits,
             },
         }
+        if strategy_only:
+            operator["strategyOnly"] = True
+            if chess.get("equipSlotNum") == 4:
+                operator["equipmentSlotCount"] = 4
         operators.append(operator)
+
+    exported_char_ids = {op["_charId"] for op in operators}
+    for char_id, description in map_units.items():
+        if char_id in exported_char_ids or char_id not in char_table:
+            continue
+        name = char_table[char_id]["name"]
+        operators.append({
+            "name": name,
+            "iconPath": f"icons/operators/{name}.png",
+            "_charId": char_id,
+            "tier": 0,
+            "strategyOnly": True,
+            "coreCovenants": [],
+            "additionalCovenants": [],
+            "normal": {"traits": [{"traitType": "开局策略", "traitDescription": description}]},
+            "elite": {"traits": []},
+        })
 
     return operators
 
@@ -306,6 +350,49 @@ def process_covenants(season_data: dict, bond_info_dict: dict) -> dict:
         }
 
     catalog = pool(season_bonds)
+    activation_rules = {}
+    buffs_by_effect = season_data.get("effectBuffInfoDataDict") or {}
+    for bond_id, bond in season_bonds.items():
+        minimum = bond.get("activeCount")
+        template = bond.get("activeConditionTemplate")
+        if not minimum or template not in (
+            "count_threshold_upward", "count_threshold_downward", "count_threshold_upward_golden",
+        ):
+            continue
+        rule = {"minimumCount": minimum}
+        if template == "count_threshold_downward":
+            rule["maximumCount"] = int(bond["activeParamList"][1]) - 1
+        if template == "count_threshold_upward_golden":
+            rule["requiresElite"] = True
+        for buff in buffs_by_effect.get(bond.get("effectId"), []):
+            if buff["key"] == "other_bond_add_trigger_cnt":
+                for entry in buff["blackboard"]:
+                    if entry["key"] == "count":
+                        rule["coreActivationBonus"] = int(entry["value"])
+        activation_rules[bond_info_dict[bond_id]["name"]] = rule
+    if activation_rules:
+        catalog["activationRules"] = activation_rules
+
+    equipment_chess = season_data.get("trapChessDataDict") or {}
+    equipment_effects = season_data.get("effectInfoDataDict") or {}
+    activators = []
+    job_change_equipment = {}
+    for item_id, shop in (season_data.get("trapShopChessDatas") or {}).items():
+        if shop.get("itemType") != "EQUIP":
+            continue
+        item = equipment_chess.get(item_id, {})
+        name = equipment_effects.get(item.get("effectId"), {}).get("effectName")
+        if not name:
+            continue
+        if item.get("canGiveBond"):
+            activators.append(name)
+        bond_id = item.get("giveBondId")
+        if bond_id in season_bonds:
+            job_change_equipment[name] = bond_info_dict[bond_id]["name"]
+    if activators:
+        catalog["jobChangeActivators"] = activators
+        catalog["jobChangeEquipment"] = job_change_equipment
+
     mode_pools = {
         mode["name"]: {
             **pool(mode["activeBondIdList"]),
@@ -447,6 +534,8 @@ def process_skin_avatars(
 
     char_id_to_name: dict[str, str] = {}
     for op in operators:
+        if op.get("strategyOnly"):
+            continue
         name = op["name"]
         if any(name.startswith(p) for p in BAN_SCREEN_EXCLUDE_PREFIXES):
             continue

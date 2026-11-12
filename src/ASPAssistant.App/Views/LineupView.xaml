@@ -11,6 +11,7 @@
             </ResourceDictionary.MergedDictionaries>
             <CollectionViewSource x:Key="FilteredLineups" Source="{Binding Lineups}" Filter="OnFilterLineup" />
             <converters:StrategyCardPortraitsConverter x:Key="StrategyCardPortraits" />
+            <converters:LineupActiveCovenantsConverter x:Key="LineupActiveCovenants" />
             <Style x:Key="LineupCardAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                 <Setter Property="MinHeight" Value="27" />
                 <Setter Property="Padding" Value="5,3" />
@@ -120,7 +121,22 @@
                                     <StackPanel>
                                     <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{StaticResource TextPrimaryBrush}" />
                                     <TextBlock Text="{Binding Author, StringFormat=作者：{0}}" Foreground="{StaticResource AccentBrush}" Margin="0,5,0,0" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding Members.Count, StringFormat=干员：{0} / 10}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding Members.Count, StringFormat=干员：{0}}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding CovenantTagSummary}" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="ActiveCovenantList"
+                                               Text="{Binding Converter={StaticResource LineupActiveCovenants}}"
+                                               Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap"
+                                               ToolTip="按阵容中列出的干员、精锐状态和装备计算">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <ItemsControl ItemsSource="{Binding Members}" Margin="0,8,0,5">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>

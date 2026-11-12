@@ -23,6 +23,8 @@ public partial class LineupDescriptionView : UserControl
         DiagramSurface.Content = CreateDiagramMessage();
         SourceEditor.MaxLength = Lineup.MaxDescriptionLength;
         IntroductionEditor.MaxLength = Lineup.MaxDescriptionLength;
+        SourceVideoAuthor.MaxLength = Lineup.MaxDescriptionLength;
+        SourceVideoUrl.MaxLength = Lineup.MaxDescriptionLength;
         DataContextChanged += (_, _) => LoadSources();
         _previewTimer.Tick += (_, _) =>
         {
@@ -50,20 +52,60 @@ public partial class LineupDescriptionView : UserControl
     private void LoadSources()
     {
         if (Vm is not { } vm) return;
-        var (introduction, diagram) = LineupDiagramSource.SplitDescription(vm.Description);
+        var (introduction, diagram, video) = LineupSourceVideo.SplitDescription(vm.Description);
         _loadingSources = true;
         try
         {
             IntroductionEditor.Text = introduction;
             SourceEditor.Text = diagram;
+            SourceVideoAuthor.Text = video.Author;
+            SourceVideoUrl.Text = video.Url;
         }
         finally { _loadingSources = false; }
+        RefreshSourceVideo();
     }
 
     private void UpdateDescription()
     {
         if (!_loadingSources && Vm is { } vm && IntroductionEditor is not null && SourceEditor is not null)
-            vm.Description = LineupDiagramSource.CombineDescription(IntroductionEditor.Text, SourceEditor.Text);
+            vm.Description = CombineDescription(IntroductionEditor.Text, SourceEditor.Text);
+    }
+
+    private LineupSourceVideo ReadSourceVideo() => new(SourceVideoAuthor.Text, SourceVideoUrl.Text);
+
+    private void OnSourceVideoChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loadingSources || SourceVideoHint is null) return;
+        RefreshSourceVideo();
+        UpdateDescription();
+    }
+
+    private void RefreshSourceVideo()
+    {
+        var video = ReadSourceVideo();
+        OpenSourceVideoButton.IsEnabled = video.BrowserUri is not null;
+        SetSourceVideoHint(!video.CanSerializeAuthor ? "请填写原作者的名字。"
+            : !string.IsNullOrWhiteSpace(video.Url) && !OpenSourceVideoButton.IsEnabled ? "请输入森空岛卫戍协议攻略链接或哔哩哔哩视频链接。"
+            : "");
+    }
+
+    private void OnOpenSourceVideo(object sender, RoutedEventArgs e)
+    {
+        if (!ReadSourceVideo().TryOpen()) SetSourceVideoHint("无法打开浏览器。");
+    }
+
+    private void SetSourceVideoHint(string message)
+    {
+        SourceVideoHint.Text = message;
+        SourceVideoHint.Visibility = message.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    internal bool TryValidateSourceVideo()
+    {
+        var video = ReadSourceVideo();
+        if (video.CanSerializeAuthor && video.CanSerializeUrl) return true;
+        (video.CanSerializeAuthor ? SourceVideoUrl : SourceVideoAuthor).Focus();
+        return false;
     }
 
     private void OnToggleDiagramMode(object sender, RoutedEventArgs e)
@@ -142,7 +184,7 @@ public partial class LineupDescriptionView : UserControl
     {
         if (Vm is not { } vm) return;
         var operators = vm.Members.Select(member => member.OperatorName).ToHashSet(StringComparer.Ordinal);
-        var equipment = vm.Members.SelectMany(member => new[] { member.Equipment1, member.Equipment2 }).ToHashSet(StringComparer.Ordinal);
+        var equipment = vm.Members.SelectMany(member => member.EquipmentSlots).Select(slot => slot.Name).ToHashSet(StringComparer.Ordinal);
         var operatorText = OperatorPicker.Text;
         var equipmentText = EquipmentPicker.Text;
         var strategyText = StrategyPicker.Text;
@@ -213,8 +255,11 @@ public partial class LineupDescriptionView : UserControl
         EditorHint.Text = "左边编辑阵容说明。右边独立编辑流程图，可切换画布和源码。";
     }
 
-    private static bool FitsDescription(string introduction, string diagram)
-        => LineupDiagramSource.CombineDescription(introduction, diagram).Length <= Lineup.MaxDescriptionLength;
+    private string CombineDescription(string introduction, string diagram)
+        => LineupSourceVideo.CombineDescription(introduction, diagram, ReadSourceVideo());
 
-    private static readonly string DescriptionLimitMessage = $"阵容说明和流程图合计最多支持 {Lineup.MaxDescriptionLength} 字。";
+    private bool FitsDescription(string introduction, string diagram)
+        => CombineDescription(introduction, diagram).Length <= Lineup.MaxDescriptionLength;
+
+    private static readonly string DescriptionLimitMessage = $"阵容说明、攻略来源和流程图合计最多支持 {Lineup.MaxDescriptionLength} 字。";
 }

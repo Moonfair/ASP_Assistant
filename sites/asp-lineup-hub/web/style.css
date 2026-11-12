@@ -95,6 +95,9 @@ dialog{width:min(94vw,680px);max-height:90dvh;padding:0;border:1px solid var(--l
 dialog:has(.lineup-editor) { width: min(96vw, 980px); }
 .lineup-editor h3 { margin: 0 0 10px; }
 .editor-meta, .editor-columns, .editor-slots { display: grid; gap: 12px; }
+.editor-covenants { margin-bottom: 12px; }
+.editor-covenants summary { cursor: pointer; }
+.editor-covenant-tags { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 8px 0; }
 .editor-meta, .editor-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .editor-columns { grid-template-columns: minmax(220px, 1fr) minmax(0, 1.6fr); margin: 4px 0 16px; align-items: start; }
 .editor-picker, .editor-roster, .editor-import { padding: 14px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
@@ -111,8 +114,31 @@ dialog:has(.lineup-editor) { width: min(96vw, 980px); }
 .editor-strategy-choice .portrait { width: 33px; height: 34px; }
 .editor-insert-strategy { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .editor-insert-strategy .field { width: auto; min-width: 10rem; max-width: 100%; }
-.description-strategy { display: inline-block; width: 24px; height: 24px; vertical-align: middle; object-fit: contain; }
+.description-icon { display: inline-block; width: 24px; height: 24px; vertical-align: middle; object-fit: contain; }
+.description { overflow-wrap: anywhere; }
+.description :is(h4, h5, h6) { display: inline; font-size: 1.15em; color: var(--ink); }
+.original-video { margin: 14px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.modal-body .original-video h3 { margin: 0 0 8px; }
+.original-video-details { display: flex; gap: 8px 16px; align-items: center; flex-wrap: wrap; }
+.original-video-details p { margin: 0; font-size: 13px; color: var(--muted); min-width: 0; }
+.editor-description { display: grid; gap: 12px; align-items: start; margin-bottom: 14px; }
+.editor-description > *, .description-diagrams { min-width: 0; }
+.description-diagrams { display: grid; gap: 12px; }
+.description-diagrams .diagram-preview { margin: 0; }
+
+@media (min-width: 821px) {
+  dialog:has(#lineup-description.has-diagrams) { width: min(96vw, 1060px); }
+  .editor-description, #lineup-description:has(> .description):has(> .description-diagrams) {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
+    gap: 16px;
+    align-items: start;
+  }
+}
 .card-strategies { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; }
+.lineup-active-covenants { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0; font-size: 11px; }
+.lineup-active-covenants .tag { background: var(--tint); color: var(--accent-dark); }
+.lineup-active-label { color: var(--muted); }
 .card-strategies-label { font-size: 11px; color: var(--muted); margin-right: 2px; }
 .card .card-strategies .portrait { width: 23px; height: 23px; }
 .detail-meta .strategy-tag { display: inline-flex; align-items: center; gap: 5px; overflow-wrap: anywhere; }
@@ -169,7 +195,7 @@ dialog:has(.lineup-editor) { width: min(96vw, 980px); }
   .hero h1 { font-size: 38px; }
   .editor-meta, .editor-slots, .roster { grid-template-columns: minmax(0, 1fr); }
 }
-.diagram-editor { margin: 14px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.diagram-editor { padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
 .diagram-heading, .diagram-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .diagram-heading h3 { margin: 0 auto 0 0; }
 .diagram-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }

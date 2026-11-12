@@ -1,7 +1,4 @@
 const $ = (selector, root = document) => root.querySelector(selector);
-const escape = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({
-  '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
-}[c]));
 const icon = (name) => '<svg aria-hidden="true"><use href="#' + name + '"/></svg>';
 const state = { covenant: '', page: 1, badges: {}, request: 0, user: null, mailAvailable: null };
 const modal = $('#modal');
@@ -75,6 +72,13 @@ function portrait(member) {
     : escape([...member.name][0])) + '</span>';
 }
 
+function renderActiveCovenants(covenants) {
+  return `<div class="lineup-active-covenants" title="按阵容中列出的干员、精锐状态和装备计算">
+    <span class="lineup-active-label">已激活盟约</span>
+    ${covenants?.length ? covenants.map(name => `<span class="tag">${escape(name)}</span>`).join('') : '<span>无</span>'}
+  </div>`;
+}
+
 function renderCard(lineup) {
   const faction = lineup.covenants[0] ?? '其他阵容';
   const badge = state.badges[faction];
@@ -90,6 +94,7 @@ function renderCard(lineup) {
       ${badge ? '<img class="band-badge" src="' + escape(badge) + '" alt="" loading="lazy">' : ''}
     </div>
     <div class="card-body"><h3>${escape(lineup.title)}</h3><p class="byline">作者 · ${escape(lineup.author)}</p><div class="members">${visible}${more}</div>
+      ${renderActiveCovenants(lineup.activeCovenants)}
       ${strategies.length ? `<div class="card-strategies">
         <span class="card-strategies-label">可用策略</span>${strategies.map(portrait).join('')}
         ${remainingStrategies > 0 ? `<span class="portrait more" aria-label="另有 ${remainingStrategies} 项策略">+${remainingStrategies}</span>` : ''}
@@ -293,9 +298,13 @@ async function showDetail(id, confirmation, shared = false) {
     const data = await api(shared ? 'share/' + encodeURIComponent(id) + '?preview=1' : 'lineups/' + encodeURIComponent(id));
     if (version !== modalVersion) return;
     const lineup = data.lineup;
+    const description = splitLineupDescription(lineup.description ?? '');
+    const { prose, diagrams, originalAuthor, originalVideoUrl } = description;
+    const sourceHref = lineupSourceHref(originalVideoUrl);
+    const sklandGuide = isSklandGuideHref(sourceHref);
     const tags = lineup.covenants.map(c => '<span class="tag">' + escape(c) + '</span>').join('');
     const roster = lineup.members.map(member => {
-      const roles = [member.damage && '输出核心', member.stacking && '叠层核心'].filter(Boolean);
+      const roles = [member.damage && '输出核心', member.stacking && '叠层核心', member.elite && '精锐'].filter(Boolean);
       const labels = [member.tier && ('等阶 ' + member.tier), ...roles, ...member.equipment].filter(Boolean);
       return '<div class="roster-item">' + portrait(member) + '<div><strong>' + escape(member.name) + '</strong><small>' + escape(labels.join(' · ')) + '</small></div></div>';
     }).join('');
@@ -309,10 +318,20 @@ async function showDetail(id, confirmation, shared = false) {
       <a class="text-button" id="desktop-download" href="${ASP_DOWNLOAD_URL}" hidden>下载 ASP Assistant</a>
       <textarea class="field" id="copy-fallback" aria-label="复制内容" readonly hidden></textarea>
       <h3>阵容干员 · ${lineup.members.length} 名</h3><div class="roster">${roster}</div>
+      ${renderActiveCovenants(lineup.activeCovenants)}
       ${lineup.strategyPortraits?.length ? '<h3>可用策略</h3><div class="detail-meta">' +
         lineup.strategyPortraits.map(({ name, image }) => `<span class="tag strategy-tag">
           ${image ? `<img src="${escape(image)}" alt="" loading="lazy">` : ''}${escape(name)}</span>`).join('') + '</div>' : ''}
-      ${lineup.description ? '<h3>阵容介绍</h3><div id="lineup-description"><p class="description">' + escape(lineup.description) + '</p></div>' : ''}
+      ${originalAuthor || originalVideoUrl ? `<section class="original-video" aria-labelledby="original-video-title">
+        <h3 id="original-video-title">${sklandGuide ? '原攻略' : '原视频'}</h3>
+        <div class="original-video-details">
+          ${originalAuthor ? `<p>${sklandGuide ? '原作者' : '原视频作者'} · ${escape(originalAuthor)}</p>` : ''}
+          ${sourceHref ? `<a class="button secondary compact" href="${escape(sourceHref)}" target="_blank" rel="noopener noreferrer">${sklandGuide ? '在森空岛打开' : '在哔哩哔哩观看'} ${icon('arrow')}</a>`
+            : originalVideoUrl ? `<p>${escape(originalVideoUrl)}</p>` : ''}
+        </div>
+      </section>` : ''}
+      ${prose || diagrams ? `<h3>阵容介绍</h3><div id="lineup-description"${diagrams ? ' class="has-diagrams"' : ''}>
+        ${prose ? `<div class="description">${renderDescriptionProse(prose)}</div>` : ''}</div>` : ''}
       ${shared ? '' : `
       <section class="interaction" aria-labelledby="rating-title">
         <h3 id="rating-title">玩家评分</h3><div class="rating-info" id="rating-info"></div><p class="intro" id="my-rating"></p>
@@ -330,7 +349,7 @@ async function showDetail(id, confirmation, shared = false) {
         <ul class="comment-list" id="comment-list"></ul><div class="comment-pages" id="comment-pages"></div>
       </section>`}`, 'FORMATION DETAILS');
     const introduction = $('#lineup-description');
-    if (introduction) renderPublishedDescription(introduction, lineup.description).catch(() => {});
+    if (introduction) renderPublishedDescription(introduction, description).catch(() => {});
     if (!shared) bindPublishedDetailInteractions(id, data, version);
     async function copy(value, success) {
       try {

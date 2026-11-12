@@ -74,7 +74,7 @@
                 <StackPanel VerticalAlignment="Top">
                     <!-- Row 1: tier + name + toggle, all top-aligned -->
                     <DockPanel>
-                        <Border DockPanel.Dock="Right" CornerRadius="9"
+                        <Border x:Name="VariantPicker" DockPanel.Dock="Right" CornerRadius="9"
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                                 Background="#1A4FC3F7" Padding="2" VerticalAlignment="Top">
                             <StackPanel Orientation="Horizontal">

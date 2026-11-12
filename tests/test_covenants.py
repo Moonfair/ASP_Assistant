@@ -8,6 +8,40 @@ spec.loader.exec_module(fetcher)
 
 
 class CovenantCatalogTests(unittest.TestCase):
+    def test_exports_activation_templates_harmony_bonus_and_transformation_pairing(self):
+        bonds = {
+            key: {"name": name, "bondType": kind}
+            for key, name, kind in [("yan", "炎", "SEASON"), ("harm", "调和", "REGULAR"),
+                                    ("solo", "独行", "REGULAR"), ("skill", "绝技", "REGULAR")]
+        }
+        season = {
+            "bondInfoDict": {
+                "yan": {"activeCount": 3, "activeConditionTemplate": "count_threshold_upward"},
+                "harm": {"activeCount": 1, "activeConditionTemplate": "count_threshold_upward", "effectId": "bonus"},
+                "solo": {"activeCount": 1, "activeConditionTemplate": "count_threshold_downward", "activeParamList": ["1", "2"]},
+                "skill": {"activeCount": 2, "activeConditionTemplate": "count_threshold_upward_golden"},
+            },
+            "effectBuffInfoDataDict": {
+                "bonus": [{"key": "other_bond_add_trigger_cnt", "blackboard": [{"key": "count", "value": 1.0}]}],
+            },
+            "trapShopChessDatas": {key: {"itemType": "EQUIP"} for key in ("shape", "blade", "other")},
+            "trapChessDataDict": {
+                "shape": {"effectId": "shape", "canGiveBond": True},
+                "blade": {"effectId": "blade", "giveBondId": "yan"},
+                "other": {"effectId": "other", "giveBondId": "old"},
+            },
+            "effectInfoDataDict": {"shape": {"effectName": "变形同构体"}, "blade": {"effectName": "炎国短刀"}},
+        }
+        result = fetcher.process_covenants(season, bonds)
+        self.assertEqual({
+            "炎": {"minimumCount": 3},
+            "调和": {"minimumCount": 1, "coreActivationBonus": 1},
+            "独行": {"minimumCount": 1, "maximumCount": 1},
+            "绝技": {"minimumCount": 2, "requiresElite": True},
+        }, result["activationRules"])
+        self.assertEqual(["变形同构体"], result["jobChangeActivators"])
+        self.assertEqual({"炎国短刀": "炎"}, result["jobChangeEquipment"])
+
     def test_icon_sources_follow_season_membership_and_upstream_icon_identifier(self):
         season = {"bondInfoDict": {"yanShip": {}, "preciShip": {}}}
         bonds = {

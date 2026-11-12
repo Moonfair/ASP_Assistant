@@ -18,13 +18,12 @@ public partial class LineupMemberStrip : UserControl
 
     private void OnIconMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (!CanDragIcons || sender is not FrameworkElement { DataContext: LineupMemberViewModel member } source)
+        if (!CanDragIcons || sender is not FrameworkElement source)
             return;
-        var (format, name, path) = source.Tag switch
+        var (format, name, path) = source.DataContext switch
         {
-            "op" => (LineupDragDrop.OperatorFormat, member.OperatorName, member.IconPath),
-            "gear1" => (LineupDragDrop.EquipmentFormat, member.Equipment1, member.Equipment1IconPath),
-            "gear2" => (LineupDragDrop.EquipmentFormat, member.Equipment2, member.Equipment2IconPath),
+            LineupMemberViewModel member => (LineupDragDrop.OperatorFormat, member.OperatorName, member.IconPath),
+            LineupEquipmentSlotViewModel slot => (LineupDragDrop.EquipmentFormat, slot.Name, slot.IconPath),
             _ => ("", "", "")
         };
         if (string.IsNullOrWhiteSpace(name) || !source.CaptureMouse()) return;

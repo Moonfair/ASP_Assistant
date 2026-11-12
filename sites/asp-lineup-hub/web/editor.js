@@ -55,6 +55,20 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
       <label>阵容名称<input class="field" name="Name" maxlength="80" required></label>
       <label>作者<input class="field" name="Author" maxlength="80" required></label>
     </div>
+    <section class="original-video" aria-labelledby="editor-original-video-title">
+      <h3 id="editor-original-video-title">攻略来源</h3>
+      <div class="editor-meta">
+        <label>原作者<input class="field" name="originalAuthor" maxlength="${DESCRIPTION_LIMIT}"></label>
+        <label>来源链接<input class="field" name="originalVideoUrl" type="text" inputmode="url"
+          spellcheck="false" maxlength="${DESCRIPTION_LIMIT}" aria-describedby="editor-original-video-status"></label>
+      </div>
+      <a class="button secondary compact" id="editor-original-video" target="_blank" rel="noopener noreferrer" hidden><span></span> ${icon('arrow')}</a>
+      <p class="editor-feedback form-error" id="editor-original-video-status" role="status" hidden></p>
+    </section>
+    <details class="editor-covenants">
+      <summary id="covenant-tag-summary">盟约标签</summary>
+      <div class="editor-covenant-tags" id="editor-covenant-tags"></div>
+    </details>
     <div class="editor-columns">
       <section class="editor-picker" aria-label="阵容目录">
         <div class="editor-tabs" role="tablist" aria-label="阵容目录">
@@ -81,13 +95,17 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
         <div id="editor-members"></div>
       </section>
     </div>
-    <label>阵容介绍<textarea class="field" name="Description" maxlength="${DESCRIPTION_LIMIT}" rows="5"
-      placeholder="填写打法心得，支持侧边栏的 Markdown 文本"></textarea></label>
-    <div class="editor-insert-strategy">
-      <select class="field" name="strategyIcon" aria-label="选择策略头像"></select>
-      <button type="button" class="button secondary compact" id="insert-strategy">插入策略头像</button>
+    <div class="editor-description">
+      <div>
+        <label>阵容介绍<textarea class="field" name="Description" maxlength="${DESCRIPTION_LIMIT}" rows="9"
+          placeholder="填写打法心得，支持 Markdown 标题和图标标记"></textarea></label>
+        <div class="editor-insert-strategy">
+          <select class="field" name="strategyIcon" aria-label="选择策略头像"></select>
+          <button type="button" class="button secondary compact" id="insert-strategy">插入策略头像</button>
+        </div>
+      </div>
+      ${diagramEditorMarkup()}
     </div>
-    ${diagramEditorMarkup()}
     <div class="action-line">
       <button type="button" class="button secondary" id="editor-copy">${icon('copy')} 复制短链接</button>
       <button type="button" class="button secondary" id="editor-download">下载分享文件</button>
@@ -113,6 +131,8 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
   const output = $('#editor-export', form);
   const picker = $('#editor-operators', form);
   const strategies = $('#editor-strategies', form);
+  const covenantTags = $('#editor-covenant-tags', form);
+  const covenantTagSummary = $('#covenant-tag-summary', form);
   const strategyPicker = form.elements.strategyIcon;
   const insertStrategy = $('#insert-strategy', form);
   const tabs = [...form.querySelectorAll('.editor-tabs [role="tab"]')];
@@ -148,7 +168,7 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
       <button type="button" class="editor-operator" data-add-operator="${escape(name)}"
         ${draft.Members.length >= LINEUP_LIMIT ? 'disabled' : ''}>
         ${portrait({ name, image: op.image })}<span><strong>${escape(name)}</strong>
-        <small>${op.tier} 阶 · ${escape(op.covenants.join(' / '))}</small></span>
+        <small>${escape([op.tier ? op.tier + ' 阶' : '特殊', ...op.covenants].join(' · '))}</small></span>
         ${icon('plus')}
       </button>`).join('');
   }
@@ -194,7 +214,7 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
       const name = member.OperatorName;
       const op = Object.hasOwn(catalog.operators, name) ? catalog.operators[name] : null;
       const nameLabel = escape(name);
-      const slots = [1, 2].map(slot => {
+      const slots = Array.from({ length: op?.equipmentSlotCount ?? 2 }, (_, index) => index + 1).map(slot => {
         const value = member['Equipment' + slot];
         const missing = value && !Object.hasOwn(catalog.equipment, value);
         return `<label>装备 ${slot}<select class="field" data-member-field="Equipment${slot}"
@@ -211,15 +231,29 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
         <div class="editor-roles">
           <label><input type="checkbox" data-member-field="IsDamageCore" ${member.IsDamageCore ? 'checked' : ''}> 输出核心</label>
           <label><input type="checkbox" data-member-field="IsStackingCore" ${member.IsStackingCore ? 'checked' : ''}> 叠层核心</label>
+          ${op?.tier > 0 ? `<label><input type="checkbox" data-member-field="IsElite" ${member.IsElite ? 'checked' : ''}> 精锐</label>` : ''}
         </div>
         <div class="editor-slots">${slots}</div>
       </article>`;
-    }).join('') || '<p class="editor-empty">从干员目录添加 1–10 名干员。</p>';
+    }).join('') || `<p class="editor-empty">从干员目录添加 1–${LINEUP_LIMIT} 名干员。</p>`;
     members.querySelectorAll('[data-member]').forEach((card, index) => {
-      for (const select of card.querySelectorAll('select')) select.value = draft.Members[index][select.dataset.memberField];
+      for (const select of card.querySelectorAll('select')) select.value = draft.Members[index][select.dataset.memberField] ?? '';
     });
     diagram.refreshMembers();
     renderPicker();
+  }
+
+  function refreshCovenantTagSummary() {
+    const count = draft.CovenantTags?.length ?? 0;
+    covenantTagSummary.textContent = count ? `盟约标签（已选 ${count}）` : '盟约标签';
+  }
+
+  function renderCovenantTags() {
+    const selected = new Set(draft.CovenantTags ?? []);
+    covenantTags.innerHTML = [...new Set([...selected, ...catalog.covenantTags])].map(name =>
+      `<label><input type="checkbox" value="${escape(name)}" ${selected.has(name) ? 'checked' : ''}> ${escape(name)}</label>`
+    ).join('');
+    refreshCovenantTagSummary();
   }
 
   function fillFields() {
@@ -228,13 +262,14 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
     renderMembers();
     renderStrategies();
     refreshStrategySelection();
+    renderCovenantTags();
   }
 
   function importShare(text, request) {
     const { content } = parseLineupShare(text);
     if (!form.isConnected || request !== importRequest) return;
     validateLineupCatalog(content, catalog.operators, catalog.equipment);
-    Object.assign(draft, { Description: '', AvailableStrategies: [], ...content });
+    Object.assign(draft, { Description: '', AvailableStrategies: [], CovenantTags: [], ...content });
     fillFields();
     report(importStatus, '阵容已导入，可继续编辑。');
   }
@@ -253,6 +288,14 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
     });
   }
   form.elements.strategyQuery.addEventListener('input', renderStrategies);
+  covenantTags.addEventListener('change', event => {
+    const selected = new Set(draft.CovenantTags ?? []);
+    const { value, checked } = event.target;
+    if (checked) selected.add(value);
+    else selected.delete(value);
+    draft.CovenantTags = [...selected];
+    refreshCovenantTagSummary();
+  });
   strategies.addEventListener('change', event => {
     const selected = new Set(draft.AvailableStrategies ?? []);
     const { value, checked } = event.target;
@@ -291,7 +334,10 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
     const field = control.dataset.memberField;
     if (!field) return;
     const index = Number(control.closest('[data-member]').dataset.member);
-    draft.Members[index][field] = control.type === 'checkbox' ? control.checked : control.value;
+    if (['Equipment3', 'Equipment4'].includes(field) && !control.value) delete draft.Members[index][field];
+    else if (field === 'IsElite' && !control.checked) delete draft.Members[index][field];
+    else draft.Members[index][field] = control.type === 'checkbox' ? control.checked : control.value;
+    if (control.tagName === 'SELECT') diagram.refreshMembers();
   });
   $('#editor-import', form).addEventListener('click', async () => {
     const request = ++importRequest;

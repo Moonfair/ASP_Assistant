@@ -17,46 +17,92 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
         Func<string, string?>? findStrategyIcon = null, IReadOnlyList<string>? availableStrategies = null)
         => new LineupMarkdown(findIcon, findStrategyIcon).Build(source, emptyMessage, availableStrategies);
 
-    private FlowDocument Build(string source, string emptyMessage, IReadOnlyList<string>? availableStrategies)
+    internal static (FlowDocument Introduction, FlowDocument Diagrams) RenderWithDiagramsAside(string source,
+        Func<bool, string, string?> findIcon, string emptyMessage, Func<string, string?>? findStrategyIcon,
+        IReadOnlyList<string>? availableStrategies)
     {
-        var document = new FlowDocument
+        var diagrams = CreateDocument();
+        var introduction = new LineupMarkdown(findIcon, findStrategyIcon).Build(source, emptyMessage, availableStrategies, diagrams);
+        return (introduction, diagrams);
+    }
+
+    private static FlowDocument CreateDocument() => new()
+    {
+        FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 14,
+        Foreground = Brushes.WhiteSmoke, PagePadding = new Thickness(14)
+    };
+
+    private FlowDocument Build(string source, string emptyMessage, IReadOnlyList<string>? availableStrategies,
+        FlowDocument? separateDiagrams = null)
+    {
+        var document = CreateDocument();
+        AppendBlocks(document, separateDiagrams ?? document, source);
+
+        if (document.Blocks.Count == 0)
+            document.Blocks.Add(new Paragraph(new Run(emptyMessage))
+            {
+                Foreground = Brushes.LightSlateGray
+            });
+        if (availableStrategies is { Count: > 0 })
         {
-            FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 14,
-            Foreground = Brushes.WhiteSmoke, PagePadding = new Thickness(14)
-        };
+            var strategies = new Paragraph(new Bold(new Run("可用策略　"))) { Margin = new Thickness(0, 0, 0, 10) };
+            for (var i = 0; i < availableStrategies.Count; i++)
+            {
+                var name = availableStrategies[i];
+                if (i > 0) strategies.Inlines.Add(new Run(" · "));
+                if (MakeImage("strategy", name, 23) is { } image)
+                {
+                    strategies.Inlines.Add(new InlineUIContainer(image) { BaselineAlignment = BaselineAlignment.Center });
+                    strategies.Inlines.Add(new Run("\u00A0"));
+                }
+                strategies.Inlines.Add(new Run(name));
+            }
+            document.Blocks.InsertBefore(document.Blocks.FirstBlock, strategies);
+        }
+        return document;
+    }
+
+    private void AppendBlocks(FlowDocument document, FlowDocument diagramDocument, string source)
+    {
         var lines = source.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var fences = LineupDiagramSource.FindFences(source);
+        var fenceIndex = 0;
+        var diagramCount = 0;
+        var sourceHandled = false;
         System.Windows.Documents.List? list = null;
         Paragraph? paragraph = null;
-        var diagramCount = 0;
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i].Trim();
-            if (line.StartsWith("```", StringComparison.Ordinal))
+            if (fenceIndex < fences.Count && fences[fenceIndex].LineIndex == i)
             {
                 list = null;
                 paragraph = null;
-                var fence = line[3..].Trim();
-                var start = i + 1;
-                while (++i < lines.Length && lines[i].Trim() != "```") { }
-                var body = lines[start..i];
-                if (fence is "lineup" or "mermaid")
+                var fence = fences[fenceIndex++];
+                i = fence.LastLineIndex;
+                if (fence.IsDiagram)
                 {
-                    if (i == lines.Length)
-                        document.Blocks.Add(Message("关系图缺少结束标记 ```。"));
+                    if (fence.Closing is null)
+                        diagramDocument.Blocks.Add(Message("关系图缺少结束标记 ```。"));
                     else if (++diagramCount > LineupDiagram.MaxDiagrams)
-                        document.Blocks.Add(Message($"每篇介绍最多预览 {LineupDiagram.MaxDiagrams} 张关系图。"));
-                    else if (LineupDiagram.TryBuild(body, (equipment, name, size) =>
+                        diagramDocument.Blocks.Add(Message($"每篇介绍最多预览 {LineupDiagram.MaxDiagrams} 张关系图。"));
+                    else if (LineupDiagram.TryBuild(fence.Lines, (equipment, name, size) =>
                         MakeIcon(equipment ? "gear" : "op", name, size), out var diagram, out var error))
                     {
                         if (diagram is not null)
-                            document.Blocks.Add(new BlockUIContainer(diagram) { Margin = new Thickness(0, 6, 0, 10) });
+                            diagramDocument.Blocks.Add(new BlockUIContainer(diagram) { Margin = new Thickness(0, 6, 0, 10) });
                     }
                     else
-                        document.Blocks.Add(Message(error));
+                        diagramDocument.Blocks.Add(Message(error));
+                }
+                else if (!sourceHandled && LineupSourceVideo.ReadFence(fence) is { } video)
+                {
+                    sourceHandled = true;
+                    if (!video.IsEmpty) document.Blocks.Add(SourceVideoSection(video));
                 }
                 else
                 {
-                    document.Blocks.Add(new Paragraph(new Run(string.Join("\n", body)))
+                    document.Blocks.Add(new Paragraph(new Run(string.Join("\n", fence.Lines)))
                     {
                         FontFamily = new FontFamily("Consolas"), Background = Brushes.DarkSlateBlue
                     });
@@ -108,28 +154,40 @@ internal sealed partial class LineupMarkdown(Func<bool, string, string?> findIco
             else paragraph.Inlines.Add(new LineBreak());
             RenderInline(paragraph.Inlines, line);
         }
-        if (document.Blocks.Count == 0)
-            document.Blocks.Add(new Paragraph(new Run(emptyMessage))
-            {
-                Foreground = Brushes.LightSlateGray
-            });
-        if (availableStrategies is { Count: > 0 })
+    }
+
+    private static Section SourceVideoSection(LineupSourceVideo video)
+    {
+        var uri = video.BrowserUri;
+        var isSklandGuide = uri?.Host == LineupSourceVideo.SklandHost;
+        var heading = uri is null ? "攻略来源" : isSklandGuide ? "原攻略" : "原视频";
+        var section = new Section(new Paragraph(new Bold(new Run(heading))) { Margin = new Thickness(0, 0, 0, 3) })
         {
-            var strategies = new Paragraph(new Bold(new Run("可用策略　"))) { Margin = new Thickness(0, 0, 0, 10) };
-            for (var i = 0; i < availableStrategies.Count; i++)
-            {
-                var name = availableStrategies[i];
-                if (i > 0) strategies.Inlines.Add(new Run(" · "));
-                if (MakeImage("strategy", name, 23) is { } image)
-                {
-                    strategies.Inlines.Add(new InlineUIContainer(image) { BaselineAlignment = BaselineAlignment.Center });
-                    strategies.Inlines.Add(new Run("\u00A0"));
-                }
-                strategies.Inlines.Add(new Run(name));
-            }
-            document.Blocks.InsertBefore(document.Blocks.FirstBlock, strategies);
+            Margin = new Thickness(0, 8, 0, 10), Padding = new Thickness(10, 6, 10, 6),
+            BorderBrush = Brushes.SlateGray, BorderThickness = new Thickness(1)
+        };
+        if (!string.IsNullOrWhiteSpace(video.Author))
+        {
+            var authorLabel = uri is not null && !isSklandGuide ? "视频作者：" : "原作者：";
+            section.Blocks.Add(new Paragraph(new Run(authorLabel + video.Author.Trim())) { Margin = new Thickness(0) });
         }
-        return document;
+        if (uri is not null)
+        {
+            var link = new Hyperlink(new Run(isSklandGuide ? "在森空岛打开" : "在哔哩哔哩打开"))
+            {
+                NavigateUri = uri, ToolTip = video.Url.Trim(), Foreground = Brushes.LightSkyBlue
+            };
+            link.RequestNavigate += (_, e) =>
+            {
+                e.Handled = true;
+                if (!video.TryOpen())
+                    MessageBox.Show("无法打开浏览器。", heading, MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+            section.Blocks.Add(new Paragraph(link) { Margin = new Thickness(0) });
+        }
+        else if (!string.IsNullOrWhiteSpace(video.Url))
+            section.Blocks.Add(new Paragraph(new Run(video.Url.Trim())) { Margin = new Thickness(0) });
+        return section;
     }
 
     private void RenderInline(InlineCollection inlines, string text, int depth = 0)

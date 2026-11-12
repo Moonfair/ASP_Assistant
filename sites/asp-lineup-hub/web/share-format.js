@@ -1,4 +1,4 @@
-const LINEUP_LIMIT = 10;
+const LINEUP_LIMIT = 30;
 const DESCRIPTION_LIMIT = 12_000;
 const SHARE_LIMIT = 100_000;
 const SHARE_COMMENT = '# ASP Assistant · 明日方舟「卫戍协议」实时辅助工具 · 官网 https://aspa.moonfair.cn';
@@ -6,6 +6,10 @@ const SHARE_COMMENT = '# ASP Assistant · 明日方舟「卫戍协议」实时�
 function validLineupName(name, limit) {
   return typeof name === 'string' && name.trim().length > 0 && name.length <= limit
     && !/[\x00-\x1f\x7f-\x9f]/.test(name);
+}
+
+function memberEquipmentSlots(member) {
+  return [member.Equipment1, member.Equipment2, member.Equipment3 ?? '', member.Equipment4 ?? ''];
 }
 
 function validateLineup(content) {
@@ -20,8 +24,13 @@ function validateLineup(content) {
     || strategies.some(name => !validLineupName(name, 100)) || new Set(strategies).size !== strategies.length)) {
     throw new Error('可用策略需为有效且不重复的名称，最多 100 项。');
   }
+  const tags = content.CovenantTags;
+  if (tags != null && (!Array.isArray(tags) || tags.length > 100
+    || tags.some(name => !validLineupName(name, 100)) || new Set(tags).size !== tags.length)) {
+    throw new Error('盟约标签需为有效且不重复的名称，最多 100 项。');
+  }
   if (!Array.isArray(content.Members) || content.Members.length < 1 || content.Members.length > LINEUP_LIMIT) {
-    throw new Error('每个阵容需要 1–10 名干员。');
+    throw new Error(`每个阵容需要 1–${LINEUP_LIMIT} 名干员。`);
   }
   const names = new Set();
   for (const member of content.Members) {
@@ -32,7 +41,10 @@ function validateLineup(content) {
     if (typeof member.IsStackingCore !== 'boolean' || typeof member.IsDamageCore !== 'boolean') {
       throw new Error('干员的核心标记无效。');
     }
-    for (const item of [member.Equipment1, member.Equipment2]) {
+    if (member.IsElite !== undefined && typeof member.IsElite !== 'boolean') {
+      throw new Error('干员的精锐状态无效。');
+    }
+    for (const item of memberEquipmentSlots(member)) {
       if (item !== '' && !validLineupName(item, 100)) throw new Error('装备名称无效。');
     }
   }
@@ -43,7 +55,12 @@ function validateLineupCatalog(content, operators, equipment) {
     if (!Object.hasOwn(operators, member.OperatorName)) {
       throw new Error(`当前目录没有干员“${member.OperatorName}”，请检查赛季或更新数据。`);
     }
-    for (const item of [member.Equipment1, member.Equipment2]) {
+    const slots = memberEquipmentSlots(member);
+    const limit = operators[member.OperatorName].equipmentSlotCount ?? 2;
+    if (slots.slice(limit).some(Boolean)) {
+      throw new Error(`干员“${member.OperatorName}”最多可携带 ${limit} 件装备。`);
+    }
+    for (const item of slots) {
       if (item && !Object.hasOwn(equipment, item)) {
         throw new Error(`当前目录没有装备“${item}”，请检查赛季或更新数据。`);
       }
@@ -68,16 +85,24 @@ function parseLineupShare(value) {
   const content = {
     Name: data?.Name, Author: data?.Author,
     Members: Array.isArray(data?.Members) ? data.Members.map(member => {
-      const { OperatorName, IsStackingCore = false, IsDamageCore = false, Equipment1 = '', Equipment2 = '' } = member ?? {};
-      return { OperatorName, IsStackingCore, IsDamageCore, Equipment1, Equipment2 };
+      const { OperatorName, IsStackingCore = false, IsDamageCore = false, IsElite,
+        Equipment1 = '', Equipment2 = '', Equipment3, Equipment4 } = member ?? {};
+      if (member && Object.keys(member).some(key => /^Equipment\d+$/.test(key) &&
+        !['Equipment1', 'Equipment2', 'Equipment3', 'Equipment4'].includes(key))) {
+        throw new Error('装备槽编号无效。');
+      }
+      return { OperatorName, IsStackingCore, IsDamageCore, Equipment1, Equipment2,
+        ...(IsElite !== undefined ? { IsElite } : {}),
+        ...(Equipment3 != null ? { Equipment3 } : {}), ...(Equipment4 != null ? { Equipment4 } : {}) };
     }) : null,
     ...(data?.Description != null ? { Description: data.Description } : {}),
-    ...(data?.AvailableStrategies != null ? { AvailableStrategies: data.AvailableStrategies } : {})
+    ...(data?.AvailableStrategies != null ? { AvailableStrategies: data.AvailableStrategies } : {}),
+    ...(data?.CovenantTags != null ? { CovenantTags: data.CovenantTags } : {})
   };
   validateLineup(content);
-  const exact = Object.keys(data).every(key => ['Name', 'Author', 'Members', 'Description', 'AvailableStrategies'].includes(key))
+  const exact = Object.keys(data).every(key => ['Name', 'Author', 'Members', 'Description', 'AvailableStrategies', 'CovenantTags'].includes(key))
     && data.Members.every(member => Object.keys(member).every(key =>
-      ['OperatorName', 'IsStackingCore', 'IsDamageCore', 'Equipment1', 'Equipment2'].includes(key)));
+      ['OperatorName', 'IsStackingCore', 'IsDamageCore', 'IsElite', 'Equipment1', 'Equipment2', 'Equipment3', 'Equipment4'].includes(key)));
   return {
     content,
     share: exact ? share : header + '\n' + share.slice(commentStart, payloadStart) + JSON.stringify(content)
@@ -86,9 +111,12 @@ function parseLineupShare(value) {
 
 function serializeLineupShare(content) {
   validateLineup(content);
-  const { Name, Author, Members, Description, AvailableStrategies } = content;
+  const { Name, Author, Members, Description, AvailableStrategies, CovenantTags } = content;
   const hasStrategies = AvailableStrategies?.length > 0;
-  return 'ASPA-LINEUP/' + (Description || hasStrategies ? '2' : '1') + '\n' + SHARE_COMMENT + '\n'
+  const hasTags = CovenantTags?.length > 0;
+  const hasExtraSlots = Members.some(member => member.Equipment3 != null || member.Equipment4 != null);
+  const hasEliteMembers = Members.some(member => member.IsElite === true);
+  return 'ASPA-LINEUP/' + (Description || hasStrategies || hasTags || hasExtraSlots || hasEliteMembers ? '2' : '1') + '\n' + SHARE_COMMENT + '\n'
     + JSON.stringify({ Name, Author, Members, ...(Description ? { Description } : {}),
-      ...(hasStrategies ? { AvailableStrategies } : {}) }, null, 2);
+      ...(hasStrategies ? { AvailableStrategies } : {}), ...(hasTags ? { CovenantTags } : {}) }, null, 2);
 }

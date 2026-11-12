@@ -268,7 +268,7 @@ public partial class LineupDescriptionView
         if (sender is not Button button || Vm is not { } vm || GetCurrentGraph() is null) return;
         var equipment = Equals(button.Tag, "gear");
         var names = equipment
-            ? vm.Members.SelectMany(member => new[] { member.Equipment1, member.Equipment2 })
+            ? vm.Members.SelectMany(member => member.EquipmentSlots).Select(slot => slot.Name)
             : vm.Members.Select(member => member.OperatorName);
         var menu = CreateDiagramMenu();
         menu.PlacementTarget = button;

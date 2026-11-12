@@ -9,22 +9,80 @@ namespace ASPAssistant.Tests.ViewModels;
 
 public class LineupViewModelTests
 {
-    private static List<Operator> Operators() => Enumerable.Range(0, 11)
+    private static List<Operator> Operators() => Enumerable.Range(0, 31)
         .Select(i => new Operator { Name = $"干员{i}", Tier = i % 3 + 1 }).ToList();
 
     [Fact]
-    public void Editor_PreventsDuplicatesAndEleventhOperator_AndFreesRemovedSlot()
+    public async Task Editor_AddsStrategyOperatorsToLineupWithoutTrackingThemInTheShop()
+    {
+        var store = new JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
+        var operators = await store.LoadOperatorsAsync();
+        var vm = new LineupEditorViewModel(operators, []) { Name = "策略阵容", Author = "博士" };
+        foreach (var name in new[] { "暴躁铁皮", "盟约·辅助干员", "预备干员-医疗", "Touch" })
+        {
+            vm.OperatorBrowser.SearchText = name;
+            vm.AddOperator(vm.AvailableOperators.Should().ContainSingle().Subject);
+        }
+
+        var lineup = vm.BuildLineup();
+        lineup.Members.Select(member => member.OperatorName)
+            .Should().Equal("“暴躁铁皮”", "盟约·辅助干员", "预备干员-医疗", "Touch");
+        var tracking = new TrackingViewModel(operators);
+        tracking.TrackLineup(lineup).Should().Be(0);
+        tracking.TrackedOperators.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Editor_EquipsFourSlotsForIronhideAndPreservesThemThroughShare()
+    {
+        var store = new JsonDataStore(Path.Combine(AppContext.BaseDirectory, "data"));
+        var operators = await store.LoadOperatorsAsync();
+        var (equipment, _) = await store.LoadEquipmentAsync();
+        var vm = new LineupEditorViewModel(operators, equipment) { Name = "测试四槽", Author = "博士" };
+        vm.OperatorBrowser.SearchText = "暴躁铁皮";
+        vm.AddOperator(vm.AvailableOperators.Should().ContainSingle().Subject);
+        var ironhide = vm.Members.Single();
+        var names = equipment.Take(4).Select(item => item.Name).ToArray();
+        foreach (var name in names) vm.Equip(ironhide, name).Should().BeTrue();
+        vm.Equip(ironhide, names[0]).Should().BeFalse();
+        vm.ClearEquipment(ironhide, 3);
+        vm.Equip(ironhide, names[2], 3).Should().BeTrue();
+
+        var ordinary = operators.First(op => op.Name == "折光");
+        vm.AddOperator(ordinary);
+        vm.Equip(vm.Members.Last(), names[3], 4).Should().BeFalse();
+        var share = vm.ExportLineup(vm.BuildLineup());
+        share.Should().Contain("\"Equipment3\": \"" + names[2] + "\"")
+            .And.Contain("\"Equipment4\": \"" + names[3] + "\"");
+        var codec = LineupShareService.FromCatalog(operators, equipment.Select(item => item.Name));
+        codec.Import(share).Members[0].EquipmentSlots.Should().Equal(names);
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        try
+        {
+            var library = new LineupStore(path);
+            await library.SaveAsync([vm.BuildLineup()]);
+            var reopened = new LineupEditorViewModel(operators, equipment, (await library.LoadAsync()).Single());
+            reopened.ExportLineup(reopened.BuildLineup()).Should().Be(share);
+        }
+        finally
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Editor_PreventsDuplicatesAndThirtyFirstOperator_AndFreesRemovedSlot()
     {
         var operators = Operators();
         var vm = new LineupEditorViewModel(operators, []);
         foreach (var op in operators) vm.AddOperator(op);
-        vm.Members.Should().HaveCount(10);
+        vm.Members.Should().HaveCount(30);
         vm.AddOperator(operators[0]);
-        vm.Members.Should().HaveCount(10);
+        vm.Members.Should().HaveCount(30);
         vm.RemoveMember(vm.Members[0]);
-        vm.AddOperator(operators[10]);
-        vm.Members.Should().HaveCount(10);
-        vm.Members.Last().OperatorName.Should().Be("干员10");
+        vm.AddOperator(operators[30]);
+        vm.Members.Should().HaveCount(30);
+        vm.Members.Last().OperatorName.Should().Be("干员30");
         vm.SearchText = "干员0";
         vm.AvailableOperators.Select(o => o.Name).Should().Equal("干员0");
     }

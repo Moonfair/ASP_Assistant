@@ -99,6 +99,89 @@ test('分享接口校验内容、限制创建频率，并拒绝跨站创建', as
   assert.equal(status, 429);
 });
 
+test('暴躁铁皮的四个装备槽随分享保留，普通干员无法使用第三槽', async (t) => {
+  const { DB, browser } = setup();
+  t.after(() => DB.close());
+  const guest = browser();
+  const { data: catalog } = await guest.request('/api/editor-catalog');
+  const name = '“暴躁铁皮”';
+  assert.equal(catalog.operators[name]?.equipmentSlotCount, 4);
+  const names = Object.keys(catalog.equipment).slice(0, 4);
+  const member = Object.fromEntries(names.map((item, index) => ['Equipment' + (index + 1), item]));
+  const encode = OperatorName => 'ASPA-LINEUP/2\n' + JSON.stringify({
+    Name: '四槽阵容', Author: '测试', Members: [{ OperatorName, ...member }]
+  });
+  const text = encode(name);
+  const created = await guest.request('/api/share', { share: text });
+  assert.equal(created.status, 201);
+  const apiPath = created.data.shortPath.replace('/s/', '/api/share/');
+  assert.equal((await guest.request(apiPath)).data.share, text);
+  assert.deepEqual((await guest.request(apiPath + '?preview=1')).data.lineup.members[0].equipment, names);
+  assert.equal((await guest.request('/api/share', { share: encode('折光') })).status, 400);
+});
+
+test('阵容最多容纳三十名干员，公开阵容可以按手选盟约筛选', async (t) => {
+  const { DB, browser } = setup();
+  t.after(() => DB.close());
+  const player = browser();
+  await player.login('covenants@example.test');
+  const { data: catalog } = await player.request('/api/editor-catalog');
+  const members = Object.keys(catalog.operators).slice(0, 31).map(OperatorName => ({ OperatorName }));
+  const encode = count => 'ASPA-LINEUP/2\n' + JSON.stringify({
+    Name: '三十人阵容', Author: '测试', CovenantTags: ['炎', '迅捷'], Members: members.slice(0, count)
+  });
+  const captcha = await player.challenge('publish');
+  assert.equal((await player.request('/api/lineups', { share: encode(31), captcha })).status, 400);
+  const result = await player.request('/api/lineups', { share: encode(30), captcha });
+  assert.equal(result.status, 201);
+  const { lineup } = (await player.request('/api/lineups/' + result.data.id)).data;
+  assert.equal(lineup.members.length, 30);
+  assert.deepEqual(lineup.covenants, ['炎', '迅捷']);
+  assert.deepEqual(JSON.parse(lineup.share.split('\n')[1]).CovenantTags, ['炎', '迅捷']);
+  const filtered = await player.request('/api/lineups?covenant=' + encodeURIComponent('迅捷'));
+  assert.ok(filtered.data.items.some(item => item.id === result.data.id));
+});
+
+test('卡片和短链预览从装备、调和和精锐状态计算已激活盟约', async (t) => {
+  const { DB, browser } = setup();
+  t.after(() => DB.close());
+  const player = browser();
+  await player.login('activation@example.test');
+  const content = {
+    Name: '盟约判定验收', Author: '测试', CovenantTags: ['莱塔尼亚'],
+    Members: [
+      { OperatorName: '黍', IsElite: true, Equipment1: '变形同构体', Equipment2: '炎国短刀' },
+      { OperatorName: '余', IsElite: true },
+      { OperatorName: '魔王' },
+      { OperatorName: '盟约·辅助干员' },
+      { OperatorName: '艾丝黛尔' },
+      { OperatorName: '伊桑', Equipment1: '变形同构体', Equipment2: '精准狙击镜' },
+      { OperatorName: '“暴躁铁皮”', Equipment3: '变形同构体', Equipment4: '精准狙击镜' }
+    ]
+  };
+  const encode = () => 'ASPA-LINEUP/2\n' + JSON.stringify(content);
+  const created = await player.request('/api/lineups', { share: encode(), captcha: await player.challenge('publish') });
+  assert.equal(created.status, 201);
+  const { items } = (await player.request('/api/lineups?q=' + encodeURIComponent(content.Name))).data;
+  assert.deepEqual(items[0].activeCovenants, ['炎', '精准', '调和', '独行', '绝技']);
+  assert.deepEqual(items[0].covenants, ['莱塔尼亚']);
+  const snapshot = await player.request('/api/share', { share: encode() });
+  const path = snapshot.data.shortPath.replace('/s/', '/api/share/');
+  const { lineup } = (await player.request(path + '?preview=1')).data;
+  assert.deepEqual(lineup.activeCovenants, items[0].activeCovenants);
+  assert.equal(JSON.parse(lineup.share.split('\n')[1]).Members[0].IsElite, true);
+
+  content.Members = [
+    content.Members[0], { OperatorName: '余' }, { OperatorName: '地灵' }, { OperatorName: '艾丝黛尔' },
+    { OperatorName: '伊桑', Equipment1: '变形同构体' },
+    { OperatorName: '“暴躁铁皮”', Equipment3: '精准狙击镜' }
+  ];
+  const split = await player.request('/api/share', { share: encode() });
+  assert.equal(split.status, 201);
+  const splitPath = split.data.shortPath.replace('/s/', '/api/share/');
+  assert.deepEqual((await player.request(splitPath + '?preview=1')).data.lineup.activeCovenants, []);
+});
+
 test('邮箱首次验证注册，重复登录用同一账号，验证码和退出会话都不可重用', async () => {
   const { DB, delivered, browser } = setup();
   const a = browser(), b = browser();

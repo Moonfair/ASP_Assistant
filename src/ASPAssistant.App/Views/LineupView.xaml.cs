@@ -41,6 +41,9 @@ public partial class LineupView : UserControl
         _isBanned = isBanned;
     }
 
+    internal void ConfigureCovenantActivation(LineupCovenantCalculator calculator)
+        => ((LineupActiveCovenantsConverter)Resources["LineupActiveCovenants"]).Calculator = calculator;
+
     private void OnPortraitLoaded(object sender, RoutedEventArgs e) => UpdatePortrait((Image)sender);
 
     private void OnPortraitMemberChanged(object sender, DependencyPropertyChangedEventArgs e) => UpdatePortrait((Image)sender);

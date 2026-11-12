@@ -5,9 +5,13 @@
                 <ResourceDictionary Source="../Resources/LineupStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <converters:NullToStringConverter x:Key="AllLabel" />
+            <converters:TierToRomanConverter x:Key="TierLabel" />
             <converters:CovenantDisabledConverter x:Key="DisabledCovenant" />
             <DataTemplate x:Key="FilterLabel">
                 <TextBlock Text="{Binding Content, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Converter={StaticResource AllLabel}}" />
+            </DataTemplate>
+            <DataTemplate x:Key="TierFilterLabel">
+                <TextBlock Text="{Binding Content, RelativeSource={RelativeSource AncestorType=ListBoxItem}, Converter={StaticResource TierLabel}, ConverterParameter=全部}" />
             </DataTemplate>
             <Style x:Key="Chips" TargetType="ListBox" BasedOn="{StaticResource FilterChipListBox}">
                 <Setter Property="ItemTemplate" Value="{StaticResource FilterLabel}" />
@@ -83,7 +87,7 @@
                                         <TextBlock Text="?" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         <Image controls:DeferredIcon.Path="{Binding IconPath}" Stretch="Uniform" />
                                         <Border Background="#DD12122A" HorizontalAlignment="Right" VerticalAlignment="Bottom" Padding="3,0">
-                                            <TextBlock Text="{Binding Tier}" Foreground="{StaticResource AccentBrush}" FontSize="10" />
+                                            <TextBlock Text="{Binding TierLabel}" Foreground="{StaticResource AccentBrush}" FontSize="10" />
                                         </Border>
                                     </Grid>
                                 </Border>
@@ -110,7 +114,7 @@
                                     <ListBoxItem Content="本局不可用" />
                                 </ListBox>
                                 <TextBlock Text="等阶" Margin="0,6,0,4" />
-                                <ListBox x:Name="TierFilters" Style="{StaticResource Chips}" Tag="Tier" ItemsSource="{Binding AvailableTiers}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" />
+                                <ListBox x:Name="TierFilters" Style="{StaticResource Chips}" ItemTemplate="{StaticResource TierFilterLabel}" Tag="Tier" ItemsSource="{Binding AvailableTiers}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" />
                                 <TextBlock Text="核心盟约" Margin="0,6,0,4" />
                                 <ListBox x:Name="CoreFilters" Style="{StaticResource Chips}" Tag="Core" ItemsSource="{Binding AvailableCoreCovenants}" controls:FilterChipSelection.IsEnabled="True" SelectionChanged="OnOperatorFilterChanged" ItemContainerStyle="{StaticResource CoreChip}" />
                                 <TextBlock Text="附加盟约" Margin="0,6,0,4" />
