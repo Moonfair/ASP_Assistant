@@ -36,7 +36,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Border x:Name="CardBorder" Style="{StaticResource ItemCardBorder}">
+    <Border x:Name="CardBorder" Style="{StaticResource ItemCardBorder}" MouseLeftButtonUp="OnDetailClick">
         <StackPanel>
             <!-- Header: icon left | right side stacks name+toggle above track button -->
             <DockPanel>
@@ -99,9 +99,11 @@
                     </DockPanel>
 
                     <!-- Row 2: track button -->
-                    <Button x:Name="TrackButton" HorizontalAlignment="Right"
-                            Style="{StaticResource TrackingButton}"
-                            Margin="0,6,0,0" Click="OnTrackClick" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                        <Button Content="详情" Style="{StaticResource TrackingButton}" Margin="0,0,6,0"
+                                Click="OnDetailClick" />
+                        <Button x:Name="TrackButton" Style="{StaticResource TrackingButton}" Click="OnTrackClick" />
+                    </StackPanel>
 
                     <!-- Row 3: ban toggle button -->
                     <Button x:Name="BanButton" HorizontalAlignment="Right"

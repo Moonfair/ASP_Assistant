@@ -2,13 +2,19 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 const read = async (path) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
-const [previous, { operators }, { equipment }, covenantCatalog, { strategies }] = await Promise.all([
+const [previous, { operators }, { equipment }, covenantCatalog, { strategies }, { seasonCode }, skillData] = await Promise.all([
   read('../web/catalog.json'),
   read('../../../data/operators.json'),
   read('../../../data/equipment.json'),
   read('../../../data/covenants.json'),
-  read('../../../data/strategies.json')
+  read('../../../data/strategies.json'),
+  read('../../../data/source_metadata.json'),
+  read('../../../data/operator_skills.json')
 ]);
+if (!seasonCode || skillData.season !== seasonCode) {
+  throw new Error('请先运行 data/fetch_operator_skills.py 同步当前赛季技能。');
+}
+
 const { coreCovenants, additionalCovenants, activationRules = {}, jobChangeActivators = [],
   jobChangeEquipment = {} } = covenantCatalog;
 
@@ -45,3 +51,10 @@ const catalog = {
   strategies: strategyCatalog
 };
 await writeFile(new URL('../web/catalog.json', import.meta.url), JSON.stringify(catalog) + '\n');
+const operatorVotes = {
+  season: seasonCode,
+  operators: Object.fromEntries(operators.map(({ name }) => [
+    name, (Object.hasOwn(skillData.operators, name) ? skillData.operators[name] : []).map(skill => skill.slot)
+  ]))
+};
+await writeFile(new URL('../web/operator-vote-catalog.json', import.meta.url), JSON.stringify(operatorVotes) + '\n');

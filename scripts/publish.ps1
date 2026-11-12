@@ -69,6 +69,7 @@ Deployment reference: https://learn.microsoft.com/en-us/cpp/windows/redistributi
 $requiredPayload = @('ASPAssistant.App.exe', 'ASPAssistant.App.dll', 'ASPAssistant.Core.dll',
     'ASPAssistant.App.runtimeconfig.json', 'coreclr.dll',
     'data/operators.json', 'data/equipment.json', 'data/covenants.json', 'data/strategies.json',
+    'data/operator_skills.json', 'data/catalog_tips.json',
     'data/model/ocr/det.onnx', 'data/model/ocr/rec.onnx', 'data/model/ocr/keys.txt',
     'runtimes/win-x64/native/MaaFramework.dll', 'runtimes/win-x64/native/onnxruntime_maa.dll') +
     @($requiredCrt | ForEach-Object { "runtimes/win-x64/native/$_" })

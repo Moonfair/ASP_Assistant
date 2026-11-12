@@ -180,6 +180,7 @@ public partial class App : Application
         };
         _sidePanel.ConfigureLineups(lineupVm, operators, equipment, strategies, covenantCatalog);
         _sidePanel.ConfigureLineupSite(_lineupSite);
+        _sidePanel.ConfigureCatalogDetails(await dataStore.LoadCatalogDetailsAsync());
         _overlay = new OverlayWindow();
         ConfigureGameSource();
         bool hasCurrentGameState = false;

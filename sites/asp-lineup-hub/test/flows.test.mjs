@@ -376,3 +376,57 @@ test('客户端邮箱登录后可一键发布，重复上传不会创建副本�
   assert.equal((await desktop.request('/api/auth/desktop/logout', {}, null, 'POST', login.data.token)).status, 200);
   assert.equal((await publish(login.data.token)).status, 401);
 });
+test('干员投票对访客公开，对同一账号的每种投票只记一次', async (t) => {
+  const { DB, delivered, browser } = setup();
+  t.after(() => DB.close());
+  const guest = browser(), desktop = browser(), web = browser();
+  const path = '/api/operator-votes?season=act3autochess&operator=' + encodeURIComponent('黑键');
+  const mine = path.replace('operator-votes?', 'operator-votes/mine?');
+  const vote = (body) => web.request(path, body);
+  assert.deepEqual((await guest.request(path)).data, { skills: [], equipment: [] });
+  assert.equal((await guest.request(mine)).status, 401);
+  assert.equal((await guest.request(path, { skill: 2 })).status, 401);
+  assert.equal((await guest.request(path.replace('act3autochess', 'old'))).status, 404);
+
+  const sent = await desktop.send('poll@example.test');
+  const { data: { token } } = await desktop.request('/api/auth/desktop/verify',
+    { id: sent.data.id, code: delivered.at(-1).code }, null);
+  await DB.prepare("DELETE FROM auth_limits WHERE key LIKE 'cooldown:%'").run();
+  assert.equal((await web.login('poll@example.test')).status, 200);
+
+  assert.equal((await vote({ skill: 4 })).status, 400);
+  assert.equal((await vote({ equipment: ['不存在'] })).status, 400);
+  assert.equal((await vote({ equipment: ['雪祀之衣', '雪祀之衣'] })).status, 400);
+  assert.equal((await web.request(path, { skill: 2 }, 'https://other.example')).status, 403);
+  assert.deepEqual((await web.request(mine)).data, { skillVoted: false, equipmentVoted: false });
+  const parallel = await Promise.all([vote({ skill: 2 }), desktop.request(path, { skill: 1 }, null, 'POST', token)]);
+  assert.deepEqual(parallel.map(result => result.status).sort(), [200, 201]);
+  assert.deepEqual((await desktop.request(mine, null, null, 'GET', token)).data, {
+    skillVoted: true, equipmentVoted: false
+  });
+  assert.equal((await vote({ equipment: ['雪祀之衣', '信标'] })).status, 201);
+  assert.equal((await vote({ equipment: ['雪祀之衣'] })).status, 200);
+  assert.deepEqual((await web.request(mine)).data, { skillVoted: true, equipmentVoted: true });
+
+  // Read the persisted totals directly while the public response is still cached.
+  const { results } = await DB.prepare('SELECT kind, choice, votes FROM operator_vote_totals ORDER BY kind, choice').all();
+  assert.equal(results.length, 3);
+  assert.ok(results.every(row => row.votes === 1));
+});
+
+test('装备只公开前五，短时间内重复查看共用汇总缓存', async (t) => {
+  const { DB, SHARE_SECRET, browser } = setup();
+  t.after(() => DB.close());
+  const choices = ['雪祀之衣', '信标', '莱塔尼亚小鼓', '聚合急救箱', '盟约之币', '奥术法阵'];
+  for (const [index, name] of choices.entries()) {
+    await DB.prepare('INSERT INTO operator_vote_totals VALUES (?, ?, ?, ?, ?)')
+      .bind('act3autochess', '森蚺', 'equipment', name, index + 1).run();
+  }
+  const path = '/api/operator-votes?season=act3autochess&operator=' + encodeURIComponent('森蚺');
+  const result = await worker.fetch(new Request('https://lineup.example.test' + path), { DB, SHARE_SECRET });
+  assert.match(result.headers.get('Cache-Control'), /public, max-age=/);
+  assert.deepEqual((await result.json()).equipment, choices.slice(1).reverse().map((choice, index) =>
+    ({ choice, votes: 6 - index })));
+  await DB.prepare('DELETE FROM operator_vote_totals').run();
+  assert.equal((await browser().request(path)).data.equipment.length, 5);
+});

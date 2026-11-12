@@ -49,6 +49,11 @@ ASP Assistant 是一款用于《明日方舟》**卫戍协议**玩法的透明�
 - 浏览全部装备数据，按**等阶**、**类型**多选筛选
 - 点击追踪按钮，将装备或干员加入本局追踪列表
 
+### 干员与装备详情
+- 点击干员或装备卡片上的**详情**，查看头像、盟约、普通与精锐效果、装备配方及有出处的实战小知识。
+- 干员的**本体技能**页列出实际拥有的技能，显示最高可训练等级的效果、技力消耗、初始技力及回复方式。
+- **社区投票**的汇总对访客开放。作业站账号登录后，可为每名干员投一项常用技能、推荐最多五件适用装备，各提交一次。公开结果仅显示汇总票数，装备仅显示前五。
+
 ### 游戏状态感知（OCR）
 - 实时扫描识别商店物品、场上 / 备战区干员
 - 自动统计当前盟约层数
@@ -105,6 +110,7 @@ cd ASP_Assistant
 # 拉取游戏数据（首次运行或版本更新后）
 cd data
 python fetch_spdatabase.py
+python fetch_operator_skills.py
 
 # 构建并运行
 cd ..
@@ -152,12 +158,15 @@ GitHub 标签发布也调用同一个脚本。发布前需要提交全部代码�
 data/
 ├── operators.json          # 干员数据（含阵营、特质等）
 ├── equipment.json          # 装备数据
+├── operator_skills.json    # 明日方舟本体技能
+├── catalog_tips.json       # 卫戍实战小知识及来源
 ├── skin_avatar_map.json    # 皮肤头像 → 干员名映射（Ban 位识别用）
 ├── source_metadata.json    # 赛季、抓取时间、上游修改时间及 SHA-256
 ├── icons/
 │   ├── operators/          # 干员头像（来自 PRTS Wiki）
 │   └── skin_avatars/       # 皮肤头像（Ban 位识别模板）
-└── fetch_spdatabase.py     # 数据拉取 / 皮肤下载脚本
+├── fetch_spdatabase.py     # 卫戍数据拉取 / 皮肤下载脚本
+└── fetch_operator_skills.py # 同步目录干员的本体技能
 ```
 
 ### 常用脚本命令
@@ -165,6 +174,7 @@ data/
 | 命令 | 功能 |
 |------|------|
 | `python fetch_spdatabase.py` | 拉取最新干员 / 装备数据 |
+| `python fetch_operator_skills.py` | 拉取当前目录干员的本体技能 |
 | `python fetch_spdatabase.py --download-skins` | 下载皮肤头像并重建映射文件 |
 | `python fetch_spdatabase.py --apply-mask` | 为现有皮肤头像补白色背景 |
 | `python fetch_spdatabase.py --skip-icons` | 跳过头像下载，仅更新 JSON |

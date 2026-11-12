@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using ASPAssistant.App.Controls;
 using ASPAssistant.App.Services;
 using ASPAssistant.Core;
 using ASPAssistant.Core.Interop;
@@ -145,7 +146,35 @@ public partial class SidePanelWindow : Window
         };
     }
 
+    private Window? _catalogDetail;
     private LineupSiteClient? _lineupSite;
+
+    internal void ConfigureCatalogDetails(CatalogDetails details)
+    {
+        OperatorView.AddHandler(OperatorCard.DetailRequestedEvent, new RoutedEventHandler((_, e) =>
+        {
+            if (e.OriginalSource is OperatorCard { DataContext: Operator op })
+                OpenCatalogDetail(new CatalogDetailWindow(op, details, _lineupEquipment, _lineupSite));
+        }));
+        EquipmentView.AddHandler(EquipmentCard.DetailRequestedEvent, new RoutedEventHandler((_, e) =>
+        {
+            if (e.OriginalSource is EquipmentCard { DataContext: Equipment equipment })
+                OpenCatalogDetail(new CatalogDetailWindow(equipment, details));
+        }));
+    }
+
+    private void OpenCatalogDetail(Window detail)
+    {
+        _catalogDetail?.Close();
+        _catalogDetail = detail;
+        detail.Owner = this;
+        detail.Closed += (_, _) =>
+        {
+            _catalogDetail = null;
+            RefreshSettingsLineupAccount();
+        };
+        detail.Show();
+    }
 
     internal void ConfigureLineupSite(LineupSiteClient site)
     {
@@ -165,7 +194,9 @@ public partial class SidePanelWindow : Window
     private void OnSettingsLineupAccount(object sender, RoutedEventArgs e)
     {
         if (_lineupSite is not { } site || LineupView.IsUploading) return;
+        var previousAccount = site.Email;
         new LineupSiteAccountWindow(site) { Owner = this }.ShowDialog();
+        if (previousAccount != site.Email) _catalogDetail?.Close();
         RefreshSettingsLineupAccount();
     }
 

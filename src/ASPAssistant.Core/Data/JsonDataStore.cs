@@ -69,6 +69,34 @@ public class JsonDataStore
         return JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions) ?? [];
     }
 
+    public async Task<CatalogDetails> LoadCatalogDetailsAsync()
+    {
+        var skills = await ReadSupplementAsync<OperatorSkillDataFile>("operator_skills.json");
+        var tips = await ReadSupplementAsync<CatalogTips>("catalog_tips.json");
+        var source = await ReadSupplementAsync<CatalogSource>("source_metadata.json");
+        var season = source?.SeasonCode;
+        return new(season, season == skills?.Season ? skills?.Operators ?? [] : [],
+            season == tips?.Season && source?.VersionCode == tips?.Version ? tips : null);
+    }
+
+    private async Task<T?> ReadSupplementAsync<T>(string filename) where T : class
+    {
+        var path = Path.Combine(_dataDirectory, filename);
+        if (!File.Exists(path)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<T>(await File.ReadAllTextAsync(path), JsonOptions);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Warn("Catalog", $"Could not load {filename}: {ex.GetType().Name}");
+            return null;
+        }
+    }
+
+    private sealed record OperatorSkillDataFile(string Season, Dictionary<string, List<OperatorSkill>> Operators);
+    private sealed record CatalogSource(string SeasonCode, string? VersionCode);
+
     private class OperatorDataFile
     {
         public List<Operator> Operators { get; set; } = [];

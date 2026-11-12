@@ -10,7 +10,7 @@ using Windows.Security.Cryptography.DataProtection;
 
 namespace ASPAssistant.App.Services;
 
-internal sealed class LineupSiteClient : IDisposable
+internal sealed partial class LineupSiteClient : IDisposable
 {
     private static readonly Uri Site = new("https://aspa.moonfair.cn/");
     private readonly HttpClient _http;
@@ -87,18 +87,23 @@ internal sealed class LineupSiteClient : IDisposable
         return new Uri(Site, $"?lineup={id:D}");
     }
 
-    private async Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken, string? token = null)
+    private Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken, string? token = null) =>
+        SendAsync<T>(HttpMethod.Post, path, body, cancellationToken, token);
+
+    private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body,
+        CancellationToken cancellationToken, string? token = null)
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
+            using var request = new HttpRequestMessage(method, path);
+            if (body is not null) request.Content = JsonContent.Create(body);
             if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var response = await _http.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 if (token is not null && response.StatusCode == HttpStatusCode.Unauthorized)
                 {
-                    await StoreSessionAsync(null);
+                    if (_session?.Token == token) await StoreSessionAsync(null);
                     throw new LineupSiteException("登录已失效，请重新登录卫戍阵容库。");
                 }
                 var error = await response.Content.ReadFromJsonAsync<ApiError>(cancellationToken);
@@ -117,6 +122,7 @@ internal sealed class LineupSiteClient : IDisposable
     private async Task StoreSessionAsync(Session? session)
     {
         _session = session;
+        lock (_voteCacheLock) _voteStatus.Clear();
         var temporary = _sessionPath + $".{Guid.NewGuid():N}.tmp";
         try
         {

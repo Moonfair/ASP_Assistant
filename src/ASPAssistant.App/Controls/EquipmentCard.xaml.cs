@@ -21,6 +21,10 @@ public partial class EquipmentCard : UserControl
 
     public Func<string, bool>? IsTrackedCheck { get; set; }
     public bool IsTracked { get; set; }
+    public static readonly RoutedEvent DetailRequestedEvent =
+        EventManager.RegisterRoutedEvent("DetailRequested", RoutingStrategy.Bubble,
+            typeof(RoutedEventHandler), typeof(EquipmentCard));
+
     private bool _showElite;
 
     public EquipmentCard()
@@ -78,6 +82,9 @@ public partial class EquipmentCard : UserControl
         var variant = _showElite ? eq.Elite : eq.Normal;
         EffectText.Text = variant.EffectDescription;
     }
+
+    private void OnDetailClick(object sender, RoutedEventArgs e) =>
+        RaiseEvent(new RoutedEventArgs(DetailRequestedEvent, this));
 
     private void OnTrackClick(object sender, RoutedEventArgs e)
     {

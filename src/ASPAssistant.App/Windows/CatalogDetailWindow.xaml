@@ -1,0 +1,153 @@
+<Window x:Class="ASPAssistant.App.Windows.CatalogDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ASPAssistant.App.Controls"
+        Title="详情" Width="580" Height="690" MinWidth="370" MinHeight="360"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="False"
+        Background="{DynamicResource PanelBackgroundBrush}" PreviewKeyDown="OnPreviewKeyDown">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Resources/LineupStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="DetailHeading" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Margin" Value="0,0,0,7" />
+            </Style>
+            <Style x:Key="DetailSection" TargetType="Border" BasedOn="{StaticResource ItemCardBorder}">
+                <Setter Property="Padding" Value="14" />
+                <Setter Property="Margin" Value="0,0,0,10" />
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+    <DockPanel Margin="16">
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border Width="68" Height="68" CornerRadius="6" Background="{StaticResource CardBackgroundBrush}" ClipToBounds="True">
+                <Image x:Name="Portrait" Stretch="UniformToFill" />
+            </Border>
+            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                <TextBlock x:Name="TitleText" FontSize="25" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock x:Name="SummaryText" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
+            </StackPanel>
+            <Button Grid.Column="2" Content="关闭" Click="OnClose" VerticalAlignment="Top" />
+        </Grid>
+        <TabControl x:Name="Sections" Style="{StaticResource DarkTabControl}" SelectionChanged="OnTabChanged">
+            <TabItem Header="卫戍资料">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,12,0,0">
+                        <WrapPanel x:Name="Tags" Margin="0,0,0,5" Visibility="Collapsed" />
+                        <Border x:Name="TipCard" Style="{StaticResource DetailSection}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="实战小知识" Style="{StaticResource DetailHeading}" />
+                                <TextBlock x:Name="TipText" TextWrapping="Wrap" />
+                                <Button x:Name="TipSource" HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnOpenTipSource" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel x:Name="Effects" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem x:Name="SkillsTab" Header="本体技能" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,12,0,0">
+                        <TextBlock Text="明日方舟本体 · 各技能最高可训练等级" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,10" />
+                        <ItemsControl x:Name="SkillDetails">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource DetailSection}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource DetailHeading}" TextWrapping="Wrap">
+                                                <Run Text="{Binding Slot, Mode=OneWay, StringFormat='技能 {0}'}" />
+                                                <Run Text=" · " /><Run Text="{Binding Name, Mode=OneWay}" />
+                                                <Run Text=" · " /><Run Text="{Binding Level, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Timing}" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource AccentBrush}" Margin="0,0,0,7" />
+                                            <TextBlock Text="{Binding Description}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem x:Name="VotesTab" Header="社区投票" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,12,0,0">
+                        <StackPanel x:Name="SignInPanel" Visibility="Collapsed" Margin="0,0,0,12">
+                            <TextBlock Text="登录后即可匿名投票。每名干员的技能和装备各可提交一次。"
+                                       Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                            <Button Content="登录作业站" Click="OnSignIn" HorizontalAlignment="Left" Margin="0,6,0,0" />
+                        </StackPanel>
+                        <TextBlock x:Name="VoteStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                        <Button x:Name="RetryStatus" Content="重试" Click="OnRetryStatus"
+                                HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,4,0,8" />
+                        <DockPanel Margin="0,4,0,8">
+                            <Button Content="刷新" Click="OnRefreshResults" DockPanel.Dock="Right" Margin="8,0,0,0" />
+                            <TextBlock x:Name="ResultsStatus" TextWrapping="Wrap" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" AutomationProperties.LiveSetting="Polite" />
+                        </DockPanel>
+                        <Border x:Name="SkillVoteCard" Style="{StaticResource DetailSection}">
+                            <StackPanel>
+                                <TextBlock Text="常用技能" Style="{StaticResource DetailHeading}" />
+                                <StackPanel x:Name="SkillResults" />
+                                <StackPanel x:Name="SkillVoteForm" Visibility="Collapsed" Margin="0,8,0,0">
+                                    <WrapPanel x:Name="SkillChoices" />
+                                    <Button x:Name="SkillSubmit" Content="提交技能票" IsEnabled="False" Click="OnSkillVote"
+                                            HorizontalAlignment="Left" Margin="0,7,0,0" />
+                                </StackPanel>
+                                <TextBlock x:Name="SkillFeedback" TextWrapping="Wrap" Foreground="{StaticResource AccentBrush}"
+                                           AutomationProperties.LiveSetting="Polite" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource DetailSection}">
+                            <StackPanel>
+                                <TextBlock Text="适用装备 · 前 5 名" Style="{StaticResource DetailHeading}" />
+                                <StackPanel x:Name="EquipmentResults" />
+                                <StackPanel x:Name="EquipmentVoteForm" Visibility="Collapsed" Margin="0,8,0,0">
+                                    <Expander x:Name="EquipmentPicker" Header="选择适用装备（最多 5 件）"
+                                              Foreground="{StaticResource TextPrimaryBrush}">
+                                        <StackPanel Margin="0,8,0,0">
+                                            <TextBlock Text="搜索装备" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                                            <TextBox x:Name="EquipmentSearch" TextChanged="OnEquipmentSearch" AutomationProperties.Name="搜索装备" />
+                                            <ListBox x:Name="EquipmentChoices" Height="165" Margin="0,5,0,0"
+                                                     Background="{StaticResource PanelBackgroundBrush}"
+                                                     BorderBrush="{StaticResource BorderBrush}"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                     AutomationProperties.Name="适用装备选项">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding Selected}" IsEnabled="{Binding CanSelect}" Margin="0">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Image Width="24" Height="24" Margin="0,0,7,0"
+                                                                       controls:DeferredIcon.Path="{Binding Item.IconPath}" />
+                                                                <TextBlock Text="{Binding Item.Name}" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </CheckBox>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                            <TextBlock x:Name="NoGearResults" Text="没有匹配的装备" Visibility="Collapsed" Margin="0,5,0,0" />
+                                            <Button x:Name="EquipmentSubmit" Content="提交装备票" IsEnabled="False"
+                                                    Click="OnEquipmentVote" HorizontalAlignment="Left" Margin="0,7,0,0" />
+                                        </StackPanel>
+                                    </Expander>
+                                </StackPanel>
+                                <TextBlock x:Name="EquipmentFeedback" TextWrapping="Wrap" Foreground="{StaticResource AccentBrush}"
+                                           AutomationProperties.LiveSetting="Polite" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

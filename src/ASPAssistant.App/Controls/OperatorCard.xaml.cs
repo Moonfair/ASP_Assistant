@@ -45,6 +45,10 @@ public partial class OperatorCard : UserControl
     public Func<string, bool>? IsBannedCheck { get; set; }
     public bool IsBanned { get; set; }
 
+    public static readonly RoutedEvent DetailRequestedEvent =
+        EventManager.RegisterRoutedEvent("DetailRequested", RoutingStrategy.Bubble,
+            typeof(RoutedEventHandler), typeof(OperatorCard));
+
     private bool _showElite;
 
     public OperatorCard()
@@ -113,6 +117,9 @@ public partial class OperatorCard : UserControl
         var variant = _showElite ? op.Elite : op.Normal;
         TraitsPanel.ItemsSource = variant.Traits;
     }
+
+    private void OnDetailClick(object sender, RoutedEventArgs e) =>
+        RaiseEvent(new RoutedEventArgs(DetailRequestedEvent, this));
 
     private void OnTrackClick(object sender, RoutedEventArgs e)
     {

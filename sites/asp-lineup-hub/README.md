@@ -12,6 +12,12 @@
 
 短链接口：`POST /api/share` 接收 JSON `{ "share": "ASPA-LINEUP/2\n…" }` 并返回 `{ "shortPath": "/s/u-…" }`。`GET /api/share/u-…` 解密并返回分享文本与短链路径；浏览器直接访问 `/s/u-…` 可打开阵容快照。
 
+## 干员投票
+
+桌面详情通过 `GET /api/operator-votes?season=…&operator=…` 读取公开汇总。登录后用同一路径提交 `{ "skill": 2 }` 或 `{ "equipment": ["雪祀之衣"] }`，用 `/api/operator-votes/mine` 查询两项是否已提交。重复提交返回原有投票已记录的状态。每个赛季、干员、账号和投票类型只计一次。汇总在 SQLite 中增量维护，服务端缓存 60 秒，桌面端按需读取并缓存 45 秒。
+
+更新侧边栏赛季目录后，先在仓库根目录运行 `python data/fetch_operator_skills.py` 获取本体技能，再运行 `npm run sync:catalog`。作业站启动时自动创建投票所需的表和触发器。
+
 ## 本地开发
 
 需要 Node.js 22.13 或更新版本。腾讯云容器使用 Node.js 24。
