@@ -8,6 +8,7 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from './local-db.mjs';
 import { createMailer } from './mail.mjs';
+import { createFeedbackStore } from './feedback-storage.mjs';
 import app from '../dist/server/index.js';
 
 const development = process.argv.includes('--development');
@@ -41,6 +42,7 @@ function localShareSecret(path) {
 
 const DB = openDatabase(dataPath);
 const AUTH = sendCode ? { secret, sendCode } : null;
+const storeFeedback = createFeedbackStore(process.env);
 const trustProxy = !development && process.env.TRUST_PROXY === '1';
 
 const server = createServer(async (incoming, outgoing) => {
@@ -61,7 +63,7 @@ const server = createServer(async (incoming, outgoing) => {
     });
     const proxyIp = incoming.headers['x-real-ip'];
     const clientIp = trustProxy && typeof proxyIp === 'string' && isIP(proxyIp) ? proxyIp : incoming.socket.remoteAddress;
-    const response = await app.fetch(request, { DB, AUTH, SHARE_SECRET, clientIp });
+    const response = await app.fetch(request, { DB, AUTH, SHARE_SECRET, clientIp, storeFeedback });
     const headers = Object.fromEntries(response.headers);
     const cookies = response.headers.getSetCookie();
     if (cookies.length) headers['set-cookie'] = cookies;

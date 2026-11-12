@@ -227,6 +227,7 @@ public partial class SidePanelWindow : Window
         _lineupSite = site;
         LineupView.ConfigureSite(site);
         SettingsLineupAccountCard.Visibility = Visibility.Visible;
+        SettingsSendFeedbackButton.IsEnabled = true;
         RefreshSettingsLineupAccount();
     }
 
@@ -235,6 +236,28 @@ public partial class SidePanelWindow : Window
         var email = _lineupSite?.Email;
         SettingsLineupAccountStatus.Text = email is null ? "登录后可以上传阵容。" : $"已登录：{email}";
         SettingsLineupAccountButton.Content = email is null ? "登录卫戍阵容库" : "管理账号";
+    }
+
+    private async void OnSendFeedback(object sender, RoutedEventArgs e)
+    {
+        if (_lineupSite is not { } site || !SettingsSendFeedbackButton.IsEnabled) return;
+
+        SettingsSendFeedbackButton.IsEnabled = false;
+        SettingsFeedbackStatus.Text = "正在发送日志…";
+        SettingsFeedbackStatus.Visibility = Visibility.Visible;
+        try
+        {
+            var id = await site.SendFeedbackAsync();
+            SettingsFeedbackStatus.Text = $"反馈已发送，编号：{id}";
+        }
+        catch (LineupSiteException ex)
+        {
+            SettingsFeedbackStatus.Text = ex.Message;
+        }
+        finally
+        {
+            SettingsSendFeedbackButton.IsEnabled = true;
+        }
     }
 
     private void OnSettingsLineupAccount(object sender, RoutedEventArgs e)

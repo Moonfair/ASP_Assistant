@@ -18,6 +18,12 @@
 
 更新侧边栏赛季目录后，先在仓库根目录运行 `python data/fetch_operator_skills.py` 获取本体技能，再运行 `npm run sync:catalog`。作业站启动时自动创建投票所需的表和触发器。
 
+## 桌面反馈
+
+桌面端的「设置 → 发送反馈」会将近期应用日志和更新失败日志压缩后提交到 `POST /api/desktop/feedback`。无需登录。桌面端最多打包 8 MiB 的原始日志，优先保留最近写入的内容。服务端收到 ZIP 后写入 COS，写入成功才返回反馈编号 `{ "id": "…" }`。可用该编号在 `aspa-log-1301636332` 的 `feedback/YYYY-MM-DD/<编号>.zip` 下定位日志，日期使用 UTC。
+
+部署时在服务端 `.env` 设置 `COS_REGION=ap-guangzhou`，并提供对该私有桶的 `feedback/*` 有 `cos:PutObject` 权限的密钥。优先读取 `COS_SECRET_ID` 和 `COS_SECRET_KEY`。这两项都留空时使用现有的 `TENCENTCLOUD_SECRET_ID` 和 `TENCENTCLOUD_SECRET_KEY`。更新 Nginx 配置以允许反馈接口接收最多 9 MiB 的请求体。
+
 ## 本地开发
 
 需要 Node.js 22.13 或更新版本。腾讯云容器使用 Node.js 24。

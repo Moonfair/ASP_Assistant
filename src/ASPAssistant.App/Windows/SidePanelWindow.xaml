@@ -221,6 +221,19 @@
                                         Style="{StaticResource TrackingButton}" HorizontalAlignment="Left" Padding="8,5" />
                             </StackPanel>
                         </Border>
+                        <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,10,0,0">
+                            <StackPanel>
+                                <TextBlock Text="点击后将近期应用日志和更新失败日志发送到卫戍阵容库，用于排查问题。"
+                                           Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                <Button x:Name="SettingsSendFeedbackButton" Content="发送反馈" Click="OnSendFeedback"
+                                        Style="{StaticResource TrackingButton}" HorizontalAlignment="Left" Padding="8,5"
+                                        IsEnabled="False" />
+                                <TextBlock x:Name="SettingsFeedbackStatus" Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"
+                                           AutomationProperties.LiveSetting="Polite" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>

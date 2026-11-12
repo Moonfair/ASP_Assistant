@@ -3,11 +3,13 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
 const read = (file) => readFile(new URL(file, root), 'utf8');
 const [html, css, client, account, notifications, editor, desktop, share, diagramFormat, diagramEditor, catalog, portraits,
-  gearIcons, strategyIcons, selfSelectedOperators, selfSelectedPortraits, captcha, auth, snapshots, votes, voteCatalog, worker] = await Promise.all(
+  gearIcons, strategyIcons, selfSelectedOperators, selfSelectedPortraits, captcha, auth, snapshots, votes, voteCatalog,
+  feedback, worker] = await Promise.all(
   ['web/index.html', 'web/style.css', 'web/app.js', 'web/account.js', 'web/notifications.js', 'web/editor.js', 'web/desktop-import.js', 'web/share-format.js',
    'web/diagram-format.js', 'web/diagram-editor.js', 'web/catalog.json', 'web/portraits.json', 'web/gear-icons.json', 'web/strategy-icons.json',
    'web/self-selected-operators.json', 'web/self-selected-portraits.json',
-   'server/captcha.js', 'server/auth.js', 'server/share-snapshots.js', 'server/operator-votes.js', 'web/operator-vote-catalog.json', 'server/index.js'].map(read)
+   'server/captcha.js', 'server/auth.js', 'server/share-snapshots.js', 'server/operator-votes.js', 'web/operator-vote-catalog.json',
+   'server/feedback.js', 'server/index.js'].map(read)
 );
 const dist = new URL('dist/server/', root);
 await mkdir(dist, { recursive: true });
@@ -21,6 +23,6 @@ await writeFile(new URL('index.js', dist), [
   'const selfSelectedOperators = ' + selfSelectedOperators.trim() + ';',
   'const selfSelectedPortraits = ' + selfSelectedPortraits.trim() + ';',
   'const operatorVoteCatalog = ' + voteCatalog.trim() + ';',
-  share, diagramFormat, captcha, auth, snapshots, votes, worker
+  share, diagramFormat, captcha, auth, snapshots, votes, feedback, worker
 ].join('\n'));
 console.log('Built dist/server/index.js');

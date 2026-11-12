@@ -318,6 +318,7 @@ async function api(request, url, env) {
   if (path === '/api/operator-votes' || path === '/api/operator-votes/mine')
     return operatorVotesApi(request, url, env);
   const method = request.method;
+  if (method === 'POST' && path === '/api/desktop/feedback') return submitFeedback(request, env);
   if (method === 'POST' && path === '/api/share') return createShareSnapshot(request, env);
   const short = /^\/api\/share\/([A-Za-z0-9_-]{1,32})$/.exec(path);
   if (method === 'GET' && short) {

@@ -15,15 +15,17 @@ internal sealed partial class LineupSiteClient : IDisposable
     private static readonly Uri Site = new("https://aspa.moonfair.cn/");
     private readonly HttpClient _http;
     private readonly string _sessionPath;
+    private readonly string _logDirectory;
     private Session? _session;
 
     internal LineupSiteClient(string settingsDirectory, HttpMessageHandler? handler = null)
     {
         _sessionPath = Path.Combine(settingsDirectory, "lineup-site-session.dat");
+        _logDirectory = Path.Combine(settingsDirectory, "logs");
         _http = new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false })
         {
             BaseAddress = Site,
-            Timeout = TimeSpan.FromSeconds(15)
+            Timeout = Timeout.InfiniteTimeSpan
         };
     }
 
@@ -90,15 +92,20 @@ internal sealed partial class LineupSiteClient : IDisposable
     private Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken, string? token = null) =>
         SendAsync<T>(HttpMethod.Post, path, body, cancellationToken, token);
 
-    private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body,
-        CancellationToken cancellationToken, string? token = null)
+    private Task<T> SendAsync<T>(HttpMethod method, string path, object? body,
+        CancellationToken cancellationToken, string? token = null) =>
+        SendContentAsync<T>(method, path, body is null ? null : JsonContent.Create(body), cancellationToken, token);
+
+    private async Task<T> SendContentAsync<T>(HttpMethod method, string path, HttpContent? content,
+        CancellationToken cancellationToken, string? token = null, TimeSpan? timeout = null)
     {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(timeout ?? TimeSpan.FromSeconds(15));
         try
         {
-            using var request = new HttpRequestMessage(method, path);
-            if (body is not null) request.Content = JsonContent.Create(body);
+            using var request = new HttpRequestMessage(method, path) { Content = content };
             if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            using var response = await _http.SendAsync(request, cancellationToken);
+            using var response = await _http.SendAsync(request, deadline.Token);
             if (!response.IsSuccessStatusCode)
             {
                 if (token is not null && response.StatusCode == HttpStatusCode.Unauthorized)
@@ -106,10 +113,10 @@ internal sealed partial class LineupSiteClient : IDisposable
                     if (_session?.Token == token) await StoreSessionAsync(null);
                     throw new LineupSiteException("登录已失效，请重新登录卫戍阵容库。");
                 }
-                var error = await response.Content.ReadFromJsonAsync<ApiError>(cancellationToken);
+                var error = await response.Content.ReadFromJsonAsync<ApiError>(deadline.Token);
                 throw new LineupSiteException(error?.Error ?? "阵容库暂时无法处理请求，请稍后重试。");
             }
-            return await response.Content.ReadFromJsonAsync<T>(cancellationToken)
+            return await response.Content.ReadFromJsonAsync<T>(deadline.Token)
                 ?? throw new LineupSiteException("阵容库响应为空，请稍后重试。");
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or NotSupportedException ||
