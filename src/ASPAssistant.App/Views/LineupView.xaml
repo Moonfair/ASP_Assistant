@@ -61,9 +61,12 @@
                 <Button x:Name="ImportClipboardButton" Content="从剪切板导入" Click="OnImportClipboard" Margin="4,0,0,0" MinHeight="34"
                         ToolTip="支持阵容分享文本和卫戍阵容库短链接" />
             </UniformGrid>
-            <Button x:Name="OpenLineupHubButton" Content="打开作业站 ↗" Click="OnOpenLineupHub"
+            <UniformGrid Columns="2" Margin="0,0,0,10">
+                <Button x:Name="HistoryButton" Content="历史战绩" Click="OnHistory" MinHeight="30" Margin="0,0,4,0" />
+                <Button x:Name="OpenLineupHubButton" Content="打开作业站 ↗" Click="OnOpenLineupHub"
                     AutomationProperties.Name="打开作业站" ToolTip="在浏览器中打开卫戍阵容库"
-                    MinHeight="30" Margin="0,0,0,10" Padding="8,4" Foreground="{StaticResource AccentBrush}" />
+                    MinHeight="30" Margin="4,0,0,0" Padding="8,4" Foreground="{StaticResource AccentBrush}" />
+            </UniformGrid>
             <Button x:Name="UploadedLineupButton" Content="查看已上传阵容" Click="OnOpenUploadedLineup"
                     HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,0,0,10" />
             <Border Background="#FF14162B" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"

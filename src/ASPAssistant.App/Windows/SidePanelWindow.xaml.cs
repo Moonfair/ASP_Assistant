@@ -141,6 +141,7 @@ public partial class SidePanelWindow : Window
         LineupView.ShareService = LineupShareService.FromCatalog(operators, equipment.Select(e => e.Name), operatorCatalog);
         LineupView.PrepareOperatorsAsync = PrepareLineupOperatorsAsync;
         LineupView.NewRequested += async () => await OpenLineupEditorAsync(null);
+        LineupView.HistoryRequested += async () => await OpenGarrisonHistoryAsync();
         LineupView.EditRequested += async lineup => await OpenLineupEditorAsync(lineup);
         LineupView.PreviewRequested += async lineup =>
         {
@@ -165,6 +166,29 @@ public partial class SidePanelWindow : Window
     private Window? _catalogDetail;
     private int _catalogDetailRequest;
     private LineupSiteClient? _lineupSite;
+    private GarrisonHistoryWindow? _garrisonHistory;
+
+    private async Task OpenGarrisonHistoryAsync()
+    {
+        if (_garrisonHistory is null && _operatorCatalog is { } catalog)
+            await catalog.LoadSelfSelectedAsync();
+        if (_garrisonHistory is { } existing)
+        {
+            if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+            existing.Activate();
+            return;
+        }
+        if (!IsLoaded || LineupView.ShareService is not { } share) return;
+
+        var converter = new GarrisonHistoryLineupConverter(
+            _lineupOperators.Concat(_operatorCatalog?.SelfSelected ?? []),
+            _lineupEquipment.Select(item => item.Name),
+            _lineupStrategies.Select(item => item.Name));
+        var window = new GarrisonHistoryWindow(converter, share, OpenLineupEditorAsync, FindLineupIcon) { Owner = this };
+        window.Closed += (_, _) => _garrisonHistory = null;
+        _garrisonHistory = window;
+        window.Show();
+    }
 
     internal void ConfigureCatalogDetails(CatalogDetails details, Func<Task<Dictionary<string, List<OperatorSkill>>>> loadSelfSelectedSkills)
     {
@@ -244,12 +268,14 @@ public partial class SidePanelWindow : Window
         ?? _lineupOperators.FirstOrDefault(item => item.Name == name)?.IconPath;
     private string? FindLineupStrategyIcon(string name) => _lineupStrategies.FirstOrDefault(strategy => strategy.Name == name)?.IconPath;
 
+    private string? FindLineupIcon(bool equipment, string name) => equipment
+        ? _lineupEquipment.FirstOrDefault(item => item.Name == name)?.IconPath
+        : FindLineupOperatorIcon(name);
+
     private void OpenLineupPreview(Lineup lineup)
     {
         var preview = new ASPAssistant.App.Views.LineupPreviewView { Margin = new Thickness(18) };
-        preview.ShowLineup(lineup, (equipment, name) => equipment
-            ? _lineupEquipment.FirstOrDefault(item => item.Name == name)?.IconPath
-            : FindLineupOperatorIcon(name), FindLineupStrategyIcon);
+        preview.ShowLineup(lineup, FindLineupIcon, FindLineupStrategyIcon);
         var window = new Window
         {
             Title = "阵容预览 · ASP Assistant",
@@ -261,16 +287,16 @@ public partial class SidePanelWindow : Window
         window.Show();
     }
 
-    private async Task OpenLineupEditorAsync(Lineup? lineup)
+    private async Task<bool> OpenLineupEditorAsync(Lineup? lineup)
     {
-        if (_lineupLibrary is null) return;
+        if (_lineupLibrary is null) return false;
         if (lineup is not null) await PrepareLineupOperatorsAsync(lineup);
         if (_lineupEditor is { } existing)
         {
             existing.BringForward(existing.IsComplete
                 ? "当前阵容已保存。请先点击“完成”关闭窗口。"
                 : "已有阵容正在编辑，请先保存或取消当前编辑。");
-            return;
+            return false;
         }
         var vm = new LineupEditorViewModel(_lineupOperators, _lineupEquipment, lineup,
             _lineupStrategies, _lineupCovenantTags, _operatorCatalog);
@@ -304,6 +330,7 @@ public partial class SidePanelWindow : Window
         };
         _lineupEditor = editor;
         editor.Show();
+        return true;
     }
 
     public void UpdateManualScanStatus(int pending)
