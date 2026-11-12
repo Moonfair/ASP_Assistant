@@ -136,6 +136,7 @@ public partial class SidePanelWindow : Window
         LineupView.DataContext = library;
         LineupView.ShareService = LineupShareService.FromCatalog(operators, equipment.Select(e => e.Name));
         LineupView.NewRequested += () => TryOpenLineupEditor(null);
+        LineupView.HistoryRequested += OpenGarrisonHistory;
         LineupView.EditRequested += lineup => TryOpenLineupEditor(lineup);
         LineupView.PreviewRequested += OpenLineupPreview;
         LineupView.TrackRequested += lineup =>
@@ -143,6 +144,28 @@ public partial class SidePanelWindow : Window
             var added = TrackingVm.TrackLineup(lineup);
             library.Status = added > 0 ? $"已加入 {added} 项干员或装备追踪。" : "这个阵容没有新的可追踪干员或装备。";
         };
+    }
+
+    private GarrisonHistoryWindow? _garrisonHistory;
+
+    private void OpenGarrisonHistory()
+    {
+        if (_garrisonHistory is { } existing)
+        {
+            if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+            existing.Activate();
+            return;
+        }
+        if (LineupView.ShareService is not { } share) return;
+
+        var converter = new GarrisonHistoryLineupConverter(
+            _lineupOperators,
+            _lineupEquipment.Select(item => item.Name),
+            _lineupStrategies.Select(item => item.Name));
+        var window = new GarrisonHistoryWindow(converter, share, TryOpenLineupEditor) { Owner = this };
+        window.Closed += (_, _) => _garrisonHistory = null;
+        _garrisonHistory = window;
+        window.Show();
     }
 
     private LineupSiteClient? _lineupSite;

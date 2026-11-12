@@ -17,6 +17,7 @@ namespace ASPAssistant.App.Views;
 public partial class LineupView : UserControl
 {
     public event Action? NewRequested;
+    public event Action? HistoryRequested;
     public event Action<Lineup>? EditRequested;
     public event Action<Lineup>? PreviewRequested;
     public event Action<Lineup>? TrackRequested;
@@ -75,6 +76,7 @@ public partial class LineupView : UserControl
     }
 
     private void OnNew(object sender, RoutedEventArgs e) => NewRequested?.Invoke();
+    private void OnHistory(object sender, RoutedEventArgs e) => HistoryRequested?.Invoke();
     private void OnEdit(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is Lineup lineup) EditRequested?.Invoke(lineup);
