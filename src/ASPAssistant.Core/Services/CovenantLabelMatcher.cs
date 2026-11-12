@@ -7,21 +7,20 @@ internal static class CovenantLabelMatcher
 {
     internal readonly record struct LabelMatch(string Name, int Index, int Length);
 
-    internal static bool HasCompleteSlotCoverage(OcrTextResult text, double imageWidth,
+    internal static bool HasCompleteSlotCoverage(OcrTextResult text, CovenantGrid grid,
         string compact, IReadOnlyList<LabelMatch> matches)
     {
         if (matches.Count == 0) return true;
         var covered = Enumerable.Range(0, 10).Where(column =>
         {
-            double center = imageWidth * (.046875 + column * .0671875);
+            double center = grid.ColumnCenter(column);
             return center >= text.Box.X && center <= text.Box.X + text.Box.W;
         }).ToArray();
         if (covered.Length < 2) return true;
         // A merged box must provide one name per physical slot it spans. Otherwise,
         // missing whole words would redistribute the remaining text onto other icons.
-        var located = matches.Select(match => (int)Math.Round(
-            ((text.Box.X + text.Box.W * (match.Index + match.Length / 2.0) / compact.Length)
-                / imageWidth - .046875) / .0671875));
+        var located = matches.Select(match => grid.NearestColumn(
+            text.Box.X + text.Box.W * (match.Index + match.Length / 2.0) / compact.Length));
         return located.SequenceEqual(covered);
     }
 

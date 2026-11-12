@@ -1,8 +1,5 @@
 using System.ComponentModel;
-using System.Net;
-using System.Text;
 using System.Text.Json;
-using ASPAssistant.Core.Interop;
 using MaaFramework.Binding;
 using MaaFramework.Binding.Buffers;
 
@@ -24,16 +21,14 @@ internal sealed class AdbScreenCapture : IDisposable
             _retryAfter = DateTimeOffset.MinValue;
         }
 
-        var serial = target.Kind == GameTargetKind.LdPlayer ? target.AlternateSerial : target.Serial;
-        if (target.AdbPath is not { } adb || serial == null ||
-            !File.Exists(adb) || !GameTargetSelection.IsLocalAdbSerial(serial) || DateTimeOffset.UtcNow < _retryAfter)
+        if (target.AdbPath is not { } adb || !File.Exists(adb) || DateTimeOffset.UtcNow < _retryAfter)
             return null;
 
         try
         {
-            if (target.Kind == GameTargetKind.LdPlayer && !OwnsLdEndpoint(target, serial)) return RetryLater();
+            if (AdbConnection.GetLocalEndpoint(target) is not { } serial) return RetryLater();
             if (_serial == null)
-                _serial = await ConnectAsync(adb, serial, token).ConfigureAwait(false);
+                _serial = await AdbConnection.ConnectAsync(adb, serial, token).ConfigureAwait(false);
             if (_serial == null) return RetryLater();
 
             if (target.Kind is GameTargetKind.MuMu or GameTargetKind.LdPlayer)
@@ -62,15 +57,6 @@ internal sealed class AdbScreenCapture : IDisposable
         }
     }
 
-    private static bool OwnsLdEndpoint(GameTarget target, string serial)
-    {
-        if (!IPEndPoint.TryParse(serial, out var endpoint) ||
-            LocalTcpListener.FindOwner(endpoint.Port) is not { } owner)
-            return false;
-        User32.GetWindowThreadProcessId(target.Window, out var windowProcess);
-        return owner == windowProcess || owner == target.VmPid;
-    }
-
     private static async Task<byte[]?> TryAdbCaptureAsync(string adb, string[] arguments, CancellationToken token)
     {
         try
@@ -80,20 +66,6 @@ internal sealed class AdbScreenCapture : IDisposable
         }
         catch (IOException) { return null; }
     }
-
-    private static async Task<string?> ConnectAsync(string adb, string serial, CancellationToken token)
-    {
-        var devices = await LocalCommand.RunAsync(adb, ["devices"], token).ConfigureAwait(false);
-        if (IsOnline(devices, serial)) return serial;
-
-        if (serial.StartsWith("emulator-", StringComparison.Ordinal)) return null;
-        await LocalCommand.RunAsync(adb, ["connect", serial], token).ConfigureAwait(false);
-        devices = await LocalCommand.RunAsync(adb, ["devices"], token).ConfigureAwait(false);
-        return IsOnline(devices, serial) ? serial : null;
-    }
-
-    private static bool IsOnline(byte[] output, string serial) =>
-        Encoding.UTF8.GetString(output).Split('\n').Any(line => line.TrimEnd() == $"{serial}\tdevice");
 
     private DateTimeOffset _enhancementRetryAfter;
 

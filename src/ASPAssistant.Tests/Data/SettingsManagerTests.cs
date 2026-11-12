@@ -23,6 +23,24 @@ public class SettingsManagerTests : IDisposable
     }
 
     [Fact]
+    public void GameSourceDefaultsToAutomaticWithoutASavedPreference()
+    {
+        _manager.LoadGameTarget().Id.Should().Be("auto");
+    }
+
+    [Theory]
+    [InlineData("windows")]
+    [InlineData("mumu:C:\\MuMu:0")]
+    [InlineData("adb")]
+    public void GameSourceKeepsExistingManualPreferences(string sourceId)
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "game-target.json"),
+            System.Text.Json.JsonSerializer.Serialize(new { Id = sourceId }));
+
+        _manager.LoadGameTarget().Id.Should().Be(sourceId);
+    }
+
+    [Fact]
     public void MarkerOffset_RoundTripsAndCanBeReset()
     {
         _manager.LoadMarkerOffset().Should().Be(default(MarkerOffset));

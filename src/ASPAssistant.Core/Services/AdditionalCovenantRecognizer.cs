@@ -6,30 +6,36 @@ namespace ASPAssistant.Core.Services;
 public static class AdditionalCovenantRecognizer
 {
     public static IReadOnlyList<string>? FindDisabled(Bitmap image, IReadOnlyList<OcrTextResult> texts,
-        IEnumerable<string> additionalNames)
+        IEnumerable<string> additionalNames) =>
+        FindDisabled(image, texts, additionalNames, CovenantGrid.Preparation(image.Width, image.Height));
+
+    internal static IReadOnlyList<string>? FindDisabled(Bitmap image, IReadOnlyList<OcrTextResult> texts,
+        IEnumerable<string> additionalNames, CovenantGrid grid)
     {
         var names = additionalNames.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderByDescending(n => n.Length).ToArray();
         if (names.Length == 0) return [];
         if (names.Length > 20) return null;
         var title = texts.FirstOrDefault(t => t.Text.Contains("附加盟"));
         if (title == null) return null;
-        double w = image.Width, h = image.Height;
+        double h = image.Height;
         var slots = new Dictionary<int, string>();
         foreach (var text in texts)
         {
             double y = text.Box.Y + text.Box.H / 2.0;
-            int row = (int)Math.Round(((y - title.Box.Y) / h - .219) / .20);
-            if (row < 0 || row >= (names.Length + 9) / 10 || Math.Abs(y - (title.Box.Y + h * (.219 + row * .20))) > h * .035) continue;
+            int row = (int)Math.Round((y - title.Box.Y - grid.FirstAdditionalLabel) / grid.AdditionalRowSpacing);
+            if (row < 0 || row >= (names.Length + 9) / 10
+                || Math.Abs(y - (title.Box.Y + grid.FirstAdditionalLabel + row * grid.AdditionalRowSpacing)) > h * .035)
+                continue;
             var compact = Regex.Replace(text.Text, @"\s+", "");
             var matches = CovenantLabelMatcher.Find(compact, names).ToArray();
-            if (!CovenantLabelMatcher.HasCompleteSlotCoverage(text, w, compact, matches)) return null;
+            if (!CovenantLabelMatcher.HasCompleteSlotCoverage(text, grid, compact, matches)) return null;
             foreach (var match in matches)
             {
                 double x = text.Box.X + text.Box.W * (match.Index + match.Length / 2.0) / compact.Length;
-                int column = (int)Math.Round((x / w - .046875) / .0671875);
+                int column = grid.NearestColumn(x);
                 int slot = row * 10 + column;
                 if (column < 0 || column >= 10 || slot >= names.Length
-                    || Math.Abs(x / w - (.046875 + column * .0671875)) > .025) return null;
+                    || Math.Abs(x - grid.ColumnCenter(column)) > grid.ColumnTolerance) return null;
                 if (!slots.TryAdd(slot, match.Name)) return null;
             }
         }
@@ -37,8 +43,8 @@ public static class AdditionalCovenantRecognizer
         var disabled = new List<string>();
         for (int slot = 0; slot < names.Length; slot++)
         {
-            double cx = w * (.046875 + slot % 10 * .0671875);
-            double cy = title.Box.Y + h * (.219 + slot / 10 * .20 - .075);
+            double cx = grid.ColumnCenter(slot % 10);
+            double cy = title.Box.Y + grid.FirstAdditionalLabel + slot / 10 * grid.AdditionalRowSpacing - grid.IconToLabel;
             var state = CovenantIconClassifier.IsDisabled(image, cx, cy);
             if (state == null) return null;
             // Names can be occluded on green icons without affecting the disabled set.

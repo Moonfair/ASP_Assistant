@@ -46,7 +46,7 @@ public partial class SidePanelWindow : Window
     private WindowState _previousWindowState;
     // WPF 初始 Show() 会触发 SizeChanged/LocationChanged，在首次 UpdatePosition 前清除误设的标志
     private bool _layoutInitialized;
-    private (RECT Bounds, bool AttachInside)? _trackedGame;
+    private RECT? _trackedGame;
 
     public SidePanelWindow(
         OperatorBrowseViewModel operatorVm,
@@ -486,9 +486,9 @@ public partial class SidePanelWindow : Window
         dialog.ShowDialog();
     }
 
-    public void UpdatePosition(RECT gameRect, bool attachInside, bool gameActuallyMoved)
+    public void UpdatePosition(RECT gameRect, bool gameActuallyMoved)
     {
-        _trackedGame = (gameRect, attachInside);
+        _trackedGame = gameRect;
         _isProgrammaticChange = true;
         try
         {
@@ -519,7 +519,11 @@ public partial class SidePanelWindow : Window
         }
     }
 
-    public void ClearGamePosition() => _trackedGame = null;
+    public void ClearGamePosition()
+    {
+        _trackedGame = null;
+        UpdateFilterArrows();
+    }
 
     private Rect ToWindowCoordinates(RECT bounds)
     {
@@ -531,14 +535,16 @@ public partial class SidePanelWindow : Window
 
     private void OnLocationChanged(object? sender, EventArgs e)
     {
-        if (!_isProgrammaticChange && !_isRestoring)
-            _isUserPositioned = true;
+        if (_isProgrammaticChange || _isRestoring) return;
+        _isUserPositioned = true;
+        UpdateFilterArrows();
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (!_isProgrammaticChange && !_isRestoring && e.HeightChanged)
-            _isUserSized = true;
+        if (_isProgrammaticChange || _isRestoring) return;
+        if (e.HeightChanged) _isUserSized = true;
+        UpdateFilterArrows();
     }
 
     private void OnStateChanged(object? sender, EventArgs e)

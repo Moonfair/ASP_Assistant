@@ -9,6 +9,7 @@ public sealed record GameTarget(
     string? AdbPath = null, string? Serial = null, string? InstallDir = null,
     int Instance = 0, string? AlternateSerial = null, int VmPid = 0, uint WindowPid = 0)
 {
+    public const string AutomaticId = "auto";
     public const string WindowsId = "windows";
 
     public bool HasLiveWindow()
@@ -28,7 +29,7 @@ public sealed record GameTarget(
 }
 
 public sealed record GameTargetPreference(
-    string Id = GameTarget.WindowsId,
+    string Id = GameTarget.AutomaticId,
     string? WindowTitle = null, string? ProcessPath = null,
     string? AdbPath = null, string? Serial = null);
 

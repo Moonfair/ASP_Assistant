@@ -96,38 +96,7 @@ public partial class SidePanelWindow
     private void PositionFilterSidebar()
     {
         var mainWidth = Math.Clamp(Width - _externalSidebarWidth, 280, 400);
-        var externalWidth = _requestedSidebarWidth;
-        var onRight = _sidebarOnRight;
-        var mainLeft = Left + (onRight ? 0 : _externalSidebarWidth);
-        var left = mainLeft - (onRight ? 0 : externalWidth);
-
-        if (_trackedGame is { } tracked)
-        {
-            var game = ToWindowCoordinates(tracked.Bounds);
-            var monitor = ToWindowCoordinates(User32.GetMonitorRect(tracked.Bounds.Right - 1, tracked.Bounds.Top));
-            if (!_isUserPositioned)
-            {
-                if (externalWidth > 0)
-                    (left, externalWidth, onRight) = DockFilterSidebar(game, monitor, mainWidth, externalWidth);
-                else
-                    left = tracked.AttachInside ? monitor.Right - mainWidth : game.Right;
-            }
-            else if (externalWidth > 0 && Top < game.Bottom && Top + Height > game.Top)
-            {
-                var mainRight = mainLeft + mainWidth;
-                if (mainLeft >= game.Right) onRight = true;
-                else if (mainRight <= game.Left) onRight = false;
-                else externalWidth = 0;
-
-                if (mainLeft >= monitor.Left && mainRight <= monitor.Right)
-                {
-                    var space = onRight ? monitor.Right - mainRight : mainLeft - monitor.Left;
-                    externalWidth = FitSidebarWidth(space, externalWidth);
-                }
-
-                left = mainLeft - (onRight ? 0 : externalWidth);
-            }
-        }
+        var (left, externalWidth, onRight) = GetFilterSidebarPlacement(mainWidth, _requestedSidebarWidth);
 
         if (_externalSidebarWidth != externalWidth)
         {
@@ -156,9 +125,66 @@ public partial class SidePanelWindow
         SideFilterPanel.Width = inset ? ExpandedSidebarWidth : double.NaN;
         SideFilterPanel.BorderThickness = FilterRail.BorderThickness = onRight
             ? new Thickness(1, 0, 0, 0) : new Thickness(0, 0, 1, 0);
-        ExpandSideFiltersArrow.Text = onRight ? "›" : "‹";
-        CollapseSideFiltersButton.Content = onRight ? "‹ 收起" : "› 收起";
         if (double.IsFinite(left)) Left = left;
+        UpdateFilterArrows();
+    }
+
+    private void UpdateFilterArrows()
+    {
+        if (_requestedSidebarWidth == 0) return;
+
+        bool expanded = _requestedSidebarWidth == ExpandedSidebarWidth;
+        var mainWidth = Math.Clamp(Width - _externalSidebarWidth, 280, 400);
+        var (_, otherExternalWidth, otherOnRight) = GetFilterSidebarPlacement(
+            mainWidth, expanded ? FilterRailWidth : ExpandedSidebarWidth);
+        bool expandedOnRight = expanded ? _sidebarOnRight : otherOnRight;
+        var expandedExternalWidth = expanded ? _externalSidebarWidth : otherExternalWidth;
+
+        // If expanding switches sides, the arrow points to the destination side.
+        bool opensInward = _sidebarOnRight == otherOnRight && expandedExternalWidth < ExpandedSidebarWidth;
+        bool opensRight = expandedOnRight != opensInward;
+        ExpandSideFiltersArrow.Text = opensRight ? "›" : "‹";
+        CollapseSideFiltersButton.Content = opensRight ? "‹ 收起" : "› 收起";
+    }
+
+    private (double Left, double ExternalWidth, bool OnRight) GetFilterSidebarPlacement(double mainWidth, double externalWidth)
+    {
+        var onRight = _sidebarOnRight;
+        var mainLeft = Left + (onRight ? 0 : _externalSidebarWidth);
+        var left = mainLeft - (onRight ? 0 : externalWidth);
+
+        if (_trackedGame is { } bounds)
+        {
+            var game = ToWindowCoordinates(bounds);
+            var monitor = ToWindowCoordinates(User32.GetMonitorRect(bounds.Right - 1, bounds.Top));
+            if (!_isUserPositioned)
+            {
+                if (externalWidth > 0)
+                    (left, externalWidth, onRight) = DockFilterSidebar(game, monitor, mainWidth, externalWidth);
+                else
+                    left = monitor.Right - game.Right >= mainWidth ? game.Right : game.Right - mainWidth;
+
+                var maxLeft = Math.Max(monitor.Left, monitor.Right - mainWidth - externalWidth);
+                left = Math.Clamp(left, monitor.Left, maxLeft);
+            }
+            else if (externalWidth > 0 && Top < game.Bottom && Top + Height > game.Top)
+            {
+                var mainRight = mainLeft + mainWidth;
+                if (mainLeft >= game.Right) onRight = true;
+                else if (mainRight <= game.Left) onRight = false;
+                else externalWidth = 0;
+
+                if (mainLeft >= monitor.Left && mainRight <= monitor.Right)
+                {
+                    var space = onRight ? monitor.Right - mainRight : mainLeft - monitor.Left;
+                    externalWidth = FitSidebarWidth(space, externalWidth);
+                }
+
+                left = mainLeft - (onRight ? 0 : externalWidth);
+            }
+        }
+
+        return (left, externalWidth, onRight);
     }
 
     private static (double Left, double ExternalWidth, bool OnRight) DockFilterSidebar(
@@ -178,8 +204,8 @@ public partial class SidePanelWindow
         }
 
         return rightSpace >= leftSpace
-            ? (Math.Max(monitor.Left, monitor.Right - mainWidth), 0, true)
-            : (monitor.Left, 0, false);
+            ? (game.Right - mainWidth, 0, true)
+            : (game.Left, 0, false);
     }
 
     private static double FitSidebarWidth(double available, double requested) =>

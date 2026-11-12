@@ -5,7 +5,7 @@ using ASPAssistant.Core.Models;
 
 namespace ASPAssistant.Core.Services;
 
-public enum PreparationPhase { None, Information, Strategy, Squad }
+public enum PreparationPhase { None, Information, Strategy, Squad, CovenantOverview }
 public enum PreparationNoticeKind { Banner, Result, ScrollRequired, Dismiss }
 
 public sealed record PreparationNotice(string Text, PreparationNoticeKind Kind, bool IsNewResult = false);
@@ -73,6 +73,22 @@ public sealed class PreparationScanner(
         if (Phase == PreparationPhase.None)
         {
             _awaySince ??= now;
+            if (heading.Any(t => t.Box.X < width * .25 &&
+                Regex.Replace(t.Text, @"\s+", "").Contains("STRONGHOLDPROTOCOL", StringComparison.OrdinalIgnoreCase)))
+            {
+                var overviewTexts = await ocr.RecognizeRegionAsync(png, 0, (int)(height * .14),
+                    (int)(width * .70), (int)(height * .80));
+                if (requestGeneration != Generation) return;
+                if (CoreCovenantRecognizer.FindSection(overviewTexts, height) is { } section &&
+                    Math.Abs(section.CoreTitle.Box.X - section.AdditionalTitle.Box.X) < width * .03)
+                {
+                    Phase = PreparationPhase.CovenantOverview;
+                    _sessionStarted = true;
+                    var grid = CovenantGrid.Overview(section.CoreTitle, section.AdditionalTitle);
+                    await ProcessCovenantsAsync(png, image, null, requestGeneration, force, (overviewTexts, grid));
+                    return;
+                }
+            }
             NotifyCaptureUnavailable();
             return;
         }
@@ -105,7 +121,15 @@ public sealed class PreparationScanner(
             return;
         }
 
-        var texts = await ocr.RecognizeRegionAsync(png, 0, (int)(height * .15),
+        await ProcessCovenantsAsync(png, image, pool, generation, force);
+    }
+
+    private async Task ProcessCovenantsAsync(byte[] png, Bitmap image, CovenantPool? pool, int generation, bool force,
+        (IReadOnlyList<OcrTextResult> Texts, CovenantGrid Grid)? overview = null)
+    {
+        int width = image.Width, height = image.Height;
+        var grid = overview?.Grid ?? CovenantGrid.Preparation(width, height);
+        var texts = overview?.Texts ?? await ocr.RecognizeRegionAsync(png, 0, (int)(height * .15),
             (int)(width * .70), (int)(height * .38));
         if (generation != Generation) return;
         var fullCore = covenantCatalog?.CoreCovenants is { Count: > 0 } configuredCore
@@ -113,8 +137,8 @@ public sealed class PreparationScanner(
         var fullAdditional = covenantCatalog?.AdditionalCovenants is { Count: > 0 } configuredAdditional
             ? configuredAdditional.ToArray() : candidates.SelectMany(c => c.AdditionalCovenants).Distinct().ToArray();
         var coreNames = pool?.CoreCovenants ?? fullCore;
-        var disabled = CoreCovenantRecognizer.FindDisabled(image, texts, coreNames)
-            ?? await CoreCovenantRecognizer.RereadDisabledAsync(image, texts, coreNames, ocr);
+        var disabled = CoreCovenantRecognizer.FindDisabled(image, texts, coreNames, grid)
+            ?? await CoreCovenantRecognizer.RereadDisabledAsync(image, texts, coreNames, ocr, grid);
         if (generation != Generation) return;
         if (disabled == null)
         {
@@ -122,10 +146,10 @@ public sealed class PreparationScanner(
             return;
         }
         var additionalNames = pool?.AdditionalCovenants ?? fullAdditional;
-        var additionalTexts = additionalNames.Count == 0 ? [] : await ocr.RecognizeRegionAsync(png,
+        var additionalTexts = additionalNames.Count == 0 ? [] : overview?.Texts ?? await ocr.RecognizeRegionAsync(png,
             0, (int)(height * .45), (int)(width * .70), (int)(height * .51));
         if (generation != Generation) return;
-        var disabledAdditional = AdditionalCovenantRecognizer.FindDisabled(image, additionalTexts, additionalNames);
+        var disabledAdditional = AdditionalCovenantRecognizer.FindDisabled(image, additionalTexts, additionalNames, grid);
         if (disabledAdditional == null)
         {
             SetStatus($"附加盟约识别不完整 · 请显示完整盟约区域；保留 {BannedNames.Count} 名禁用干员");

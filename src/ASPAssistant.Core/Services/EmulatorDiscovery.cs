@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ASPAssistant.Core.Interop;
 
 namespace ASPAssistant.Core.Services;
@@ -10,6 +11,88 @@ namespace ASPAssistant.Core.Services;
 public sealed class EmulatorDiscovery
 {
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+    private static readonly Regex ResumedActivityPattern = new(
+        @"^[ \t]*(ResumedActivity|Resumed|topResumedActivity|mResumedActivity)[ \t]*[:=][ \t]*(?:ActivityRecord\{\S+[ \t]+u\d+[ \t]+(?<package>[\w.]+)/|null\b)",
+        RegexOptions.Multiline | RegexOptions.CultureInvariant);
+    private long? _lastEmulatorConfirmation;
+
+    public async Task<GameTarget?> FindActiveGameAsync(GameTarget? current, CancellationToken token)
+    {
+        var emulators = await FindAsync(token).ConfigureAwait(false);
+        var windows = GameTargetSelection.FindWindowsClient();
+        if (windows != null && (!CanUseWindow(windows, current) || emulators.Any(target => target.Window == windows.Window)))
+            windows = null;
+        if (windows?.Window == User32.GetRootWindow(User32.GetForegroundWindow())) return windows;
+
+        // Using one ADB client per round avoids competing vendor versions restarting the shared server.
+        var adb = current?.AdbPath;
+        if (!File.Exists(adb)) adb = emulators.Select(target => target.AdbPath).FirstOrDefault(File.Exists);
+        var probes = await Task.WhenAll(emulators.Where(target => target.GetRenderRect() != null)
+            .Select(async target => (Target: target, Active: await HasActiveArknightsAsync(target, adb, token)
+                .ConfigureAwait(false)))).ConfigureAwait(false);
+        var sinceConfirmed = _lastEmulatorConfirmation is { } confirmed
+            ? Stopwatch.GetElapsedTime(confirmed) : TimeSpan.MaxValue;
+        var activeEmulators = probes.Where(probe => probe.Target.GetRenderRect() != null &&
+                CanUseAutomaticEmulator(probe.Active, probe.Target == current, sinceConfirmed))
+            .Select(probe => probe.Target).ToList();
+        if (current is { Kind: GameTargetKind.MuMu or GameTargetKind.LdPlayer } && IsMinimized(current) &&
+            !activeEmulators.Any(target => target.Id == current.Id))
+            activeEmulators.Add(current);
+
+        var selected = GameTargetSelection.ChooseAutomaticTarget(windows != null && CanUseWindow(windows, current) ? windows : null,
+            activeEmulators, current, User32.GetRootWindow(User32.GetForegroundWindow()));
+        if (probes.Any(probe => probe.Target == selected && probe.Active == true))
+            _lastEmulatorConfirmation = Stopwatch.GetTimestamp();
+        return selected;
+    }
+
+    private static bool CanUseWindow(GameTarget target, GameTarget? current) =>
+        target.GetRenderRect() != null || target == current && IsMinimized(target);
+
+    private static bool IsMinimized(GameTarget target) => target.HasLiveWindow() && User32.IsIconic(target.Window);
+
+    internal static bool CanUseAutomaticEmulator(bool? active, bool isCurrent, TimeSpan sinceConfirmed) =>
+        active ?? (isCurrent && sinceConfirmed < TimeSpan.FromSeconds(10));
+
+    private static async Task<bool?> HasActiveArknightsAsync(GameTarget target, string? adb, CancellationToken token)
+    {
+        try
+        {
+            if (adb == null ||
+                AdbConnection.GetLocalEndpoint(target) is not { } endpoint ||
+                await AdbConnection.ConnectAsync(adb, endpoint, token).ConfigureAwait(false) is not { } serial)
+                return null;
+
+            var output = await LocalCommand.RunAsync(adb,
+                ["-s", serial, "shell", "dumpsys", "activity", "activities"], token).ConfigureAwait(false);
+            return IsArknightsResumed(Encoding.UTF8.GetString(output));
+        }
+        catch (Exception ex) when (ex is IOException or Win32Exception or TimeoutException)
+        {
+            // ADB may still be starting, disabled, or shutting down for this instance.
+            return null;
+        }
+    }
+
+    internal static bool IsArknightsResumed(string output)
+    {
+        Match? resumed = null;
+        int priority = -1;
+        foreach (Match activity in ResumedActivityPattern.Matches(output))
+        {
+            var field = activity.Groups[1].Value;
+            if (field == "ResumedActivity")
+                return IsArknightsPackage(activity.Groups["package"].Value);
+            int fieldPriority = field switch { "Resumed" => 2, "topResumedActivity" => 1, _ => 0 };
+            if (fieldPriority <= priority) continue;
+            priority = fieldPriority;
+            resumed = activity;
+        }
+        return IsArknightsPackage(resumed?.Groups["package"].Value);
+    }
+
+    private static bool IsArknightsPackage(string? package) =>
+        package is "com.hypergryph.arknights" or "com.hypergryph.arknights.bilibili";
 
     public async Task<IReadOnlyList<GameTarget>> FindAsync(CancellationToken token = default)
     {

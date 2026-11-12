@@ -170,6 +170,7 @@ public class BrowseFilterInteractionTests
             VerifyDuplicateLabelsAndEmptyResults();
             VerifyDisabledCovenantsRemainFilterable();
             VerifySideFilterLayout();
+            VerifyLineupPanelFollowsGameWindow();
             VerifyExpandedFiltersAvoidGameWindow();
             VerifyCovenantIcons();
             VerifyShortWindowAllowsFiltering();
@@ -297,6 +298,31 @@ public class BrowseFilterInteractionTests
         tabs.SelectedItem.Should().BeSameAs(window.FindName("LineupTab"));
     }
 
+    private static void VerifyLineupPanelFollowsGameWindow()
+    {
+        var window = new ASPAssistant.App.Windows.SidePanelWindow(new(), new(), new(), new(), new())
+            { Width = 280, UseSideFilters = true };
+        ((TabControl)window.FindName("MainTabs")).SelectedItem = window.FindName("LineupTab");
+        var monitor = User32.GetMonitorRect(0, 0);
+        var game = new RECT
+        {
+            Left = monitor.Left + 20, Right = monitor.Right - 300,
+            Top = monitor.Top + 20, Bottom = monitor.Bottom - 60
+        };
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        window.Left.Should().Be(game.Right, "the 280-wide lineup panel fits in the 300-wide margin");
+
+        window.Width = 360;
+        game.Right = monitor.Right - 330;
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        (window.Left + window.Width).Should().Be(game.Right, "the wider panel fits against the game's inside edge");
+
+        game.Left = monitor.Left;
+        game.Right = monitor.Right;
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        (window.Left + window.Width).Should().Be(game.Right, "the panel remains on-screen in fullscreen");
+    }
+
     private static void VerifyExpandedFiltersAvoidGameWindow()
     {
         var window = new ASPAssistant.App.Windows.SidePanelWindow(new(), new(), new(), new(), new())
@@ -304,6 +330,7 @@ public class BrowseFilterInteractionTests
         var mainWidth = window.Width;
         window.UseSideFilters = true;
         var expand = (Button)window.FindName("ExpandSideFiltersButton");
+        var expandArrow = (TextBlock)window.FindName("ExpandSideFiltersArrow");
         var collapse = (Button)window.FindName("CollapseSideFiltersButton");
         var filters = (FrameworkElement)window.FindName("SideFilterPanel");
         var results = (FrameworkElement)window.FindName("MainSurface");
@@ -313,10 +340,12 @@ public class BrowseFilterInteractionTests
             Left = monitor.Left + 680, Right = monitor.Right - 20,
             Top = monitor.Top + 20, Bottom = monitor.Bottom - 60
         };
-        window.UpdatePosition(game, attachInside: true, gameActuallyMoved: true);
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        expandArrow.Text.Should().Be("‹", "the filters have room to open to the left");
         expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        collapse.Content.Should().Be("› 收起");
         (window.Left + window.Width).Should().Be(game.Left, "the expanded window fits to the left of the game");
-        window.UpdatePosition(game, attachInside: true, gameActuallyMoved: false);
+        window.UpdatePosition(game, gameActuallyMoved: false);
         (window.Left + window.Width).Should().Be(game.Left, "the next tracking update must keep the expanded placement");
         LayoutFilterWindow(window);
         filters.TranslatePoint(new Point(filters.ActualWidth, 0), results).X.Should().Be(0);
@@ -324,23 +353,27 @@ public class BrowseFilterInteractionTests
         collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         game.Left = monitor.Left + 20;
         game.Right = monitor.Right - 680;
-        window.UpdatePosition(game, attachInside: false, gameActuallyMoved: true);
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        expandArrow.Text.Should().Be("›", "the filters have room to open to the right");
         expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        collapse.Content.Should().Be("‹ 收起");
         window.Left.Should().Be(game.Right, "both the list and the expanded filters fit outside the game on the right");
         LayoutFilterWindow(window);
         filters.TranslatePoint(new Point(), results).X.Should().Be(results.ActualWidth);
 
         collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         game.Right = monitor.Right - (int)mainWidth - 40;
-        window.UpdatePosition(game, attachInside: false, gameActuallyMoved: true);
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        expandArrow.Text.Should().Be("‹", "only the rail fits outside, so the filters open inward from the right");
         var widthWithRail = window.Width;
         widthWithRail.Should().BeGreaterThan(mainWidth);
         expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        collapse.Content.Should().Be("› 收起");
         window.Width.Should().Be(widthWithRail, "expanding keeps the existing footprint when only the rail fits externally");
         window.Left.Should().Be(game.Right);
 
         game.Right = monitor.Right - (int)mainWidth - 12;
-        window.UpdatePosition(game, attachInside: false, gameActuallyMoved: true);
+        window.UpdatePosition(game, gameActuallyMoved: true);
         window.Left.Should().Be(game.Right, "the right margin still fits the main window");
         window.Width.Should().Be(mainWidth, "expanded filters stay inside the window when its full width cannot fit outside the game");
         LayoutFilterWindow(window);
@@ -351,15 +384,38 @@ public class BrowseFilterInteractionTests
         window.Left.Should().Be(game.Right, "the collapsed rail must also stay outside the game");
         window.Width.Should().Be(mainWidth);
         expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        window.UpdatePosition(game, attachInside: false, gameActuallyMoved: false);
+        window.UpdatePosition(game, gameActuallyMoved: false);
         window.Left.Should().Be(game.Right);
         window.Width.Should().Be(mainWidth);
 
+        game.Right = monitor.Right - 60;
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        (window.Left + window.Width).Should().Be(game.Right, "inset filters follow the game when neither margin fits the panel");
+
         game.Left = monitor.Left;
         game.Right = monitor.Right;
-        window.UpdatePosition(game, attachInside: true, gameActuallyMoved: true);
+        window.UpdatePosition(game, gameActuallyMoved: true);
         window.Width.Should().Be(mainWidth, "fullscreen filters must not increase the assistant's footprint");
         (window.Left + window.Width).Should().Be(monitor.Right);
+        collapse.Content.Should().Be("› 收起");
+        collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        expandArrow.Text.Should().Be("‹", "the right-hand rail opens to the left in fullscreen");
+
+        game.Left = monitor.Left + (int)mainWidth + 40;
+        game.Right = monitor.Right - 20;
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        expandArrow.Text.Should().Be("›", "the left-hand rail opens inward when there is no room to expand outward");
+        expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        collapse.Content.Should().Be("‹ 收起");
+
+        collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        game.Right = monitor.Right - (int)mainWidth - 12;
+        window.UpdatePosition(game, gameActuallyMoved: true);
+        (window.Left + window.Width).Should().Be(game.Left);
+        expandArrow.Text.Should().Be("›", "expanding moves the filters from the left of the game to the right");
+        expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.Left.Should().Be(game.Right);
+        collapse.Content.Should().Be("‹ 收起", "collapsing returns the rail to the left of the game");
     }
 
     private static void VerifyShortWindowAllowsFiltering()

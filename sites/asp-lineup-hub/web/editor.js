@@ -52,6 +52,9 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
   const strategyCatalog = new Map(Object.entries(catalog.strategies ?? {}));
   const equipmentOptions = equipment.map(([name, item]) =>
     `<option value="${escape(name)}">${escape(name)} · ${item.tier} 阶</option>`).join('');
+  const operatorTiers = [...new Set([0, ...Object.values(catalog.operators).map(op => op.tier)])].sort((a, b) => a - b);
+  const operatorTierOptions = operatorTiers.map(tier =>
+    `<option value="${tier}">${tier === 0 ? '特殊' : tier + ' 阶'}</option>`).join('');
   const covenantOptions = Object.keys(catalog.covenants).map(name =>
     `<option value="${escape(name)}">${escape(name)}</option>`).join('');
   const action = lineup ? 'edit' : 'publish';
@@ -96,8 +99,12 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
         </div>
         <div role="tabpanel" id="operator-panel" aria-labelledby="operator-tab">
           <label>搜索干员<input class="field" name="operatorQuery" type="search" placeholder="干员名称或盟约"></label>
-          <label>自选干员<select class="field" name="operatorSelfSelected">
-            <option value="no">否</option><option value="yes">是</option></select></label>
+          <div class="editor-meta">
+            <label>自选干员<select class="field" name="operatorSelfSelected">
+              <option value="no">否</option><option value="yes">是</option></select></label>
+            <label>等阶<select class="field" name="operatorTier">
+              <option value="">全部等阶</option>${operatorTierOptions}</select></label>
+          </div>
           <label>核心盟约<select class="field" name="operatorCovenant">
             <option value="">全部盟约</option>${covenantOptions}</select></label>
           <p class="editor-count" id="picker-count" role="status"></p>
@@ -190,6 +197,7 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
   }
 
   async function refreshPicker() {
+    picker.scrollTop = 0;
     renderPicker();
     if (!needsSelfSelected() || selfSelectedLoaded) return;
     try {
@@ -206,17 +214,18 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
 
   function renderPicker() {
     const query = form.elements.operatorQuery.value.trim().normalize('NFKC').toLowerCase();
+    const tier = form.elements.operatorTier.value;
     const covenant = form.elements.operatorCovenant.value;
     const selected = new Set(draft.Members.map(member => member.OperatorName));
     const matches = Object.entries(catalog.operators).filter(([name, op]) => !selected.has(name)
       && (query || Boolean(op.selfSelected) === showSelfSelected())
+      && (tier === '' || op.tier === Number(tier))
       && (!covenant || op.covenants.includes(covenant))
       && [name, ...op.covenants, ...(op.additionalCovenants ?? [])].join(' ').normalize('NFKC').toLowerCase().includes(query))
       .sort((first, second) => Number(Boolean(first[1].selfSelected)) - Number(Boolean(second[1].selfSelected))
         || compareCatalogEntries(first, second));
-    const visible = query || showSelfSelected() ? matches : matches.slice(0, 8);
-    $('#picker-count', form).textContent = `共 ${matches.length} 名` + (visible.length < matches.length ? '，显示前 8 名' : '');
-    picker.innerHTML = visible.map(([name, op]) => `
+    $('#picker-count', form).textContent = matches.length ? `共 ${matches.length} 名` : '没有符合条件的干员';
+    picker.innerHTML = matches.map(([name, op]) => `
       <button type="button" class="editor-operator" data-add-operator="${escape(name)}"
         ${draft.Members.length >= LINEUP_LIMIT ? 'disabled' : ''}>
         ${portrait({ name, image: op.image })}<span><strong>${escape(name)}</strong>
@@ -333,7 +342,8 @@ function renderLineupEditor(title, catalog, draft, lineup, revision, openImport)
   for (const field of fields) form.elements[field].addEventListener('input', event => { draft[field] = event.target.value; });
   form.elements.operatorQuery.addEventListener('input', refreshPicker);
   form.elements.operatorSelfSelected.addEventListener('change', refreshPicker);
-  form.elements.operatorCovenant.addEventListener('change', renderPicker);
+  form.elements.operatorTier.addEventListener('change', refreshPicker);
+  form.elements.operatorCovenant.addEventListener('change', refreshPicker);
   for (const tab of tabs) {
     tab.addEventListener('click', () => selectPickerTab(tab));
     tab.addEventListener('keydown', event => {

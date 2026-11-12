@@ -11,7 +11,7 @@
             <ComboBox x:Name="Sources" DisplayMemberPath="Label" SelectionChanged="OnSourceChanged"
                       AutomationProperties.Name="游戏来源" />
         </DockPanel>
-        <TextBlock Text="请先启动模拟器和游戏。MuMu 或雷电未出现在列表时，确认模拟器窗口已打开，再刷新。"
+        <TextBlock Text="自动检测支持 Windows 客户端，以及已开启 ADB 的 MuMu 和雷电。请先启动游戏；手动选择的实例未显示时，可刷新列表。"
                    TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
         <StackPanel x:Name="ManualBinding" Visibility="Collapsed">
             <Label Content="模拟器窗口" Target="{Binding ElementName=WindowsList}" Padding="0,6,0,4"

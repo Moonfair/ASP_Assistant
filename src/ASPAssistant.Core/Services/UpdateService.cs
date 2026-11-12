@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
 namespace ASPAssistant.Core.Services;
@@ -12,11 +13,14 @@ public record UpdateInfo(
     string Version,
     string ReleaseNotes,
     string DownloadUrl,
-    string AssetName);
+    string AssetName)
+{
+    internal string? ExpectedSha256 { get; init; }
+}
 
 public class UpdateService
 {
-    private static readonly HttpClient _http = new()
+    private static readonly HttpClient DefaultHttpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(30),
         DefaultRequestHeaders = { { "User-Agent", "ASPAssistant-Updater/1.0" } }
@@ -24,6 +28,13 @@ public class UpdateService
 
     private const string Owner = "Moonfair";
     private const string Repo = "ASP_Assistant";
+    // Same bucket and versioned object path as the website's release workflow.
+    private const string OssReleaseBaseUrl = "https://aspa.oss-cn-beijing.aliyuncs.com/releases/";
+    private readonly HttpClient _http;
+
+    public UpdateService() : this(DefaultHttpClient) { }
+
+    internal UpdateService(HttpClient http) => _http = http;
 
     public Version CurrentVersion =>
         Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0);
@@ -55,7 +66,10 @@ public class UpdateService
                 latestVersion.ToString(),
                 release.Body ?? string.Empty,
                 asset.BrowserDownloadUrl,
-                asset.Name);
+                asset.Name)
+            {
+                ExpectedSha256 = ParseSha256(asset.Digest)
+            };
         }
         catch when (!userInitiated)
         {
@@ -74,24 +88,7 @@ public class UpdateService
         {
             // Use a fixed local name: release metadata is never interpreted as a path.
             var zipPath = Path.Combine(tempDir, "update.zip");
-            using var response = await _http.GetAsync(
-                info.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
-            response.EnsureSuccessStatusCode();
-
-            var totalBytes = response.Content.Headers.ContentLength ?? -1L;
-            await using (var httpStream = await response.Content.ReadAsStreamAsync(ct))
-            await using (var fileStream = File.Create(zipPath))
-            {
-                var buffer = new byte[65536];
-                long downloaded = 0;
-                int bytesRead;
-                while ((bytesRead = await httpStream.ReadAsync(buffer, ct)) > 0)
-                {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
-                    downloaded += bytesRead;
-                    if (totalBytes > 0) progress?.Report((double)downloaded / totalBytes * 0.9);
-                }
-            }
+            await DownloadPackageAsync(info, zipPath, progress, ct);
 
             progress?.Report(0.92);
             var extractDir = Path.Combine(tempDir, "extracted");
@@ -135,6 +132,64 @@ public class UpdateService
         }
     }
 
+    internal async Task DownloadPackageAsync(UpdateInfo info, string zipPath, IProgress<double>? progress,
+        CancellationToken ct)
+    {
+        if (info.ExpectedSha256 is not null && info.AssetName == $"ASPAssistant-{info.TagName}-win-x64.zip")
+        {
+            var ossUrl = OssReleaseBaseUrl + Uri.EscapeDataString(info.AssetName);
+            try
+            {
+                await DownloadFileAsync(ossUrl, zipPath, info.ExpectedSha256, progress, ct);
+                return;
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested &&
+                ex is HttpRequestException or IOException or InvalidDataException or OperationCanceledException)
+            {
+                AppLogger.Warn("Updater", $"OSS download failed, falling back to GitHub: {ex.Message}");
+                progress?.Report(0);
+            }
+        }
+
+        await DownloadFileAsync(info.DownloadUrl, zipPath, info.ExpectedSha256, progress, ct);
+    }
+
+    private async Task DownloadFileAsync(string url, string zipPath, string? expectedSha256,
+        IProgress<double>? progress, CancellationToken ct)
+    {
+        using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+
+        var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+        await using var httpStream = await response.Content.ReadAsStreamAsync(ct);
+        await using var fileStream = File.Create(zipPath);
+        using var hash = expectedSha256 is null ? null : IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = new byte[65536];
+        long downloaded = 0;
+        int bytesRead;
+        while ((bytesRead = await httpStream.ReadAsync(buffer, ct)) > 0)
+        {
+            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
+            hash?.AppendData(buffer, 0, bytesRead);
+            downloaded += bytesRead;
+            if (totalBytes > 0) progress?.Report((double)downloaded / totalBytes * 0.89);
+        }
+
+        ct.ThrowIfCancellationRequested();
+        if (hash is not null && !string.Equals(Convert.ToHexString(hash.GetHashAndReset()), expectedSha256,
+                StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("更新包的 SHA-256 校验失败。");
+    }
+
+    private static string? ParseSha256(string? digest)
+    {
+        const string prefix = "sha256:";
+        if (digest?.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) != true) return null;
+
+        var value = digest[prefix.Length..];
+        return value.Length == 64 && value.All(Uri.IsHexDigit) ? value : null;
+    }
+
     private static Version ParseVersion(string tag)
     {
         var v = tag.TrimStart('v');
@@ -148,5 +203,6 @@ public class UpdateService
 
     private record GitHubAsset(
         [property: JsonPropertyName("name")] string Name,
-        [property: JsonPropertyName("browser_download_url")] string BrowserDownloadUrl);
+        [property: JsonPropertyName("browser_download_url")] string BrowserDownloadUrl,
+        [property: JsonPropertyName("digest")] string? Digest);
 }

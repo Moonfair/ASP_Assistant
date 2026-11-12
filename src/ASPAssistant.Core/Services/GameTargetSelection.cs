@@ -36,6 +36,19 @@ public sealed class GameTargetSelection
             GameTargetKind.Windows, window, window, WindowPid: pid);
     }
 
+    internal static GameTarget? ChooseAutomaticTarget(GameTarget? windows, IReadOnlyList<GameTarget> emulators,
+        GameTarget? current, nint foreground)
+    {
+        if (windows?.Window == foreground) return windows;
+        var focusedEmulator = emulators.FirstOrDefault(target => target.Window == foreground);
+        if (focusedEmulator != null) return focusedEmulator;
+
+        if (windows != null && current?.Kind == GameTargetKind.Windows) return windows;
+        var previousEmulator = emulators.FirstOrDefault(target =>
+            string.Equals(target.Id, current?.Id, StringComparison.OrdinalIgnoreCase));
+        return previousEmulator ?? windows ?? emulators.FirstOrDefault();
+    }
+
     public static IReadOnlyList<HostWindow> ListWindows()
     {
         var windows = new List<HostWindow>();

@@ -8,14 +8,19 @@ namespace ASPAssistant.Core.Services;
 public static class CoreCovenantRecognizer
 {
     public static IReadOnlyList<string>? FindDisabled(Bitmap image, IReadOnlyList<OcrTextResult> texts,
-        IEnumerable<string> coreNames)
+        IEnumerable<string> coreNames) =>
+        FindDisabled(image, texts, coreNames, CovenantGrid.Preparation(image.Width, image.Height));
+
+    internal static IReadOnlyList<string>? FindDisabled(Bitmap image, IReadOnlyList<OcrTextResult> texts,
+        IEnumerable<string> coreNames, CovenantGrid grid)
     {
         var names = coreNames.Distinct().OrderByDescending(n => n.Length).ToArray();
         if (names.Length is < 1 or > 10) return null;
-        double w = image.Width, h = image.Height;
+        double h = image.Height;
         var section = FindSection(texts, h);
         if (section == null) return null;
-        var (coreTop, additionalTop) = section.Value;
+        int coreTop = section.Value.CoreTitle.Box.Y;
+        int additionalTop = section.Value.AdditionalTitle.Box.Y;
         double sectionHeight = additionalTop - coreTop;
 
         var slots = new Dictionary<int, (string Name, double LabelY)>();
@@ -26,12 +31,12 @@ public static class CoreCovenantRecognizer
             // center from its character span, then snap it to the ten fixed UI slots.
             var compact = Regex.Replace(text.Text, @"\s+", "");
             var matches = CovenantLabelMatcher.Find(compact, names).ToArray();
-            if (!CovenantLabelMatcher.HasCompleteSlotCoverage(text, w, compact, matches)) return null;
+            if (!CovenantLabelMatcher.HasCompleteSlotCoverage(text, grid, compact, matches)) return null;
             foreach (var match in matches)
             {
                 double x = text.Box.X + text.Box.W * (match.Index + match.Length / 2.0) / compact.Length;
-                int slot = (int)Math.Round((x / w - .046875) / .0671875);
-                if (slot < 0 || slot >= names.Length || Math.Abs(x / w - (.046875 + slot * .0671875)) > .025)
+                int slot = grid.NearestColumn(x);
+                if (slot < 0 || slot >= names.Length || Math.Abs(x - grid.ColumnCenter(slot)) > grid.ColumnTolerance)
                     return null;
                 if (!slots.TryAdd(slot, (match.Name, text.Box.Y + text.Box.H / 2.0))) return null;
             }
@@ -39,11 +44,11 @@ public static class CoreCovenantRecognizer
         if (slots.Count == 0 || slots.Values.Select(s => s.Name).Distinct().Count() != slots.Count) return null;
         double labelY = slots.Values.Average(s => s.LabelY);
         if (slots.Values.Any(s => Math.Abs(s.LabelY - labelY) > h * .018)) return null;
-        int cy = (int)Math.Round(labelY - h * .075);
+        int cy = (int)Math.Round(labelY - grid.IconToLabel);
         var disabled = new List<string>();
         for (int slot = 0; slot < names.Length; slot++)
         {
-            int cx = (int)Math.Round(w * (.046875 + slot * .0671875));
+            int cx = (int)Math.Round(grid.ColumnCenter(slot));
             var state = CovenantIconClassifier.IsDisabled(image, cx, cy);
             if (state == null) return null;
             // A misspelled label on a positively green icon cannot affect the banned set.
@@ -58,21 +63,21 @@ public static class CoreCovenantRecognizer
     }
 
     internal static async Task<IReadOnlyList<string>?> RereadDisabledAsync(Bitmap image,
-        IReadOnlyList<OcrTextResult> texts, IReadOnlyList<string> names, IOcrEngine ocr)
+        IReadOnlyList<OcrTextResult> texts, IReadOnlyList<string> names, IOcrEngine ocr, CovenantGrid grid)
     {
         if (names.Count is < 1 or > 10) return null;
         var section = FindSection(texts, image.Height);
         if (section == null) return null;
 
         // The additional heading anchors the label row even when OCR has merged its names.
-        int labelY = (int)Math.Round(section.Value.AdditionalTop - image.Height * .07);
-        int halfWidth = (int)Math.Round(image.Width * .033);
+        int labelY = (int)Math.Round(section.Value.AdditionalTitle.Box.Y - grid.CoreLabelToAdditionalTitle);
+        int halfWidth = (int)Math.Round(grid.ColumnSpacing * (.033 / .0671875));
         int halfHeight = (int)Math.Round(image.Height * .026);
         var crops = new List<Rectangle>();
         for (int slot = 0; slot < names.Count; slot++)
         {
-            int x = (int)Math.Round(image.Width * (.046875 + slot * .0671875));
-            var disabled = CovenantIconClassifier.IsDisabled(image, x, labelY - image.Height * .075);
+            int x = (int)Math.Round(grid.ColumnCenter(slot));
+            var disabled = CovenantIconClassifier.IsDisabled(image, x, labelY - grid.IconToLabel);
             if (disabled == null) return null;
             if (!disabled.Value) continue;
 
@@ -113,7 +118,8 @@ public static class CoreCovenantRecognizer
             ? labels.Values.ToArray() : null;
     }
 
-    private static (int CoreTop, int AdditionalTop)? FindSection(IReadOnlyList<OcrTextResult> texts, double height)
+    internal static (OcrTextResult CoreTitle, OcrTextResult AdditionalTitle)? FindSection(
+        IReadOnlyList<OcrTextResult> texts, double height)
     {
         // The pointer can obscure the end of the core heading.
         var coreTitle = texts.FirstOrDefault(t => t.Text.Contains("核心盟"));
@@ -121,7 +127,7 @@ public static class CoreCovenantRecognizer
         if (coreTitle == null || additionalTitle == null) return null;
         double sectionHeight = additionalTitle.Box.Y - coreTitle.Box.Y;
         return sectionHeight >= height * .18 && sectionHeight <= height * .38
-            ? (coreTitle.Box.Y, additionalTitle.Box.Y) : null;
+            ? (coreTitle, additionalTitle) : null;
     }
 }
 

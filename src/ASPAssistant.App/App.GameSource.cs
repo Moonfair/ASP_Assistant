@@ -21,6 +21,7 @@ public partial class App
         var preference = _settingsManager!.LoadGameTarget();
         _gameTarget.Select(preference, preference.Id == GameTarget.WindowsId ? GameTargetSelection.FindWindowsClient() : null);
         _sidePanel!.SelectGameSourceRequested += SelectGameSource;
+        UpdateGameSourceStatus();
 
         _gameSourceTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         _gameSourceTimer.Tick += async (_, _) => await RefreshGameSourceAsync();
@@ -41,6 +42,7 @@ public partial class App
             MessageBox.Show(_sidePanel!, "本次已切换，保存游戏来源失败。", "游戏来源", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         UpdateGameSourceStatus();
+        _ = RefreshGameSourceAsync();
     }
 
     private async Task RefreshGameSourceAsync()
@@ -55,6 +57,10 @@ public partial class App
             GameTarget? target;
             switch (preference.Id)
             {
+                case GameTarget.AutomaticId:
+                    var active = _gameTarget.Current;
+                    target = await Task.Run(() => _emulatorDiscovery.FindActiveGameAsync(active, token), token);
+                    break;
                 case GameTarget.WindowsId:
                     target = GameTargetSelection.FindWindowsClient();
                     break;
@@ -90,16 +96,20 @@ public partial class App
         var target = _gameTarget.Current;
         var sourceName = target?.Kind switch
         {
+            GameTargetKind.Windows => "Windows 客户端",
             GameTargetKind.MuMu => $"MuMu · {target.Name}（实例 {target.Instance}）",
             GameTargetKind.LdPlayer => $"雷电 · {target.Name}（实例 {target.Instance}）",
             GameTargetKind.Adb => $"ADB · {target.Name}",
             _ => _gameTarget.Preference.Id switch
             {
+                GameTarget.AutomaticId => "自动检测",
                 GameTarget.WindowsId => "Windows 客户端",
                 "adb" => "手动绑定 ADB",
                 _ => "已保存的模拟器"
             }
         };
+        if (_gameTarget.Preference.Id == GameTarget.AutomaticId && target != null)
+            sourceName = $"自动检测 · {sourceName}";
         _sidePanel?.SetGameSourceStatus(target == null ? $"{sourceName} · 等待窗口" : sourceName);
     }
 

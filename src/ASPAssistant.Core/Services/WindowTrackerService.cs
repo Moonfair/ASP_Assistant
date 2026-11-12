@@ -18,7 +18,6 @@ public class WindowTrackerService : IDisposable
     public RECT? CurrentGameRect { get; private set; }
     public GameTarget? CurrentTarget { get; private set; }
     public bool IsGameFocused { get; private set; }
-    public bool ShouldAttachInside { get; private set; }
 
     public WindowTrackerService(GameTargetSelection selection, int pollIntervalMs = 100)
     {
@@ -66,15 +65,7 @@ public class WindowTrackerService : IDisposable
             return;
         }
 
-        // Use the monitor that contains the game window's right edge so that
-        // multi-monitor setups resolve correctly regardless of primary screen.
-        var monitorRect = User32.GetMonitorRect(windowRect.Right - 1, windowRect.Top);
-        var rightSpace = monitorRect.Right - windowRect.Right;
-        var shouldAttachInside = rightSpace < 320 || IsFullscreen(windowRect, monitorRect);
-
-        var changed = changedTarget || IsGameWindowChanged(CurrentGameRect, ShouldAttachInside,
-            windowRect, shouldAttachInside);
-        ShouldAttachInside = shouldAttachInside;
+        var changed = changedTarget || IsGameWindowChanged(CurrentGameRect, windowRect);
         CurrentGameRect = windowRect;
 
         if (changed)
@@ -83,21 +74,14 @@ public class WindowTrackerService : IDisposable
             GameWindowPolled?.Invoke(windowRect);
     }
 
-    private static bool IsFullscreen(RECT rect, RECT monitorRect)
-    {
-        return rect.Left <= monitorRect.Left && rect.Width >= monitorRect.Width - 10;
-    }
-
-    public static bool IsGameWindowChanged(RECT? previous, bool previousAttachInside,
-        RECT current, bool currentAttachInside)
+    public static bool IsGameWindowChanged(RECT? previous, RECT current)
     {
         if (previous is null) return true;
         var p = previous.Value;
         return p.Left != current.Left ||
                p.Top != current.Top ||
                p.Right != current.Right ||
-               p.Bottom != current.Bottom ||
-               previousAttachInside != currentAttachInside;
+               p.Bottom != current.Bottom;
     }
 
     public void Dispose()

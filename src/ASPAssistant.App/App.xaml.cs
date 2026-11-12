@@ -206,7 +206,7 @@ public partial class App : Application
             {
                 var target = _windowTracker.CurrentTarget;
                 if (target == null || !ReferenceEquals(target, _gameTarget.Current)) return;
-                _sidePanel.UpdatePosition(rect, _windowTracker.ShouldAttachInside, gameActuallyMoved: moved);
+                _sidePanel.UpdatePosition(rect, gameActuallyMoved: moved);
                 _overlay.SetTarget(target);
                 var viewport = captureService.GetViewport(target);
                 var calibratingFromPanel = _overlay.IsCalibratingMarkers && _sidePanel.IsActive;

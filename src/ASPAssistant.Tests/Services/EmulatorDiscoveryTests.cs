@@ -8,6 +8,54 @@ namespace ASPAssistant.Tests.Services;
 
 public class EmulatorDiscoveryTests
 {
+    [Theory]
+    [InlineData("    topResumedActivity=ActivityRecord{18e24 u0 com.hypergryph.arknights/.MainActivity t5}", true)]
+    [InlineData("    mResumedActivity: ActivityRecord{18e24 u0 com.hypergryph.arknights.bilibili/.MainActivity t5}", true)]
+    [InlineData("  ResumedActivity: ActivityRecord{18e24 u0 com.hypergryph.arknights/.MainActivity t5}", true)]
+    [InlineData("    Resumed: ActivityRecord{18e24 u0 com.hypergryph.arknights/.MainActivity t5}", true)]
+    [InlineData("  * Hist #0: ActivityRecord{18e24 u0 com.hypergryph.arknights/.MainActivity t5}", false)]
+    [InlineData("    topResumedActivity=ActivityRecord{18e24 u0 com.hypergryph.arknights.clone/.MainActivity t5}", false)]
+    [InlineData("    mResumedActivity: ActivityRecord{18e24 u0 com.hypergryph.arknights/.MainActivity t5}\r\n    topResumedActivity=ActivityRecord{67f u0 com.android.launcher3/.Launcher t7}", false)]
+    [InlineData("    topResumedActivity=ActivityRecord{18e24 u0 com.hypergryph.arknights/.MainActivity t5}\r\n  ResumedActivity: ActivityRecord{67f u0 com.android.launcher3/.Launcher t7}", false)]
+    public void AutomaticDetectionRequiresTheActualArknightsActivity(string activityDump, bool expected)
+    {
+        EmulatorDiscovery.IsArknightsResumed(activityDump).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(null, true, 6, true)]
+    [InlineData(null, true, 10, false)]
+    [InlineData(null, false, 0, false)]
+    [InlineData(false, true, 0, false)]
+    [InlineData(true, false, 100, true)]
+    public void AutomaticDetectionBrieflyKeepsOnlyTheCurrentEmulatorWhenAdbIsUnavailable(
+        bool? active, bool isCurrent, int secondsSinceConfirmation, bool expected)
+    {
+        EmulatorDiscovery.CanUseAutomaticEmulator(active, isCurrent, TimeSpan.FromSeconds(secondsSinceConfirmation))
+            .Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(true, true, 1, 2, 1)]
+    [InlineData(true, true, 2, 1, 2)]
+    [InlineData(true, true, 0, 2, 2)]
+    [InlineData(true, true, 0, 0, 1)]
+    [InlineData(false, true, 0, 1, 2)]
+    [InlineData(true, false, 0, 2, 1)]
+    [InlineData(false, false, 0, 2, 0)]
+    public void AutomaticSelectionFollowsTheActiveGameAndKeepsItWhenFocusLeaves(
+        bool windowsRunning, bool emulatorRunningGame, int foreground, int previous, int expected)
+    {
+        var windows = new GameTarget("windows", "Windows 客户端", GameTargetKind.Windows, 1, 1);
+        var emulator = new GameTarget("mumu:instance:0", "MuMu", GameTargetKind.MuMu, 2, 2);
+        var current = previous == 1 ? windows : previous == 2 ? emulator : null;
+
+        var target = GameTargetSelection.ChooseAutomaticTarget(windowsRunning ? windows : null,
+            emulatorRunningGame ? [emulator] : [], current, foreground);
+
+        (target?.Window ?? 0).Should().Be((nint)expected);
+    }
+
     [Fact]
     public void MuMuKeepsTheWindowAndEndpointFromEachRunningInstance()
     {

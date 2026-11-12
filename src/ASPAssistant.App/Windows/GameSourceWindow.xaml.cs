@@ -42,7 +42,11 @@ public partial class GameSourceWindow : Window
             var windows = await Task.Run(GameTargetSelection.ListWindows, _closed.Token);
             if (_closed.IsCancellationRequested) return;
 
-            var sources = new List<Source> { new(GameTarget.WindowsId, "Windows 客户端") };
+            var sources = new List<Source>
+            {
+                new(GameTarget.AutomaticId, "自动检测"),
+                new(GameTarget.WindowsId, "Windows 客户端")
+            };
             sources.AddRange(discovered.Select(t => new Source(t.Id,
                 $"{(t.Kind == GameTargetKind.MuMu ? "MuMu" : "雷电")} · {t.Name}（实例 {t.Instance}）", t)));
             if (current != ManualId && sources.All(s => s.Id != current))
