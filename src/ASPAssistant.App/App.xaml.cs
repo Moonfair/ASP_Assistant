@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Security;
 using ASPAssistant.App.Services;
@@ -21,6 +22,7 @@ public partial class App : Application
     private SettingsManager? _settingsManager;
     private LineupActivation? _activation;
     private LineupSiteClient? _lineupSite;
+    private BobVoicePlayer? _bobVoice;
     private readonly TaskCompletionSource<SidePanelWindow> _readyForActivation = new();
     private Task _trackingSave = Task.CompletedTask;
 
@@ -187,10 +189,46 @@ public partial class App : Application
         _overlay = new OverlayWindow(_settingsManager);
         _sidePanel.ConfigureMarkerCalibration(_overlay);
         ConfigureGameSource();
+
+        var bobVoice = _bobVoice = new BobVoicePlayer(Path.Combine(dataDir, "voice", "bob"));
+        bobVoice.Spoken += _sidePanel.ShowCannotSpeech;
+        var bobTriggers = new BobVoiceTriggers();
+        bool bobEnabled = _settingsManager.LoadBobVoice();
+        var bobClock = Stopwatch.StartNew();
+        _ocrScanner.EnableVoiceRecognition = bobVoice.Available && bobEnabled;
+        _sidePanel.ConfigureBobVoice(bobVoice.Available, bobEnabled, enabled =>
+        {
+            bobEnabled = enabled;
+            _ocrScanner.EnableVoiceRecognition = enabled;
+            bobTriggers.Reset();
+            if (!enabled)
+            {
+                bobVoice.Stop();
+                _sidePanel.HideCannotSpeech();
+            }
+            try { _settingsManager.SaveBobVoice(enabled); }
+            catch (Exception ex) { AppLogger.Error("Settings", "Could not save Bob voice preference", ex); }
+        }, () => bobVoice.Play(BobVoiceCue.Opening, preview: true));
+        if (bobVoice.Available)
+        {
+            _ocrScanner.VoiceScanCompleted += (target, hud, items, preparation, voice) => Dispatcher.Invoke(() =>
+            {
+                if (!bobEnabled || target == null || !ReferenceEquals(target, _gameTarget.Current)) return;
+                if (preparation) bobTriggers.Reset();
+                else if (bobTriggers.Observe(hud, items.Select(item => item.Name), voice, bobClock.Elapsed) is { } cue)
+                {
+                    if (!bobVoice.Play(cue) && cue == BobVoiceCue.LowHealth)
+                        bobTriggers.RetryLowHealth();
+                }
+            });
+        }
         bool hasCurrentGameState = false;
         _gameTarget.Changed += () =>
         {
             hasCurrentGameState = false;
+            bobTriggers.Reset();
+            bobVoice.Stop();
+            _sidePanel.HideCannotSpeech();
             _sidePanel.ClearGamePosition();
             _overlay.SetTarget(_gameTarget.Current);
             _overlay.Hide();
@@ -320,6 +358,7 @@ public partial class App : Application
         _lineupSite?.Dispose();
         StopGameSource();
         _ocrScanner?.Dispose();
+        _bobVoice?.Dispose();
         _windowTracker?.Dispose();
         _trackingSave.GetAwaiter().GetResult();
         base.OnExit(e);

@@ -18,6 +18,7 @@ public class OcrScannerService : IDisposable
     private readonly ShopRecognizer _shopRecognizer;
     private readonly GarrisonHudRecognizer? _hudRecognizer;
     private readonly IOcrEngine _ocrEngine;
+    public bool EnableVoiceRecognition { get; set; }
     private readonly GameState.GameState _gameState;
     private readonly Func<IReadOnlyList<string>> _getTrackedNames;
     private readonly PreparationScanner? _preparation;
@@ -36,6 +37,7 @@ public class OcrScannerService : IDisposable
     private int _pendingManualScans;
 
     public event Action<GameTarget?, GameState.GameState>? GameStateUpdated;
+    public event Action<GameTarget?, GarrisonHud, IReadOnlyList<ShopItem>, bool, GarrisonVoiceFrame>? VoiceScanCompleted;
 
     /// <summary>
     /// Raised when covenant recognition or a manual override changes the bans.
@@ -126,6 +128,7 @@ public class OcrScannerService : IDisposable
             if (screenshot == null)
             {
                 _preparation?.NotifyCaptureUnavailable();
+                VoiceScanCompleted?.Invoke(target, default, [], false, default);
                 bool changed = UpdateHud(default);
                 if (target is { Kind: not GameTargetKind.Windows } && _gameState.ShopItems.Count > 0)
                 {
@@ -147,12 +150,15 @@ public class OcrScannerService : IDisposable
                 if (!IsCurrentTarget) return;
                 if (_preparation.Phase != PreparationPhase.None)
                 {
+                    VoiceScanCompleted?.Invoke(target, default, [],
+                        _preparation.Phase is PreparationPhase.Information or PreparationPhase.Strategy or PreparationPhase.Squad, default);
                     if (UpdateHud(default) && IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
                     return;
                 }
             }
 
-            var hud = _hudRecognizer == null ? default : await _hudRecognizer.RecognizeAsync(screenshot);
+            var (hud, voice) = _hudRecognizer == null ? default
+                : await _hudRecognizer.RecognizeWithVoiceAsync(screenshot, EnableVoiceRecognition);
             hudMs = timing.ElapsedMilliseconds - captureMs - preparationMs;
             if (!IsCurrentTarget) return;
             var regions = _ocrStrategy.GetScanRegions();
@@ -160,6 +166,7 @@ public class OcrScannerService : IDisposable
             var shopRegion = regions.FirstOrDefault(r => r.Name == "Shop");
             if (shopRegion == null)
             {
+                VoiceScanCompleted?.Invoke(target, hud, [], false, voice);
                 if (UpdateHud(hud) && IsCurrentTarget) GameStateUpdated?.Invoke(target, _gameState);
                 return;
             }
@@ -171,6 +178,7 @@ public class OcrScannerService : IDisposable
             shopMs = timing.ElapsedMilliseconds - captureMs - preparationMs - hudMs - targetMs;
             if (!IsCurrentTarget) return;
 
+            VoiceScanCompleted?.Invoke(target, hud, rawItems, false, voice);
             bool shopChanged = _stabilizer.TryUpdate(rawItems, out var stableItems);
             if (shopChanged)
                 _gameState.ShopItems = stableItems.ToList();

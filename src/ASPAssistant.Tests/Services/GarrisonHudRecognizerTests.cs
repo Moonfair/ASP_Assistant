@@ -43,6 +43,19 @@ public sealed class GarrisonHudRecognizerTests : IDisposable
     }
 
     [Fact]
+    public async Task RealMaaHudFrameTriggersBobOnlyAfterConfirmation()
+    {
+        var recognizer = new GarrisonHudRecognizer(_ocr);
+        var triggers = new BobVoiceTriggers();
+        using var source = LoadGameFrame("shop-new-skin.png");
+        var png = Encode(source);
+
+        Assert.Null(triggers.Observe(await recognizer.RecognizeAsync(png), []));
+        Assert.Equal(BobVoiceCue.Opening, triggers.Observe(await recognizer.RecognizeAsync(png), []));
+        Assert.Null(triggers.Observe(await recognizer.RecognizeAsync(png), []));
+    }
+
+    [Fact]
     public async Task DoesNotReadPreparationScreenAsInMatchHud()
     {
         var png = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "preparation-standard.png"));

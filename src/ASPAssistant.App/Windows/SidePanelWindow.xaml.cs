@@ -62,6 +62,9 @@ public partial class SidePanelWindow : Window
         BanVm = banVm;
 
         InitializeComponent();
+        Loaded += async (_, _) => CannotPortraitImage.Source =
+            await IconLoadQueue.Shared.RequestAsync("icons/strategies/band_cannot.png");
+        CannotSpeechLayer.SizeChanged += (_, _) => PositionCannotSpeech();
         InitializeFilterLayout();
         _preparationResultTimer.Tick += (_, _) => HidePreparationOverlay();
         Closed += (_, _) => _preparationResultTimer.Stop();
@@ -423,12 +426,24 @@ public partial class SidePanelWindow : Window
             MarkerOffsetSaveError.Visibility = saved ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    internal void ConfigureBobVoice(bool available, bool enabled, Action<bool> change, Action preview)
+    {
+        BobVoiceToggle.IsEnabled = BobVoicePreviewButton.IsEnabled = available;
+        BobVoiceToggle.IsChecked = available && enabled;
+        if (!available) BobVoiceStatus.Text = "将默认鲍勃的 WAV 放入 data/voice/bob 后重启。";
+        BobVoiceToggle.Checked += (_, _) => change(true);
+        BobVoiceToggle.Unchecked += (_, _) => change(false);
+        BobVoicePreviewButton.Click += (_, _) => preview();
+    }
+
     private void SetSettingsVisible(bool visible)
     {
         if (visible) RefreshSettingsLineupAccount();
         else MarkerCalibrationToggle.IsChecked = false;
         SettingsPage.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         MainContent.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
+        if (CannotSpeech.IsVisible)
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(PositionCannotSpeech));
         UpdateFilterHost();
     }
 

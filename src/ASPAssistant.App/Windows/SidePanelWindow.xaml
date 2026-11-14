@@ -148,44 +148,53 @@
                     <Border x:Name="MatchStatusBar" DockPanel.Dock="Top" Padding="8,5"
                             Background="#FF182736" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
                             DataContext="{Binding GameStateVm, RelativeSource={RelativeSource AncestorType=Window}}">
-                        <UniformGrid Rows="1">
-                            <UniformGrid.Resources>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="TextAlignment" Value="Center" />
-                                    <Setter Property="VerticalAlignment" Value="Center" />
-                                    <Setter Property="FontSize" Value="11" />
-                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-                                </Style>
-                                <Style x:Key="MatchStatusValue" TargetType="Run">
-                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                                </Style>
-                            </UniformGrid.Resources>
-                            <TextBlock>
-                                <Run Text="回合 " /><Run Style="{StaticResource MatchStatusValue}"
-                                     Text="{Binding Hud.Round, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                            </TextBlock>
-                            <StackPanel>
+                        <DockPanel>
+                            <Border x:Name="CannotPortrait" DockPanel.Dock="Left" Width="30" Height="30"
+                                    Margin="0,0,6,0" Padding="1" VerticalAlignment="Center"
+                                    Background="#FF10242A" BorderBrush="#FF65C6BE"
+                                    BorderThickness="1" CornerRadius="5" ToolTip="坎诺特">
+                                <Image x:Name="CannotPortraitImage" Stretch="UniformToFill"
+                                       AutomationProperties.Name="坎诺特" />
+                            </Border>
+                            <UniformGrid Rows="1">
+                                <UniformGrid.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextAlignment" Value="Center" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="FontSize" Value="11" />
+                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                    </Style>
+                                    <Style x:Key="MatchStatusValue" TargetType="Run">
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                    </Style>
+                                </UniformGrid.Resources>
                                 <TextBlock>
-                                    <Run Text="升级费用 " /><Run Style="{StaticResource MatchStatusValue}"
-                                         Text="{Binding Hud.UpgradeCost, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                    <Run Text="回合 " /><Run Style="{StaticResource MatchStatusValue}"
+                                         Text="{Binding Hud.Round, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
                                 </TextBlock>
-                                <TextBlock>
-                                    <Run Text="商店等级 " /><Run Style="{StaticResource MatchStatusValue}"
-                                         Text="{Binding Hud.ShopLevel, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                </TextBlock>
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock>
-                                    <Run Text="金币 " /><Run Style="{StaticResource MatchStatusValue}"
-                                         Text="{Binding Hud.Gold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                </TextBlock>
-                                <TextBlock>
-                                    <Run Text="下回合金币 " /><Run Style="{StaticResource MatchStatusValue}"
-                                         Text="{Binding Hud.NextRoundGold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                </TextBlock>
-                            </StackPanel>
-                        </UniformGrid>
+                                <StackPanel>
+                                    <TextBlock>
+                                        <Run Text="升级费用 " /><Run Style="{StaticResource MatchStatusValue}"
+                                             Text="{Binding Hud.UpgradeCost, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                    </TextBlock>
+                                    <TextBlock>
+                                        <Run Text="商店等级 " /><Run Style="{StaticResource MatchStatusValue}"
+                                             Text="{Binding Hud.ShopLevel, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                    </TextBlock>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock>
+                                        <Run Text="金币 " /><Run Style="{StaticResource MatchStatusValue}"
+                                             Text="{Binding Hud.Gold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                    </TextBlock>
+                                    <TextBlock>
+                                        <Run Text="下回合金币 " /><Run Style="{StaticResource MatchStatusValue}"
+                                             Text="{Binding Hud.NextRoundGold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </UniformGrid>
+                        </DockPanel>
                     </Border>
                     <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}">
                         <TabItem Header="干员">
@@ -263,6 +272,25 @@
                                            Foreground="#FFFFA6A6" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" />
                             </StackPanel>
                         </Border>
+                        <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,10,0,0">
+                            <StackPanel>
+                                <CheckBox x:Name="BobVoiceToggle" Content="默认鲍勃语音"
+                                          Foreground="{StaticResource TextPrimaryBrush}" />
+                                <TextBlock x:Name="BobVoiceStatus" Text="在开局、战前和战斗结算等时机播放，战备时会随机闲聊。"
+                                           Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,8" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Border x:Name="CannotPreviewPortrait" Width="30" Height="30"
+                                            Margin="0,0,7,0" Padding="1" Background="#FF10242A"
+                                            BorderBrush="#FF65C6BE" BorderThickness="1" CornerRadius="5">
+                                        <Image Source="{Binding Source, ElementName=CannotPortraitImage}"
+                                               Stretch="UniformToFill" AutomationProperties.Name="坎诺特" />
+                                    </Border>
+                                    <Button x:Name="BobVoicePreviewButton" Content="试听"
+                                            Style="{StaticResource TrackingButton}" Padding="8,5" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                         <Border x:Name="SettingsLineupAccountCard" Background="{StaticResource CardBackgroundBrush}"
                                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="7" Padding="10"
                                 Margin="0,10,0,0" Visibility="Collapsed">
@@ -291,6 +319,25 @@
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
+            <Canvas x:Name="CannotSpeechLayer" Panel.ZIndex="10" IsHitTestVisible="False" ClipToBounds="True">
+                <Grid x:Name="CannotSpeech" Visibility="Collapsed" Opacity="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Path VerticalAlignment="Top" Margin="0,10,-1,0" Panel.ZIndex="1"
+                          Fill="#FF21373E" Stroke="#FF65C6BE" StrokeThickness="1"
+                          Data="M 8,0 L 0,5 L 8,10" />
+                    <Border Grid.Column="1" Background="#FF21373E" BorderBrush="#FF65C6BE"
+                            BorderThickness="1" CornerRadius="8" Padding="9,6">
+                        <TextBlock x:Name="CannotSpeechText" Foreground="#FFF2FFFC" TextWrapping="Wrap"
+                                   FontSize="13" AutomationProperties.LiveSetting="Polite" />
+                    </Border>
+                    <Grid.RenderTransform>
+                        <TranslateTransform x:Name="CannotSpeechMotion" />
+                    </Grid.RenderTransform>
+                </Grid>
+            </Canvas>
                 </Grid>
             </Grid>
         </DockPanel>

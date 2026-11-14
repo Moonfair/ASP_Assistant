@@ -14,7 +14,9 @@ public readonly record struct GarrisonHud(int? Round, int? ShopLevel, int? Gold,
     public int? NextRoundGold => Round + 4;
 }
 
-public sealed class GarrisonHudRecognizer(MaaOcrEngine recognition)
+public readonly record struct GarrisonVoiceFrame(int? Health = null, bool Preparation = false, BobVoiceCue? BattleCue = null);
+
+public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
 {
     private const int ReferenceWidth = 1280;
     private const int ReferenceHeight = 720;
@@ -34,11 +36,14 @@ public sealed class GarrisonHudRecognizer(MaaOcrEngine recognition)
         new("level-classic", .84, new Rectangle(-9, 13, 60, 49), new Point(2, -48), LevelGlyph.Arabic)
     ];
 
-    public Task<GarrisonHud> RecognizeAsync(byte[] png) => Task.Run(() =>
+    public async Task<GarrisonHud> RecognizeAsync(byte[] png) => (await RecognizeWithVoiceAsync(png, false)).Hud;
+
+    public Task<(GarrisonHud Hud, GarrisonVoiceFrame Voice)> RecognizeWithVoiceAsync(byte[] png, bool includeVoice)
+        => Task.Run(() =>
     {
         try
         {
-            return Recognize(png);
+            return Recognize(png, includeVoice);
         }
         catch (Exception ex)
         {
@@ -47,7 +52,7 @@ public sealed class GarrisonHudRecognizer(MaaOcrEngine recognition)
         }
     });
 
-    private GarrisonHud Recognize(byte[] png)
+    private (GarrisonHud Hud, GarrisonVoiceFrame Voice) Recognize(byte[] png, bool includeVoice)
     {
         if (ScreenCaptureService.GetPngSize(png).Width <= 0) return default;
         using var input = new MemoryStream(png);
@@ -72,6 +77,10 @@ public sealed class GarrisonHudRecognizer(MaaOcrEngine recognition)
         int? roundValue = ReadNumber(frame, bounds, round, new Rectangle(35, -1, 44, 18), PositiveNumber)
             ?? ReadNumber(frame, bounds, round, new Rectangle(36, 1, 44, 18), PositiveNumber);
 
+        var voice = includeVoice && roundValue.HasValue
+            ? ReadVoiceFrame(frame, normalized ?? source, bounds)
+            : default;
+
         var goldArea = new Rectangle(normalizedWidth - 210, 490, 204, 160);
         var goldAnchor = recognition.FindHudTemplate(frame, goldArea, .83, ["gold-modern", "gold-classic"]);
         int? gold = goldAnchor is { } coin
@@ -86,9 +95,9 @@ public sealed class GarrisonHudRecognizer(MaaOcrEngine recognition)
                 ? ReadNumber(frame, bounds, anchor, preset.Level, "^[1-9]$")
                 : ReadRoman(frame, normalized ?? source, bounds, anchor, preset);
             int? cost = ReadUpgradeCost(frame, bounds, anchor, preset.BadgeOffset);
-            return new GarrisonHud(roundValue, level, gold, cost);
+            return (new GarrisonHud(roundValue, level, gold, cost), voice);
         }
-        return new GarrisonHud(roundValue, null, gold);
+        return (new GarrisonHud(roundValue, null, gold), voice);
     }
 
     private int? ReadUpgradeCost(MaaImageBuffer frame, Rectangle bounds, Rectangle anchor, Point offset)
