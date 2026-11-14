@@ -28,6 +28,15 @@ public class SettingsManagerTests : IDisposable
         _manager.LoadGameTarget().Id.Should().Be("auto");
     }
 
+    [Fact]
+    public void BobVoiceDefaultsToEnabledAndHonorsExplicitOptOut()
+    {
+        Assert.True(_manager.LoadBobVoice());
+
+        _manager.SaveBobVoice(false);
+        Assert.False(new SettingsManager(_tempDir).LoadBobVoice());
+    }
+
     [Theory]
     [InlineData("windows")]
     [InlineData("mumu:C:\\MuMu:0")]

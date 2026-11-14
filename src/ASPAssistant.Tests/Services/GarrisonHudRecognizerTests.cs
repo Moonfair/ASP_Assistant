@@ -16,6 +16,8 @@ public sealed class GarrisonHudRecognizerTests : IDisposable
     [InlineData("shop-classic.png", 819)]
     [InlineData("shop-light-theme.png", 1280)]
     [InlineData("shop-light-theme.png", 960)]
+    [InlineData("bob-closure-rest.png", 1280)]
+    [InlineData("bob-closure-rest.png", 960)]
     public async Task ReadsHudAcrossThemesAndResolutions(string file, int width)
     {
         using var source = LoadGameFrame(file);

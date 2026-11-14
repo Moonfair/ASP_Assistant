@@ -27,6 +27,40 @@ public sealed class GarrisonBattleVoiceTests : IDisposable
         Assert.Equal(expected, result.Voice.BattleCue);
     }
 
+    [Theory]
+    [InlineData("orange", "rest", 1280, 1, true, null)]
+    [InlineData("orange", "rest", 960, 1, true, null)]
+    [InlineData("orange", "countdown", 1280, 1, true, BobVoiceCue.BeforeBattle)]
+    [InlineData("orange", "countdown", 960, 1, true, BobVoiceCue.BeforeBattle)]
+    [InlineData("orange", "team-ready", 1280, 2, true, BobVoiceCue.BeforeBattle)]
+    [InlineData("orange", "team-ready", 960, 2, true, BobVoiceCue.BeforeBattle)]
+    [InlineData("orange", "victory", 1280, 1, false, BobVoiceCue.BattleVictory)]
+    [InlineData("orange", "victory", 960, 1, false, BobVoiceCue.BattleVictory)]
+    [InlineData("orange", "loss", 1280, 3, false, BobVoiceCue.BattleLoss)]
+    [InlineData("orange", "loss", 960, 3, false, BobVoiceCue.BattleLoss)]
+    [InlineData("closure", "rest", 1280, 1, true, null)]
+    [InlineData("closure", "rest", 960, 1, true, null)]
+    [InlineData("closure", "countdown", 1280, 1, true, BobVoiceCue.BeforeBattle)]
+    [InlineData("closure", "countdown", 960, 1, true, BobVoiceCue.BeforeBattle)]
+    [InlineData("closure", "team-ready", 1280, 1, true, BobVoiceCue.BeforeBattle)]
+    [InlineData("closure", "team-ready", 960, 1, true, BobVoiceCue.BeforeBattle)]
+    [InlineData("closure", "victory", 1280, 1, false, BobVoiceCue.BattleVictory)]
+    [InlineData("closure", "victory", 960, 1, false, BobVoiceCue.BattleVictory)]
+    [InlineData("closure", "loss", 1280, 4, false, BobVoiceCue.BattleLoss)]
+    [InlineData("closure", "loss", 960, 4, false, BobVoiceCue.BattleLoss)]
+    public async Task RecognizesSkinVoiceStatesWithoutReadingHealth(
+        string skin, string state, int width, int round, bool preparation, BobVoiceCue? expected)
+    {
+        using var source = Load($"bob-{skin}-{state}.png");
+        using var resized = width == source.Width ? null : new Bitmap(source, width, width * source.Height / source.Width);
+        var result = await Recognize(resized ?? source);
+
+        Assert.Equal(round, result.Hud.Round);
+        Assert.Equal(expected, result.Voice.BattleCue);
+        Assert.Equal(preparation, result.Voice.Preparation);
+        Assert.Null(result.Voice.Health);
+    }
+
     [Fact]
     public async Task ThreeReadyPlayersTriggerEvenWhenTheTopRightIsNotRed()
     {
@@ -47,12 +81,12 @@ public sealed class GarrisonBattleVoiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RecognizesRestAndHealthWithTheEarlierHudTheme()
+    public async Task RecognizesOrangeSkinOnADifferentMapWithoutReadingHealth()
     {
         using var source = Load("shop-new-skin.png");
         var result = await Recognize(source);
         Assert.True(result.Voice.Preparation);
-        Assert.Equal(29, result.Voice.Health);
+        Assert.Null(result.Voice.Health);
         Assert.Null(result.Voice.BattleCue);
     }
 
