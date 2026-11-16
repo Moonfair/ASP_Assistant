@@ -66,6 +66,9 @@ CRT source: Visual Studio x64 redistributable directory.
 Deployment reference: https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files
 "@ | Set-Content -LiteralPath (Join-Path $outputPath 'runtime-dependencies.txt') -Encoding utf8
 
+$bobVoiceFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'data/voice/bob') -Filter '*.wav' -File)
+if ($bobVoiceFiles.Count -eq 0) { throw 'No Bob voice WAV files found in data/voice/bob.' }
+
 $requiredPayload = @('ASPAssistant.App.exe', 'ASPAssistant.App.dll', 'ASPAssistant.Core.dll',
     'ASPAssistant.App.runtimeconfig.json', 'coreclr.dll',
     'data/operators.json', 'data/self-selected-operators.json', 'data/equipment.json', 'data/covenants.json', 'data/strategies.json',
@@ -76,7 +79,8 @@ $requiredPayload = @('ASPAssistant.App.exe', 'ASPAssistant.App.dll', 'ASPAssista
     'data/maa_resource/image/hud/level-modern.png', 'data/maa_resource/image/hud/level-classic.png',
     'data/maa_resource/image/hud/level-light.png', 'data/maa_resource/image/hud/upgrade-badge.png',
     'runtimes/win-x64/native/MaaFramework.dll', 'runtimes/win-x64/native/onnxruntime_maa.dll') +
-    @($requiredCrt | ForEach-Object { "runtimes/win-x64/native/$_" })
+    @($requiredCrt | ForEach-Object { "runtimes/win-x64/native/$_" }) +
+    @($bobVoiceFiles | ForEach-Object { "data/voice/bob/$($_.Name)" })
 foreach ($name in $requiredPayload) {
     if (-not (Test-Path -LiteralPath (Join-Path $outputPath $name) -PathType Leaf)) {
         throw "Incomplete publish output: $name"

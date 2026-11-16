@@ -34,6 +34,22 @@ public sealed class BobVoiceCaptionTests
     }
 
     [Fact]
+    public void AppOutputContainsAudioForEveryConfiguredClip()
+    {
+        var voiceDirectory = Path.Combine(AppContext.BaseDirectory, "data", "voice", "bob");
+        var clips = Enum.GetValues<BobVoiceCue>().SelectMany(BobVoicePlayer.GetClips);
+
+        Assert.All(clips, clip =>
+        {
+            var file = Path.Combine(voiceDirectory, $"VO_DALA_BOSS_99h_Male_Human_{clip.Suffix}.wav");
+            Assert.True(File.Exists(file), $"Missing packaged audio: {file}");
+        });
+
+        using var player = new BobVoicePlayer(voiceDirectory);
+        Assert.True(player.Available);
+    }
+
+    [Fact]
     public void UnavailableAudioDoesNotEmitACaption()
     {
         using var player = new BobVoicePlayer(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));

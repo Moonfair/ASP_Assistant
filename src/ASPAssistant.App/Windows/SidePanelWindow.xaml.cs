@@ -430,7 +430,7 @@ public partial class SidePanelWindow : Window
     {
         BobVoiceToggle.IsEnabled = BobVoicePreviewButton.IsEnabled = available;
         BobVoiceToggle.IsChecked = available && enabled;
-        if (!available) BobVoiceStatus.Text = "将默认鲍勃的 WAV 放入 data/voice/bob 后重启。";
+        if (!available) BobVoiceStatus.Text = "缺少鲍勃语音文件。请重新完整解压发布包。";
         BobVoiceToggle.Checked += (_, _) => change(true);
         BobVoiceToggle.Unchecked += (_, _) => change(false);
         BobVoicePreviewButton.Click += (_, _) => preview();

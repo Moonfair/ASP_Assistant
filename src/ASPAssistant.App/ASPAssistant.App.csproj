@@ -54,5 +54,8 @@
     <Content Include="..\..\data\maa_resource\image\hud\*.png"
              Link="data\maa_resource\image\hud\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\data\voice\bob\*.wav"
+             Link="data\voice\bob\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
