@@ -73,23 +73,8 @@ public sealed class PreparationScanner(
         if (Phase == PreparationPhase.None)
         {
             _awaySince ??= now;
-            if (heading.Any(t => t.Box.X < width * .25 &&
-                Regex.Replace(t.Text, @"\s+", "").Contains("STRONGHOLDPROTOCOL", StringComparison.OrdinalIgnoreCase)))
-            {
-                var overviewTexts = await ocr.RecognizeRegionAsync(png, 0, (int)(height * .14),
-                    (int)(width * .70), (int)(height * .80));
-                if (requestGeneration != Generation) return;
-                if (CoreCovenantRecognizer.FindSection(overviewTexts, height) is { } section &&
-                    Math.Abs(section.CoreTitle.Box.X - section.AdditionalTitle.Box.X) < width * .03)
-                {
-                    Phase = PreparationPhase.CovenantOverview;
-                    _sessionStarted = true;
-                    var grid = CovenantGrid.Overview(section.CoreTitle, section.AdditionalTitle);
-                    await ProcessCovenantsAsync(png, image, null, requestGeneration, force, (overviewTexts, grid));
-                    return;
-                }
-            }
-            NotifyCaptureUnavailable();
+            if (await TryProcessOverviewAsync(png, image, heading, requestGeneration, force)) return;
+            if (requestGeneration == Generation) NotifyCaptureUnavailable();
             return;
         }
 
@@ -122,6 +107,73 @@ public sealed class PreparationScanner(
         }
 
         await ProcessCovenantsAsync(png, image, pool, generation, force);
+    }
+
+    private async Task<bool> TryProcessOverviewAsync(byte[] png, Bitmap image,
+        IReadOnlyList<OcrTextResult> heading, int generation, bool force)
+    {
+        int width = image.Width, height = image.Height;
+        bool hasLogo = heading.Any(t => t.Box.X < width * .25 &&
+            Regex.Replace(t.Text, @"\s+", "").Contains("STRONGHOLDPROTOCOL", StringComparison.OrdinalIgnoreCase));
+        (OcrTextResult CoreTitle, OcrTextResult AdditionalTitle)? section = null;
+        if (!hasLogo)
+        {
+            if (heading.Any(t => t.Text.Contains("回合") || t.Text.Trim() == "商店")) return false;
+            // The small English logo can be unreadable in windowed mode. Probe the left edge for
+            // the two Chinese headings and use the ban-list heading to confirm the overview below.
+            var titles = await ocr.RecognizeRegionAsync(png, 0, (int)(height * .14),
+                (int)(width * .24), (int)(height * .40));
+            if (generation != Generation) return false;
+            section = CoreCovenantRecognizer.FindSection(titles, height);
+            if (!IsAligned(section)) return false;
+        }
+
+        var texts = await ocr.RecognizeRegionAsync(png, 0, (int)(height * .14),
+            (int)(width * .70), (int)(height * .80));
+        if (generation != Generation) return false;
+        var fullSection = CoreCovenantRecognizer.FindSection(texts, height);
+        if (fullSection == null) return false;
+        section ??= fullSection;
+        if (!IsAligned(section) || section is not { } titlesFound) return false;
+
+        var grid = CovenantGrid.Overview(titlesFound.CoreTitle, titlesFound.AdditionalTitle);
+        int additionalTop = titlesFound.AdditionalTitle.Box.Y;
+        var banTitle = texts.FirstOrDefault(t => t.Text.Contains("本局禁用干员") &&
+            t.Box.Y > additionalTop + grid.FirstAdditionalLabel && t.Box.X < width * .25);
+        if (!hasLogo && banTitle == null) return false;
+
+        // A ban list immediately after the first additional row bounds the shorter mode-specific grid.
+        var pool = banTitle != null && banTitle.Box.Y < additionalTop + grid.FirstAdditionalLabel + grid.AdditionalRowSpacing - grid.IconToLabel
+            ? FindSingleRowOverviewPool(texts, grid, additionalTop, height) : null;
+        Phase = PreparationPhase.CovenantOverview;
+        _sessionStarted = true;
+        await ProcessCovenantsAsync(png, image, pool, generation, force, (texts, grid));
+        return true;
+
+        bool IsAligned((OcrTextResult CoreTitle, OcrTextResult AdditionalTitle)? titles)
+        {
+            if (titles is not { } pair) return false;
+            var core = pair.CoreTitle.Box;
+            var additional = pair.AdditionalTitle.Box;
+            return Math.Abs(core.X - additional.X) < width * .03 ||
+                // OCR can include the icon to the left of the core heading in its box.
+                (core.X < additional.X && Math.Abs(core.X + core.W - additional.X - additional.W) < width * .025);
+        }
+    }
+
+    private CovenantPool? FindSingleRowOverviewPool(IReadOnlyList<OcrTextResult> texts, CovenantGrid grid,
+        int additionalTop, int height)
+    {
+        if (covenantCatalog == null) return null;
+        var core = ReadLabels(additionalTop - grid.CoreLabelToAdditionalTitle, covenantCatalog.CoreCovenants);
+        var additional = ReadLabels(additionalTop + grid.FirstAdditionalLabel, covenantCatalog.AdditionalCovenants);
+        return covenantCatalog.ModePools.Values.FirstOrDefault(pool =>
+            core.SetEquals(pool.CoreCovenants) && additional.SetEquals(pool.AdditionalCovenants));
+
+        HashSet<string> ReadLabels(double labelY, IReadOnlyList<string> names) => texts
+            .Where(t => Math.Abs(t.Box.Y + t.Box.H / 2.0 - labelY) <= height * .035)
+            .SelectMany(t => CovenantLabelMatcher.Find(Regex.Replace(t.Text, @"\s+", ""), names))
+            .Select(match => match.Name).ToHashSet();
     }
 
     private async Task ProcessCovenantsAsync(byte[] png, Bitmap image, CovenantPool? pool, int generation, bool force,
