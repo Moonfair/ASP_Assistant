@@ -164,7 +164,12 @@ public partial class SidePanelWindow : Window
         LineupView.TrackRequested += lineup =>
         {
             var added = TrackingVm.TrackLineup(lineup);
-            library.Status = added > 0 ? $"已加入 {added} 项干员或装备追踪。" : "这个阵容没有新的可追踪干员或装备。";
+            library.Status = added > 0 ? $"已加入 {added} 项干员或装备追踪，再次点击可取消。" : "这个阵容没有新的可追踪干员或装备。";
+        };
+        LineupView.UntrackRequested += lineup =>
+        {
+            var removed = TrackingVm.UntrackLineup(lineup);
+            library.Status = removed > 0 ? $"已取消 {removed} 项干员或装备追踪。" : "这个阵容的干员和装备已不在追踪列表中。";
         };
     }
 

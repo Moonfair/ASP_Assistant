@@ -150,4 +150,92 @@ public class TrackingViewModelTests
         vm.TrackedOperators.Should().HaveCount(1);
         vm.TrackedEquipment.Should().HaveCount(1);
     }
+
+    [Fact]
+    public void UntrackLineup_RemovesEverythingTheLineupAdded()
+    {
+        var vm = new TrackingViewModel();
+        var lineup = new Lineup
+        {
+            Members =
+            [
+                new() { OperatorName = "角峰", Equipment1 = "长剑", Equipment2 = "法杖" },
+                new() { OperatorName = "地灵", Equipment1 = "长剑" }
+            ]
+        };
+        vm.TrackLineup(lineup).Should().Be(4);
+        vm.IsLineupTracked(lineup).Should().BeTrue();
+
+        vm.UntrackLineup(lineup).Should().Be(4);
+
+        vm.AllEntries.Should().BeEmpty();
+        vm.IsLineupTracked(lineup).Should().BeFalse();
+    }
+
+    [Fact]
+    public void UntrackLineup_KeepsEntriesAnotherLineupStillClaims()
+    {
+        var vm = new TrackingViewModel();
+        var first = new Lineup
+        {
+            Members = [new() { OperatorName = "角峰", Equipment1 = "长剑" }]
+        };
+        var second = new Lineup
+        {
+            Members = [new() { OperatorName = "角峰", Equipment1 = "法杖" }]
+        };
+        vm.TrackLineup(first);
+        vm.TrackLineup(second).Should().Be(1);
+
+        vm.UntrackLineup(first).Should().Be(1);
+
+        vm.TrackedOperators.Select(entry => entry.Name).Should().Equal("角峰");
+        vm.TrackedEquipment.Select(entry => entry.Name).Should().Equal("法杖");
+    }
+
+    [Fact]
+    public void UntrackLineup_ClearsEntriesRecordedBeforeOriginsExisted()
+    {
+        var vm = new TrackingViewModel();
+        vm.LoadEntries([
+            new TrackingEntry { Name = "角峰", Type = TrackingType.Operator },
+            new TrackingEntry { Name = "长剑", Type = TrackingType.Equipment }
+        ]);
+        var lineup = new Lineup
+        {
+            Members = [new() { OperatorName = "角峰", Equipment1 = "长剑" }]
+        };
+
+        vm.UntrackLineup(lineup).Should().Be(2);
+        vm.AllEntries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UntrackLineup_NotifiesOnceAndOnlyWhenSomethingWasTracked()
+    {
+        var vm = new TrackingViewModel();
+        var lineup = new Lineup { Members = [new() { OperatorName = "角峰" }] };
+        var snapshots = new List<int>();
+        vm.TrackingChanged += () => snapshots.Add(vm.AllEntries.Count);
+
+        vm.UntrackLineup(lineup).Should().Be(0);
+        vm.TrackLineup(lineup);
+        vm.UntrackLineup(lineup).Should().Be(1);
+
+        snapshots.Should().Equal(1, 0);
+    }
+
+    [Fact]
+    public void UntrackLineup_IgnoresStrategyOnlyMembers()
+    {
+        var vm = new TrackingViewModel([new() { Name = "策略专属", StrategyOnly = true }]);
+        var lineup = new Lineup
+        {
+            Members = [new() { OperatorName = "策略专属" }, new() { OperatorName = "角峰" }]
+        };
+        vm.TrackLineup(lineup).Should().Be(1);
+
+        vm.UntrackLineup(lineup).Should().Be(1);
+        vm.AllEntries.Should().BeEmpty();
+    }
 }

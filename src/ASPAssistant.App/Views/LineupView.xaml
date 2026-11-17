@@ -259,6 +259,7 @@
                                                             </DataTrigger.Binding>
                                                             <Setter Property="Content" Value="追踪中" />
                                                             <Setter Property="Tag" Value="tracked" />
+                                                            <Setter Property="ToolTip" Value="再次点击取消该阵容的追踪" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>

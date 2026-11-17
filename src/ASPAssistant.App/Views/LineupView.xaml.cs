@@ -39,6 +39,7 @@ public partial class LineupView : UserControl
     public event Action<Lineup>? EditRequested;
     public event Action<Lineup>? PreviewRequested;
     public event Action<Lineup>? TrackRequested;
+    public event Action<Lineup>? UntrackRequested;
     public LineupShareService? ShareService { get; set; }
     internal Func<Lineup, Task>? PrepareOperatorsAsync { get; set; }
     private Func<string, string?>? _findOperatorIcon;
@@ -114,7 +115,10 @@ public partial class LineupView : UserControl
 
     private void OnTrackLineup(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is Lineup lineup) TrackRequested?.Invoke(lineup);
+        if ((sender as FrameworkElement)?.DataContext is not Lineup lineup) return;
+        // Same button toggles: a lineup already on the tracking list backs out in place.
+        if (Tracking?.IsLineupTracked(lineup) == true) UntrackRequested?.Invoke(lineup);
+        else TrackRequested?.Invoke(lineup);
     }
 
     private async void OnMoveLineup(object sender, RoutedEventArgs e)

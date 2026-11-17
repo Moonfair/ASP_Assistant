@@ -9,6 +9,9 @@ public partial class TrackingViewModel : ObservableObject
 {
     public const string AllCovenantsOption = "全部";
 
+    /// <summary>Marker for entries the user added one by one from the browse tabs.</summary>
+    public const string ManualOrigin = "manual";
+
     private readonly IReadOnlyList<Operator> _operators;
     private readonly ILookup<string, string> _operatorIcons;
     private readonly ILookup<string, string> _equipmentIcons;
@@ -39,9 +42,16 @@ public partial class TrackingViewModel : ObservableObject
             .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().Order().Prepend(AllCovenantsOption).ToArray();
     }
 
+    private enum TrackResult { None, OriginAdded, EntryAdded }
+
+    private static string LineupOrigin(Guid id) => $"lineup:{id:N}";
+
+    private static string CovenantOrigin(string? coreCovenant, string? additionalCovenant) =>
+        $"covenant:{coreCovenant}|{additionalCovenant}";
+
     public void AddTracking(string name, TrackingType type)
     {
-        if (TryAddTracking(name, type)) TrackingChanged?.Invoke();
+        if (TryTrack(name, type, ManualOrigin) != TrackResult.None) TrackingChanged?.Invoke();
     }
 
     public (int Matched, int Added) TrackCovenantCombination(string? coreCovenant, string? additionalCovenant)
@@ -60,26 +70,62 @@ public partial class TrackingViewModel : ObservableObject
             .Distinct()
             .ToArray();
 
+        var origin = CovenantOrigin(coreCovenant, additionalCovenant);
         var added = 0;
+        var changed = false;
         foreach (var name in names)
         {
-            if (TryAddTracking(name, TrackingType.Operator)) added++;
+            switch (TryTrack(name, TrackingType.Operator, origin))
+            {
+                case TrackResult.EntryAdded:
+                    added++;
+                    changed = true;
+                    break;
+                case TrackResult.OriginAdded:
+                    changed = true;
+                    break;
+            }
         }
-        if (added > 0) TrackingChanged?.Invoke();
+        if (changed) TrackingChanged?.Invoke();
         return (names.Length, added);
     }
 
     public int TrackLineup(Lineup lineup)
     {
+        var origin = LineupOrigin(lineup.Id);
         var added = 0;
-        foreach (var member in lineup.Members)
+        var changed = false;
+        foreach (var (name, type) in EnumerateLineupEntries(lineup))
         {
-            if (TryAddTracking(member.OperatorName, TrackingType.Operator)) added++;
-            foreach (var name in member.EquipmentSlots)
-                if (TryAddTracking(name, TrackingType.Equipment)) added++;
+            switch (TryTrack(name, type, origin))
+            {
+                case TrackResult.EntryAdded:
+                    added++;
+                    changed = true;
+                    break;
+                case TrackResult.OriginAdded:
+                    changed = true;
+                    break;
+            }
         }
-        if (added > 0) TrackingChanged?.Invoke();
+        if (changed) TrackingChanged?.Invoke();
         return added;
+    }
+
+    /// <summary>
+    /// Drops everything the given lineup claimed. Entries still claimed by another lineup,
+    /// a covenant combination or a manual toggle stay on the list.
+    /// </summary>
+    public int UntrackLineup(Lineup lineup)
+    {
+        var origin = LineupOrigin(lineup.Id);
+        var removed = 0;
+        foreach (var (name, type) in EnumerateLineupEntries(lineup))
+        {
+            if (ReleaseOrigin(name, type, origin)) removed++;
+        }
+        if (removed > 0) TrackingChanged?.Invoke();
+        return removed;
     }
 
     public bool IsLineupTracked(Lineup lineup)
@@ -92,14 +138,53 @@ public partial class TrackingViewModel : ObservableObject
     private bool CanTrackOperator(string name) =>
         !string.IsNullOrWhiteSpace(name) && !_operators.Any(item => item.StrategyOnly && item.Name == name);
 
-    private bool TryAddTracking(string name, TrackingType type)
+    private static IEnumerable<(string Name, TrackingType Type)> EnumerateLineupEntries(Lineup lineup)
     {
-        if (string.IsNullOrWhiteSpace(name) || IsTracked(name))
-            return false;
-        if (type == TrackingType.Operator && !CanTrackOperator(name))
-            return false;
+        var entries = new List<(string Name, TrackingType Type)>();
+        foreach (var member in lineup.Members)
+        {
+            if (!string.IsNullOrWhiteSpace(member.OperatorName))
+                entries.Add((member.OperatorName, TrackingType.Operator));
+            foreach (var slot in member.EquipmentSlots)
+                if (!string.IsNullOrWhiteSpace(slot))
+                    entries.Add((slot, TrackingType.Equipment));
+        }
+        return entries.Distinct();
+    }
 
-        AddEntry(new TrackingEntry { Name = name, Type = type });
+    private TrackingEntry? FindEntry(string name, TrackingType type) => type == TrackingType.Operator
+        ? TrackedOperators.FirstOrDefault(entry => entry.Name == name)
+        : TrackedEquipment.FirstOrDefault(entry => entry.Name == name);
+
+    private TrackResult TryTrack(string name, TrackingType type, string origin)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return TrackResult.None;
+        if (type == TrackingType.Operator && !CanTrackOperator(name))
+            return TrackResult.None;
+
+        var existing = FindEntry(name, type);
+        if (existing is not null)
+            return existing.Origins.Add(origin) ? TrackResult.OriginAdded : TrackResult.None;
+
+        var entry = new TrackingEntry { Name = name, Type = type };
+        entry.Origins.Add(origin);
+        AddEntry(entry);
+        return TrackResult.EntryAdded;
+    }
+
+    private bool ReleaseOrigin(string name, TrackingType type, string origin)
+    {
+        var entry = FindEntry(name, type);
+        if (entry is null) return false;
+
+        entry.Origins.Remove(origin);
+        // A manual toggle never keeps a group member alive on its own, so a lineup tracked
+        // before origins were recorded still clears in a single click.
+        if (entry.Origins.Any(other => other != ManualOrigin)) return false;
+
+        if (type == TrackingType.Operator) TrackedOperators.Remove(entry);
+        else TrackedEquipment.Remove(entry);
         return true;
     }
 
