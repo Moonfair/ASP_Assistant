@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -240,6 +241,25 @@ public partial class SidePanelWindow : Window
         var email = _lineupSite?.Email;
         SettingsLineupAccountStatus.Text = email is null ? "登录后可以上传阵容。" : $"已登录：{email}";
         SettingsLineupAccountButton.Content = email is null ? "登录卫戍阵容库" : "管理账号";
+    }
+
+    private async void OnCopyQqGroup(object sender, RoutedEventArgs e)
+    {
+        SettingsCopyQqGroupButton.IsEnabled = false;
+        try
+        {
+            await LineupClipboard.CopyAsync(this, SettingsQqGroupNumber.Text);
+            SettingsQqGroupStatus.Text = "群号已复制。";
+        }
+        catch (ExternalException)
+        {
+            SettingsQqGroupStatus.Text = "复制失败，请重试。";
+        }
+        finally
+        {
+            SettingsQqGroupStatus.Visibility = Visibility.Visible;
+            SettingsCopyQqGroupButton.IsEnabled = true;
+        }
     }
 
     private async void OnSendFeedback(object sender, RoutedEventArgs e)
