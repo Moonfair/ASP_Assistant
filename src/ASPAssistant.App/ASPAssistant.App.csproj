@@ -54,5 +54,9 @@
     <Content Include="..\..\data\maa_resource\image\hud\*.png"
              Link="data\maa_resource\image\hud\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\data\enemy-maps\*.png" Link="data\enemy-maps\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\data\boss-routes\*.jpg" Link="data\boss-routes\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -18,7 +18,8 @@ public sealed class PreparationScanner(
     IOcrEngine ocr,
     IReadOnlyList<BanCandidate> candidates,
     TimeProvider? timeProvider = null,
-    CovenantCatalog? covenantCatalog = null)
+    CovenantCatalog? covenantCatalog = null,
+    PreparationEnemyRecognizer? enemyRecognizer = null)
 {
     private readonly object _stateLock = new();
     private readonly HashSet<string> _banned = [];
@@ -34,6 +35,9 @@ public sealed class PreparationScanner(
     private bool _sessionStarted;
     private int _generation;
     private CovenantAvailability? _covenantAvailability;
+    private PreparationEnemyInfo? _enemyInfo;
+    public PreparationEnemyInfo? EnemyInfo { get { lock (_stateLock) return _enemyInfo; } }
+    public event Action<PreparationEnemyInfo?>? EnemyInfoChanged;
     public CovenantAvailability? CovenantAvailability { get { lock (_stateLock) return _covenantAvailability; } }
     public event Action<CovenantAvailability?>? CovenantAvailabilityChanged;
     public PreparationPhase Phase { get; private set; }
@@ -47,7 +51,7 @@ public sealed class PreparationScanner(
     public static bool ShouldBan(BanCandidate candidate, IReadOnlyCollection<string> enabledCore,
         IReadOnlyCollection<string> enabledAdditional) =>
         candidate.CoreCovenants.Count > 0
-            ? candidate.CoreCovenants.Any(name => !enabledCore.Contains(name))
+            ? !candidate.CoreCovenants.Any(enabledCore.Contains)
             : !candidate.AdditionalCovenants.Any(enabledAdditional.Contains);
 
     public static PreparationPhase Classify(IEnumerable<string> texts)
@@ -73,35 +77,25 @@ public sealed class PreparationScanner(
         if (Phase == PreparationPhase.None)
         {
             _awaySince ??= now;
-            if (heading.Any(t => t.Box.X < width * .25 &&
-                Regex.Replace(t.Text, @"\s+", "").Contains("STRONGHOLDPROTOCOL", StringComparison.OrdinalIgnoreCase)))
-            {
-                var overviewTexts = await ocr.RecognizeRegionAsync(png, 0, (int)(height * .14),
-                    (int)(width * .70), (int)(height * .80));
-                if (requestGeneration != Generation) return;
-                if (CoreCovenantRecognizer.FindSection(overviewTexts, height) is { } section &&
-                    Math.Abs(section.CoreTitle.Box.X - section.AdditionalTitle.Box.X) < width * .03)
-                {
-                    Phase = PreparationPhase.CovenantOverview;
-                    _sessionStarted = true;
-                    var grid = CovenantGrid.Overview(section.CoreTitle, section.AdditionalTitle);
-                    await ProcessCovenantsAsync(png, image, null, requestGeneration, force, (overviewTexts, grid));
-                    return;
-                }
-            }
-            NotifyCaptureUnavailable();
+            if (await TryProcessOverviewAsync(png, image, heading, requestGeneration, force)) return;
+            if (requestGeneration == Generation) NotifyCaptureUnavailable();
             return;
         }
 
         var titleText = Regex.Replace(string.Concat(heading.Select(t => t.Text)), @"\s+", "");
         var mode = covenantCatalog?.ModePools.OrderByDescending(entry => entry.Key.Length)
             .FirstOrDefault(entry => titleText.Contains(entry.Key, StringComparison.Ordinal));
+        var modeName = mode?.Key;
         bool awayTooLong = _awaySince.HasValue && now - _awaySince.Value >= TimeSpan.FromSeconds(30);
         bool nextGroupedRound = _groupedRound != null && (
             (Phase == PreparationPhase.Information && _lastPreparationPhase is PreparationPhase.Strategy or PreparationPhase.Squad)
-            || (mode?.Key is { } modeName && modeName != _groupedRound.Mode)
+            || (modeName != null && modeName != _groupedRound.Mode)
             || (_lastPreparationSeen.HasValue && now - _lastPreparationSeen.Value >= TimeSpan.FromSeconds(30)));
-        if ((_sessionStarted && awayTooLong) || nextGroupedRound) ResetRound();
+        bool nextRound = _sessionStarted && awayTooLong;
+        if (nextRound || nextGroupedRound) ResetRound();
+        if (nextRound || (Phase == PreparationPhase.Information &&
+            _lastPreparationPhase is PreparationPhase.Strategy or PreparationPhase.Squad))
+            SetEnemyInfo(null, Generation);
 
         _lastPreparationSeen = now;
         _lastPreparationPhase = Phase;
@@ -114,6 +108,31 @@ public sealed class PreparationScanner(
                 PreparationNoticeKind.Dismiss);
             return;
         }
+        if (enemyRecognizer != null)
+        {
+            var previous = EnemyInfo;
+            if (force || previous is not { Boss: not null, Battlefield: not null, EnemyTypes.Count: 3 } ||
+                (modeName is not null && previous.Mode != modeName))
+            {
+                var read = await enemyRecognizer.ReadAsync(png, image, modeName, force ? null : previous?.Battlefield);
+                if (generation != Generation) return;
+                if (read != null)
+                {
+                    if ((read.Boss != null && previous?.Boss != null && read.Boss != previous.Boss) ||
+                        (read.Battlefield != null && previous?.Battlefield != null && read.Battlefield != previous.Battlefield) ||
+                        (read.Mode != null && previous?.Mode != null && read.Mode != previous.Mode))
+                        previous = null;
+                    SetEnemyInfo(read with
+                    {
+                        Boss = read.Boss ?? previous?.Boss,
+                        Battlefield = read.Battlefield ?? previous?.Battlefield,
+                        Mode = read.Mode ?? previous?.Mode,
+                        EnemyTypes = read.EnemyTypes.Count >= (previous?.EnemyTypes.Count ?? 0)
+                            ? read.EnemyTypes : previous!.EnemyTypes
+                    }, generation);
+                }
+            }
+        }
         var pool = mode?.Value ?? _groupedRound?.Pool;
         if (pool?.SelectCoreGroup == true)
         {
@@ -122,6 +141,73 @@ public sealed class PreparationScanner(
         }
 
         await ProcessCovenantsAsync(png, image, pool, generation, force);
+    }
+
+    private async Task<bool> TryProcessOverviewAsync(byte[] png, Bitmap image,
+        IReadOnlyList<OcrTextResult> heading, int generation, bool force)
+    {
+        int width = image.Width, height = image.Height;
+        bool hasLogo = heading.Any(t => t.Box.X < width * .25 &&
+            Regex.Replace(t.Text, @"\s+", "").Contains("STRONGHOLDPROTOCOL", StringComparison.OrdinalIgnoreCase));
+        (OcrTextResult CoreTitle, OcrTextResult AdditionalTitle)? section = null;
+        if (!hasLogo)
+        {
+            if (heading.Any(t => t.Text.Contains("回合") || t.Text.Trim() == "商店")) return false;
+            // The small English logo can be unreadable in windowed mode. Probe the left edge for
+            // the two Chinese headings and use the ban-list heading to confirm the overview below.
+            var titles = await ocr.RecognizeRegionAsync(png, 0, (int)(height * .14),
+                (int)(width * .24), (int)(height * .40));
+            if (generation != Generation) return false;
+            section = CoreCovenantRecognizer.FindSection(titles, height);
+            if (!IsAligned(section)) return false;
+        }
+
+        var texts = await ocr.RecognizeRegionAsync(png, 0, (int)(height * .14),
+            (int)(width * .70), (int)(height * .80));
+        if (generation != Generation) return false;
+        var fullSection = CoreCovenantRecognizer.FindSection(texts, height);
+        if (fullSection == null) return false;
+        section ??= fullSection;
+        if (!IsAligned(section) || section is not { } titlesFound) return false;
+
+        var grid = CovenantGrid.Overview(titlesFound.CoreTitle, titlesFound.AdditionalTitle);
+        int additionalTop = titlesFound.AdditionalTitle.Box.Y;
+        var banTitle = texts.FirstOrDefault(t => t.Text.Contains("本局禁用干员") &&
+            t.Box.Y > additionalTop + grid.FirstAdditionalLabel && t.Box.X < width * .25);
+        if (!hasLogo && banTitle == null) return false;
+
+        // A ban list immediately after the first additional row bounds the shorter mode-specific grid.
+        var pool = banTitle != null && banTitle.Box.Y < additionalTop + grid.FirstAdditionalLabel + grid.AdditionalRowSpacing - grid.IconToLabel
+            ? FindSingleRowOverviewPool(texts, grid, additionalTop, height) : null;
+        Phase = PreparationPhase.CovenantOverview;
+        _sessionStarted = true;
+        await ProcessCovenantsAsync(png, image, pool, generation, force, (texts, grid));
+        return true;
+
+        bool IsAligned((OcrTextResult CoreTitle, OcrTextResult AdditionalTitle)? titles)
+        {
+            if (titles is not { } pair) return false;
+            var core = pair.CoreTitle.Box;
+            var additional = pair.AdditionalTitle.Box;
+            return Math.Abs(core.X - additional.X) < width * .03 ||
+                // OCR can include the icon to the left of the core heading in its box.
+                (core.X < additional.X && Math.Abs(core.X + core.W - additional.X - additional.W) < width * .025);
+        }
+    }
+
+    private CovenantPool? FindSingleRowOverviewPool(IReadOnlyList<OcrTextResult> texts, CovenantGrid grid,
+        int additionalTop, int height)
+    {
+        if (covenantCatalog == null) return null;
+        var core = ReadLabels(additionalTop - grid.CoreLabelToAdditionalTitle, covenantCatalog.CoreCovenants);
+        var additional = ReadLabels(additionalTop + grid.FirstAdditionalLabel, covenantCatalog.AdditionalCovenants);
+        return covenantCatalog.ModePools.Values.FirstOrDefault(pool =>
+            core.SetEquals(pool.CoreCovenants) && additional.SetEquals(pool.AdditionalCovenants));
+
+        HashSet<string> ReadLabels(double labelY, IReadOnlyList<string> names) => texts
+            .Where(t => Math.Abs(t.Box.Y + t.Box.H / 2.0 - labelY) <= height * .035)
+            .SelectMany(t => CovenantLabelMatcher.Find(Regex.Replace(t.Text, @"\s+", ""), names))
+            .Select(match => match.Name).ToHashSet();
     }
 
     private async Task ProcessCovenantsAsync(byte[] png, Bitmap image, CovenantPool? pool, int generation, bool force,
@@ -250,6 +336,19 @@ public sealed class PreparationScanner(
         ClearBans();
     }
 
+    private void SetEnemyInfo(PreparationEnemyInfo? info, int generation)
+    {
+        lock (_stateLock)
+        {
+            if (generation != _generation) return;
+            if (info == _enemyInfo || (info != null && _enemyInfo != null &&
+                info.Boss == _enemyInfo.Boss && info.Battlefield == _enemyInfo.Battlefield &&
+                info.Mode == _enemyInfo.Mode && info.EnemyTypes.SequenceEqual(_enemyInfo.EnemyTypes))) return;
+            _enemyInfo = info;
+        }
+        EnemyInfoChanged?.Invoke(info);
+    }
+
     private sealed class GroupedRound(string mode, CovenantPool pool)
     {
         public string Mode { get; } = mode;
@@ -297,6 +396,7 @@ public sealed class PreparationScanner(
         _sessionStarted = false;
         Phase = PreparationPhase.None;
         ResetRound();
+        SetEnemyInfo(null, Generation);
         SetStatus("自动 BP 检测已开启，等待准备界面");
     }
 

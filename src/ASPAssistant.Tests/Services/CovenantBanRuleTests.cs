@@ -16,10 +16,13 @@ public class CovenantBanRuleTests
     [InlineData("", "精准,远见", true)]
     [InlineData("", "精准,坚守", false)]
     [InlineData("", "", true)]
-    [InlineData("萨尔贡,炎", "", true)]
+    [InlineData("萨尔贡,炎", "", false)]
     [InlineData("炎,叙拉古", "精准", false)]
-    [InlineData("萨尔贡,炎", "精准,坚守", true)]
-    [InlineData("萨尔贡,炎", "坚守", true)]
+    [InlineData("萨尔贡,炎", "精准,坚守", false)]
+    [InlineData("萨尔贡,炎", "坚守", false)]
+    [InlineData("萨尔贡,炎", "精准", false)]
+    [InlineData("萨尔贡,谢拉格", "", true)]
+    [InlineData("萨尔贡,谢拉格", "坚守", true)]
     public void AppliesTheInGameAvailabilityRules(string core, string additional, bool banned)
     {
         var candidate = new BanCandidate("测试", core.Split(',', StringSplitOptions.RemoveEmptyEntries),

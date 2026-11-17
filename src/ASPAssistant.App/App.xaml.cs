@@ -168,7 +168,8 @@ public partial class App : Application
             covenantCatalog: covenantCatalog,
             intervalMs: 500,
             shopNames: shopOperators.Select(o => o.Name).Concat(equipment.Select(e => e.Name)).ToList(),
-            hudRecognizer: new GarrisonHudRecognizer(ocrEngine));
+            hudRecognizer: new GarrisonHudRecognizer(ocrEngine),
+            enemyRecognizer: new PreparationEnemyRecognizer(ocrEngine, Path.Combine(dataDir, "enemy-maps")));
 
         _windowTracker = new WindowTrackerService(_gameTarget);
 
@@ -197,6 +198,7 @@ public partial class App : Application
             gameStateVm.UpdateFromGameState(new Core.GameState.GameState());
             banVm.SetBans([]);
             operatorVm.CovenantAvailability = null;
+            _sidePanel.UpdateEnemyInfo(null);
             _sidePanel.UpdatePreparationStatus(new PreparationNotice("自动 BP 检测已开启，等待准备界面",
                 PreparationNoticeKind.Dismiss));
         };
@@ -263,6 +265,10 @@ public partial class App : Application
         _ocrScanner.CovenantAvailabilityChanged += (target, availability) => Dispatcher.Invoke(() =>
         {
             if (ReferenceEquals(target, _gameTarget.Current)) operatorVm.CovenantAvailability = availability;
+        });
+        _ocrScanner.EnemyInfoChanged += (target, info) => Dispatcher.InvokeAsync(() =>
+        {
+            if (ReferenceEquals(target, _gameTarget.Current)) _sidePanel.UpdateEnemyInfo(info);
         });
 
         // Manual screenshot scan: button in the operator browse view triggers a one-off scan.

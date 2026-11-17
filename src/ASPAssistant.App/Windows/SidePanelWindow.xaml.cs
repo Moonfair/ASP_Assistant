@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -239,6 +240,25 @@ public partial class SidePanelWindow : Window
         SettingsLineupAccountButton.Content = email is null ? "登录卫戍阵容库" : "管理账号";
     }
 
+    private async void OnCopyQqGroup(object sender, RoutedEventArgs e)
+    {
+        SettingsCopyQqGroupButton.IsEnabled = false;
+        try
+        {
+            await LineupClipboard.CopyAsync(this, SettingsQqGroupNumber.Text);
+            SettingsQqGroupStatus.Text = "群号已复制。";
+        }
+        catch (ExternalException)
+        {
+            SettingsQqGroupStatus.Text = "复制失败，请重试。";
+        }
+        finally
+        {
+            SettingsQqGroupStatus.Visibility = Visibility.Visible;
+            SettingsCopyQqGroupButton.IsEnabled = true;
+        }
+    }
+
     private async void OnSendFeedback(object sender, RoutedEventArgs e)
     {
         if (_lineupSite is not { } site || !SettingsSendFeedbackButton.IsEnabled) return;
@@ -359,6 +379,8 @@ public partial class SidePanelWindow : Window
 
     public void UpdateManualScanStatus(int pending)
         => OperatorView.UpdateManualScanStatus(pending);
+
+    public void UpdateEnemyInfo(PreparationEnemyInfo? info) => EnemyView.UpdateInfo(info);
 
     public void UpdatePreparationStatus(PreparationNotice notice)
     {

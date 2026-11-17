@@ -197,6 +197,9 @@
                         <TabItem Header="追踪">
                             <views:TrackingView x:Name="TrackingView" />
                         </TabItem>
+                        <TabItem Header="敌人">
+                            <views:EnemyView x:Name="EnemyView" />
+                        </TabItem>
                         <TabItem x:Name="LineupTab" Header="阵容">
                             <views:LineupView x:Name="LineupView" />
                         </TabItem>
@@ -261,6 +264,22 @@
                                         Style="{StaticResource TrackingButton}" HorizontalAlignment="Left" Padding="8,5" />
                                 <TextBlock x:Name="MarkerOffsetSaveError" Text="无法保存标记位置，请重试。"
                                            Foreground="#FFFFA6A6" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,10,0,0">
+                            <StackPanel>
+                                <TextBlock Text="QQ群" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                                <DockPanel>
+                                    <Button x:Name="SettingsCopyQqGroupButton" Content="复制群号" Click="OnCopyQqGroup"
+                                            DockPanel.Dock="Right" Style="{StaticResource TrackingButton}" Padding="8,5" />
+                                    <TextBlock x:Name="SettingsQqGroupNumber" Text="1085364202" VerticalAlignment="Center"
+                                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,6,0" />
+                                </DockPanel>
+                                <TextBlock x:Name="SettingsQqGroupStatus" Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"
+                                           AutomationProperties.LiveSetting="Polite" />
                             </StackPanel>
                         </Border>
                         <Border x:Name="SettingsLineupAccountCard" Background="{StaticResource CardBackgroundBrush}"

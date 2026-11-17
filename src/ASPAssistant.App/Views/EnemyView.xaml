@@ -1,0 +1,67 @@
+<UserControl x:Class="ASPAssistant.App.Views.EnemyView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="EnemyLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="8">
+            <TextBlock x:Name="EmptyMessage" Text="等待 BP 的「确认本局信息」界面" Margin="4,8"
+                       Style="{StaticResource EnemyLabel}" />
+            <StackPanel x:Name="Details" Visibility="Collapsed">
+                <Border Style="{StaticResource ItemCardBorder}" Padding="10">
+                    <StackPanel>
+                        <TextBlock Text="敌方领袖" Style="{StaticResource EnemyLabel}" />
+                        <TextBlock x:Name="BossName" Margin="0,2,0,10" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="特训敌人" Style="{StaticResource EnemyLabel}" />
+                        <TextBlock x:Name="EnemyTypes" Margin="0,2,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </Border>
+                <Grid Margin="4,12,4,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="战场" Style="{StaticResource EnemyLabel}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox x:Name="BattlefieldPicker" Grid.Column="1" DisplayMemberPath="Label"
+                              AutomationProperties.Name="战场" MaxDropDownHeight="264"
+                              SelectionChanged="OnBattlefieldChanged" />
+                </Grid>
+                <ItemsControl x:Name="Routes">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource ItemCardBorder}" Padding="8" Margin="0,0,0,8">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding Status}" Visibility="{Binding StatusVisibility}"
+                                               Style="{StaticResource EnemyLabel}" Margin="0,5,0,0" />
+                                    <StackPanel Visibility="{Binding RouteVisibility}">
+                                        <ComboBox ItemsSource="{Binding SideChoices}" SelectedIndex="{Binding Side}"
+                                                  AutomationProperties.Name="{Binding SidePickerName}" Margin="0,6,0,4" />
+                                        <StackPanel Visibility="{Binding LeftVisibility}" Margin="0,4,0,0">
+                                            <TextBlock Text="{Binding LeftOrder}" Foreground="#FF7CDBE9" FontSize="12" />
+                                            <Image Source="{Binding LeftImage}" Stretch="Uniform" Margin="0,3,0,0"
+                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </StackPanel>
+                                        <StackPanel Visibility="{Binding RightVisibility}" Margin="0,6,0,0">
+                                            <TextBlock Text="{Binding RightOrder}" Foreground="#FFFFC37A" FontSize="12" />
+                                            <Image Source="{Binding RightImage}" Stretch="Uniform" Margin="0,3,0,0"
+                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

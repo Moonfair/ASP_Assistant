@@ -46,6 +46,7 @@ public class OcrScannerService : IDisposable
     public IReadOnlyList<string> DetectedBans => _preparation?.BannedNames ?? [];
     public event Action<GameTarget?, CovenantAvailability?>? CovenantAvailabilityChanged;
     public CovenantAvailability? CovenantAvailability => _preparation?.CovenantAvailability;
+    public event Action<GameTarget?, PreparationEnemyInfo?>? EnemyInfoChanged;
 
     /// <summary>
     /// Raised when the number of pending manual screenshot scans changes.
@@ -64,7 +65,8 @@ public class OcrScannerService : IDisposable
         CovenantCatalog? covenantCatalog = null,
         int intervalMs = 3000,
         IReadOnlyList<string>? shopNames = null,
-        GarrisonHudRecognizer? hudRecognizer = null)
+        GarrisonHudRecognizer? hudRecognizer = null,
+        PreparationEnemyRecognizer? enemyRecognizer = null)
     {
         _captureService = captureService;
         _selection = selection;
@@ -76,7 +78,12 @@ public class OcrScannerService : IDisposable
         _getTrackedNames = getTrackedNames;
         if (getAllOperators != null)
         {
-            _preparation = new PreparationScanner(ocrEngine, getAllOperators(), covenantCatalog: covenantCatalog);
+            _preparation = new PreparationScanner(ocrEngine, getAllOperators(),
+                covenantCatalog: covenantCatalog, enemyRecognizer: enemyRecognizer);
+            _preparation.EnemyInfoChanged += info =>
+            {
+                if (IsCurrentTarget) EnemyInfoChanged?.Invoke(_recognitionTarget, info);
+            };
             _preparation.BansChanged += names =>
             {
                 if (IsCurrentTarget) BansDetected?.Invoke(_recognitionTarget, names);

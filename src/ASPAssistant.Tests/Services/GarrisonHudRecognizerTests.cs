@@ -25,6 +25,17 @@ public sealed class GarrisonHudRecognizerTests : IDisposable
         Assert.Equal(new GarrisonHud(1, 1, 4, 5), result);
     }
 
+    [Fact]
+    public async Task ReadsRoundAndZeroGoldFromReportedWindowedGame()
+    {
+        var png = PreparationScannerTests.Frame("shop-reported-windowed.png");
+
+        var result = await new GarrisonHudRecognizer(_ocr).RecognizeAsync(png);
+
+        Assert.Equal(3, result.Round);
+        Assert.Equal(0, result.Gold);
+    }
+
     [Theory]
     [InlineData(1280, 800)]
     [InlineData(1440, 720)]

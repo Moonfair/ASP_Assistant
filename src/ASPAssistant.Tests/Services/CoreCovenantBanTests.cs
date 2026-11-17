@@ -13,6 +13,7 @@ public class CoreCovenantBanTests
     internal static IReadOnlyList<BanCandidate> Candidates => [
         .. Names.Select(n => new BanCandidate(n + "干员", [n], [], [])),
         new("双核心", ["莱塔尼亚", "萨尔贡"], ["精准"], []),
+        new("双核心均禁用", ["萨尔贡", "谢拉格"], ["精准"], []),
         new("三核心", ["卡西米尔", "谢拉格", "莱塔尼亚"], ["精准"], []),
         new("多核心无附加", ["莱塔尼亚", "萨尔贡"], [], []),
         new("仅附加命中", ["炎"], ["精准"], []),
@@ -55,11 +56,11 @@ public class CoreCovenantBanTests
     }
 
     [Fact]
-    public async Task AnyMissingCoreAlsoBansOperatorsWithMultipleCoreCovenants()
+    public async Task OneAvailableCoreKeepsOperatorsWithoutAdditionalCovenantsAvailable()
     {
         var scanner = new PreparationScanner(new CoreOcr(), Candidates.Where(c => c.AdditionalCovenants.Count == 0).ToList());
         await scanner.ProcessAsync(Frame);
-        scanner.BannedNames.Should().BeEquivalentTo(Disabled.Select(n => n + "干员").Append("多核心无附加"));
+        scanner.BannedNames.Should().BeEquivalentTo(Disabled.Select(n => n + "干员"));
     }
 
     // Actual native OCR output: neighboring names can be merged into a single box.
@@ -73,12 +74,12 @@ public class CoreCovenantBanTests
         .. AdditionalCovenantRecognitionTests.Texts("preparation-core-bans.png").Where(t => t.Box.Y > 400)];
 
     [Fact]
-    public async Task OverviewAppliesTheTwoCovenantRules()
+    public async Task OverviewPublishesBansBasedOnAvailableCoreAndAdditionalCovenants()
     {
         var scanner = new PreparationScanner(new CoreOcr(), Candidates);
         await scanner.ProcessAsync(Frame);
         scanner.BannedNames.Should().BeEquivalentTo(Disabled.Select(n => n + "干员").Concat([
-            "双核心", "三核心", "多核心无附加", "无核心精准", "无核心迅捷", "无核心助力", "无核心远见", "无核心奥术"]));
+            "双核心均禁用", "无核心精准", "无核心迅捷", "无核心助力", "无核心远见", "无核心奥术"]));
         scanner.BannedNames.Should().NotContain("仅附加命中");
         scanner.Status.Should().Contain("萨尔贡").And.NotContain("滚动");
     }
@@ -105,7 +106,7 @@ public class CoreCovenantBanTests
         await scanner.ProcessAsync(PreparationScannerTests.Frame("preparation-standard.png"));
 
         scanner.BannedNames.Should().BeEquivalentTo(
-            "阿戈尔干员", "卡西米尔干员", "三核心", "无核心精准", "无核心远见", "无核心灵巧",
+            "阿戈尔干员", "卡西米尔干员", "无核心精准", "无核心远见", "无核心灵巧",
             "无核心奇迹", "无核心投资人", "无核心突袭", "无核心独行", "无核心绝技");
         scanner.Status.Should().Contain("禁用附加：精准、远见");
     }
@@ -155,7 +156,7 @@ public class CoreCovenantBanTests
         ocr.Row = OriginalLabels;
         await scanner.ProcessAsync(PreparationScannerTests.Frame("preparation-overview.png"));
         scanner.BannedNames.Should().BeEquivalentTo("炎干员", "维多利亚干员", "谢拉格干员", "卡西米尔干员",
-            "双核心", "三核心", "多核心无附加", "仅附加命中", "乌萨斯干员",
+            "双核心均禁用", "仅附加命中", "乌萨斯干员",
             "无核心精准", "无核心灵巧", "无核心助力", "无核心突袭", "无核心不屈");
     }
 
@@ -185,7 +186,7 @@ public class CoreCovenantBanTests
         scanner.Status.Should().Contain("识别不完整");
         ocr.Row = Labels;
         await scanner.ProcessAsync(Frame);
-        scanner.BannedNames.Should().Contain("双核心").And.Contain("手动");
+        scanner.BannedNames.Should().Contain("双核心均禁用").And.Contain("手动");
     }
 
     [Fact]
@@ -194,7 +195,7 @@ public class CoreCovenantBanTests
         var ocr = new CoreOcr();
         var scanner = new PreparationScanner(ocr, Candidates);
         await scanner.ProcessAsync(Frame);
-        scanner.BannedNames.Should().Contain("双核心").And.Contain("无核心精准").And.NotContain("无核心灵巧");
+        scanner.BannedNames.Should().Contain("双核心均禁用").And.Contain("无核心精准").And.NotContain("无核心灵巧");
         ocr.Row = Labels.Select(t => t.Text switch
         {
             "精准" => t with { Text = "灵巧" },
@@ -202,7 +203,7 @@ public class CoreCovenantBanTests
             _ => t
         }).ToList();
         await scanner.ProcessAsync(Frame);
-        scanner.BannedNames.Should().Contain("双核心").And.Contain("三核心").And.Contain("萨尔贡干员");
+        scanner.BannedNames.Should().Contain("双核心均禁用").And.Contain("萨尔贡干员");
         scanner.BannedNames.Should().Contain("无核心灵巧").And.NotContain("无核心精准");
     }
 
@@ -266,14 +267,14 @@ public class CoreCovenantBanTests
         await scanner.ProcessAsync(Frame);
         await scanner.ProcessAsync(Frame);
         events.Should().Be(1);
-        scanner.SetManualBan("双核心", false);
+        scanner.SetManualBan("双核心均禁用", false);
         await scanner.ProcessAsync(Frame, force: true);
-        scanner.BannedNames.Should().NotContain("双核心");
+        scanner.BannedNames.Should().NotContain("双核心均禁用");
         scanner.ClearBans();
         await scanner.ProcessAsync(Frame);
         scanner.BannedNames.Should().BeEmpty();
         await scanner.ProcessAsync(Frame, force: true);
-        scanner.BannedNames.Should().Contain("双核心");
+        scanner.BannedNames.Should().Contain("双核心均禁用");
     }
 
     [Fact]
@@ -321,7 +322,7 @@ public class CoreCovenantBanTests
         ocr.Title = "确认本局信息";
         ocr.Row = [];
         await scanner.ProcessAsync(Frame);
-        scanner.BannedNames.Should().Contain("双核心");
+        scanner.BannedNames.Should().Contain("双核心均禁用");
         ocr.Title = "商店";
         await scanner.ProcessAsync(Frame);
         clock.Now += TimeSpan.FromSeconds(31);

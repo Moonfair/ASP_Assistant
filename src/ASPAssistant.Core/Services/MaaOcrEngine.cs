@@ -89,12 +89,12 @@ public sealed class MaaOcrEngine : IOcrEngine, IDisposable
             : null;
     }
 
-    internal string? ReadHudText(MaaImageBuffer image, Rectangle area, string expected)
+    internal string? ReadHudText(MaaImageBuffer image, Rectangle area, string expected, bool onlyRec = true)
     {
         var parameters = JsonSerializer.Serialize(new
         {
             roi = new[] { area.X, area.Y, area.Width, area.Height },
-            only_rec = true,
+            only_rec = onlyRec,
             threshold = 0.60,
             expected
         });

@@ -67,10 +67,12 @@ public sealed class GarrisonHudRecognizer(MaaOcrEngine recognition)
         // Match the in-game label first so shop illustrations in menus cannot supply live values.
         var roundArea = new Rectangle(normalizedWidth / 2 - 280, 10, 200, 50);
         var roundAnchor = recognition.FindHudTemplate(frame, roundArea, .78, ["round-modern", "round-classic"]);
-        if (roundAnchor is not { } round) return default;
         // The two label variants can align a couple of pixels apart after downsampling.
-        int? roundValue = ReadNumber(frame, bounds, round, new Rectangle(35, -1, 44, 18), PositiveNumber)
-            ?? ReadNumber(frame, bounds, round, new Rectangle(36, 1, 44, 18), PositiveNumber);
+        int? roundValue = roundAnchor is { } round
+            ? ReadNumber(frame, bounds, round, new Rectangle(35, -1, 44, 18), PositiveNumber)
+                ?? ReadNumber(frame, bounds, round, new Rectangle(36, 1, 44, 18), PositiveNumber)
+            : ReadRoundLabel(frame, roundArea);
+        if (roundAnchor == null && roundValue == null) return default;
 
         var goldArea = new Rectangle(normalizedWidth - 210, 490, 204, 160);
         var goldAnchor = recognition.FindHudTemplate(frame, goldArea, .83, ["gold-modern", "gold-classic"]);
@@ -99,6 +101,14 @@ public sealed class GarrisonHudRecognizer(MaaOcrEngine recognition)
         var badge = recognition.FindHudTemplate(frame, search, .72, ["upgrade-badge"], greenMask: true);
         return badge is { } price
             ? ReadNumber(frame, bounds, price, new Rectangle(6, 3, 24, 21), GoldNumber) : null;
+    }
+
+    private int? ReadRoundLabel(MaaImageBuffer frame, Rectangle area)
+    {
+        // At small window sizes the label can fail template matching while the full text stays readable.
+        var text = recognition.ReadHudText(frame, area, @"^回合\s*[1-9][0-9]?$", onlyRec: false);
+        return text is { Length: > 2 } && int.TryParse(text.AsSpan(2).Trim(),
+            NumberStyles.None, CultureInfo.InvariantCulture, out int value) ? value : null;
     }
 
     private int? ReadNumber(MaaImageBuffer frame, Rectangle bounds, Rectangle anchor, Rectangle relativeArea, string expected)

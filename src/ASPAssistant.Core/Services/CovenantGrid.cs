@@ -10,9 +10,11 @@ internal readonly record struct CovenantGrid(
 
     public static CovenantGrid Overview(OcrTextResult coreTitle, OcrTextResult additionalTitle)
     {
-        // The gap between the headings scales with the grid, including when the whole panel is inset.
-        double sectionHeight = additionalTitle.Box.Y - coreTitle.Box.Y;
-        return new(coreTitle.Box.X - sectionHeight * .05, sectionHeight * .41, sectionHeight * .15,
+        // Compare text centers so a box that includes the icon doesn't stretch the grid.
+        double sectionHeight = additionalTitle.Box.Y + additionalTitle.Box.H / 2.0
+            - coreTitle.Box.Y - coreTitle.Box.H / 2.0;
+        double titleLeft = Math.Max(coreTitle.Box.X, additionalTitle.Box.X);
+        return new(titleLeft - sectionHeight * .05, sectionHeight * .41, sectionHeight * .15,
             sectionHeight * .25, sectionHeight * .25, sectionHeight * .75, sectionHeight * .69);
     }
 
