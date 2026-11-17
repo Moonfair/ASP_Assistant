@@ -63,6 +63,9 @@ public partial class SidePanelWindow : Window
         BanVm = banVm;
 
         InitializeComponent();
+        Loaded += async (_, _) => CannotPortraitImage.Source =
+            await IconLoadQueue.Shared.RequestAsync("icons/strategies/band_cannot.png");
+        CannotSpeechLayer.SizeChanged += (_, _) => PositionCannotSpeech();
         InitializeFilterLayout();
         _preparationResultTimer.Tick += (_, _) => HidePreparationOverlay();
         Closed += (_, _) => _preparationResultTimer.Stop();
@@ -445,12 +448,24 @@ public partial class SidePanelWindow : Window
             MarkerOffsetSaveError.Visibility = saved ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    internal void ConfigureBobVoice(bool available, bool enabled, Action<bool> change, Action preview)
+    {
+        BobVoiceToggle.IsEnabled = BobVoicePreviewButton.IsEnabled = available;
+        BobVoiceToggle.IsChecked = available && enabled;
+        if (!available) BobVoiceStatus.Text = "缺少鲍勃语音文件。请重新完整解压发布包。";
+        BobVoiceToggle.Checked += (_, _) => change(true);
+        BobVoiceToggle.Unchecked += (_, _) => change(false);
+        BobVoicePreviewButton.Click += (_, _) => preview();
+    }
+
     private void SetSettingsVisible(bool visible)
     {
         if (visible) RefreshSettingsLineupAccount();
         else MarkerCalibrationToggle.IsChecked = false;
         SettingsPage.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         MainContent.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
+        if (CannotSpeech.IsVisible)
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(PositionCannotSpeech));
         UpdateFilterHost();
     }
 
@@ -479,9 +494,10 @@ public partial class SidePanelWindow : Window
         _checkingForUpdates = true;
         SettingsCheckUpdateButton.IsEnabled = false;
         SettingsUpdateStatus.Text = "正在检查更新…";
+        UpdateInfo? info;
         try
         {
-            var info = await service.CheckForUpdateAsync(userInitiated: userInitiated);
+            info = await service.CheckForUpdateAsync(userInitiated: userInitiated);
             _pendingUpdate = info;
             UpdateBanner.Visibility = SettingsViewUpdateButton.Visibility = info is null ? Visibility.Collapsed : Visibility.Visible;
             if (info is not null) UpdateBannerText.Text = $"发现新版本 {info.TagName}";
@@ -491,15 +507,21 @@ public partial class SidePanelWindow : Window
         {
             SettingsUpdateStatus.Text = "检查更新失败，请检查网络后重试。";
             AppLogger.Error("Update", "Could not check for updates", ex);
+            return;
         }
         finally
         {
             SettingsCheckUpdateButton.IsEnabled = true;
             _checkingForUpdates = false;
         }
+
+        if (userInitiated && info is not null && IsVisible)
+            ShowPendingUpdate();
     }
 
-    private void OnShowUpdateDialog(object sender, RoutedEventArgs e)
+    private void OnShowUpdateDialog(object sender, RoutedEventArgs e) => ShowPendingUpdate();
+
+    private void ShowPendingUpdate()
     {
         if (_pendingUpdate is null || _updateService is null) return;
         var dialog = new UpdateDialog(_updateService, _pendingUpdate)

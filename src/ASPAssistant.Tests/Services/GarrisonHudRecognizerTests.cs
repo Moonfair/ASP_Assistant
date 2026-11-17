@@ -16,6 +16,8 @@ public sealed class GarrisonHudRecognizerTests : IDisposable
     [InlineData("shop-classic.png", 819)]
     [InlineData("shop-light-theme.png", 1280)]
     [InlineData("shop-light-theme.png", 960)]
+    [InlineData("bob-closure-rest.png", 1280)]
+    [InlineData("bob-closure-rest.png", 960)]
     public async Task ReadsHudAcrossThemesAndResolutions(string file, int width)
     {
         using var source = LoadGameFrame(file);
@@ -51,6 +53,19 @@ public sealed class GarrisonHudRecognizerTests : IDisposable
 
         Assert.Equal(new GarrisonHud(1, 1, 4, 5),
             await new GarrisonHudRecognizer(_ocr).RecognizeAsync(Encode(padded)));
+    }
+
+    [Fact]
+    public async Task RealMaaHudFrameTriggersBobOnlyAfterConfirmation()
+    {
+        var recognizer = new GarrisonHudRecognizer(_ocr);
+        var triggers = new BobVoiceTriggers();
+        using var source = LoadGameFrame("shop-new-skin.png");
+        var png = Encode(source);
+
+        Assert.Null(triggers.Observe(await recognizer.RecognizeAsync(png), []));
+        Assert.Equal(BobVoiceCue.Opening, triggers.Observe(await recognizer.RecognizeAsync(png), []));
+        Assert.Null(triggers.Observe(await recognizer.RecognizeAsync(png), []));
     }
 
     [Fact]

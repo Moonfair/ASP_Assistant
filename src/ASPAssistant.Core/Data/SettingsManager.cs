@@ -38,6 +38,22 @@ public class SettingsManager
     // The small preference is saved synchronously, so closing immediately after a click cannot lose it.
     public void SaveSideFilterLayout(bool sideFilters) => SavePreference("ui", new LayoutPreferences(sideFilters));
 
+    public bool LoadBobVoice()
+    {
+        try
+        {
+            var path = Path.Combine(_settingsDir, "bob-voice.json");
+            return !File.Exists(path) || JsonSerializer.Deserialize<bool>(File.ReadAllText(path));
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("Settings", "Could not read Bob voice preference", ex);
+            return true;
+        }
+    }
+
+    public void SaveBobVoice(bool enabled) => SavePreference("bob-voice", enabled);
+
     public MarkerOffset LoadMarkerOffset()
     {
         try
