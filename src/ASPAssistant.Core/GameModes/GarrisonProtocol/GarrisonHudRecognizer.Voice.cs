@@ -19,7 +19,8 @@ public sealed partial class GarrisonHudRecognizer
         bool victory = recognition.FindHudTemplate(frame, resultArea, .85, ["voice-victory"]) != null;
         bool loss = !victory && recognition.FindHudTemplate(frame, resultArea, .85, ["voice-loss"]) != null;
         bool preparation = !victory && !loss &&
-            recognition.FindHudTemplate(frame, new Rectangle(center - 86, 8, 168, 44), .83, ["voice-rest", "voice-rest-modern"]) != null;
+            recognition.FindHudTemplate(frame, new Rectangle(center - 86, 8, 168, 44), .83,
+                ["voice-rest", "voice-rest-modern", "voice-rest-closure"]) != null;
 
         BobVoiceCue? cue = victory ? BobVoiceCue.BattleVictory : loss ? BobVoiceCue.BattleLoss : null;
         if (preparation && IsReadyPanelVisible(bitmap, right) &&

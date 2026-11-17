@@ -104,6 +104,20 @@ public sealed class GarrisonBattleVoiceTests : IDisposable
         Assert.Null((await Recognize(source)).Voice.BattleCue);
     }
 
+    [Fact]
+    public async Task StartsChatterWhenAttachingToReportedWindowedGame()
+    {
+        using var source = Load("shop-reported-windowed.png");
+        var result = await Recognize(source);
+        var triggers = new BobVoiceTriggers();
+
+        Assert.Equal(3, result.Hud.Round);
+        Assert.True(result.Voice.Preparation);
+        Assert.Null(triggers.Observe(result.Hud, [], result.Voice, TimeSpan.Zero));
+        Assert.Equal(BobVoiceCue.PreparationChatter,
+            triggers.Observe(result.Hud, [], result.Voice, TimeSpan.FromSeconds(31)));
+    }
+
     private Task<(GarrisonHud Hud, GarrisonVoiceFrame Voice)> Recognize(Bitmap image)
     {
         using var stream = new MemoryStream();

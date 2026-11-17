@@ -492,9 +492,10 @@ public partial class SidePanelWindow : Window
         _checkingForUpdates = true;
         SettingsCheckUpdateButton.IsEnabled = false;
         SettingsUpdateStatus.Text = "正在检查更新…";
+        UpdateInfo? info;
         try
         {
-            var info = await service.CheckForUpdateAsync(userInitiated: userInitiated);
+            info = await service.CheckForUpdateAsync(userInitiated: userInitiated);
             _pendingUpdate = info;
             UpdateBanner.Visibility = SettingsViewUpdateButton.Visibility = info is null ? Visibility.Collapsed : Visibility.Visible;
             if (info is not null) UpdateBannerText.Text = $"发现新版本 {info.TagName}";
@@ -504,15 +505,21 @@ public partial class SidePanelWindow : Window
         {
             SettingsUpdateStatus.Text = "检查更新失败，请检查网络后重试。";
             AppLogger.Error("Update", "Could not check for updates", ex);
+            return;
         }
         finally
         {
             SettingsCheckUpdateButton.IsEnabled = true;
             _checkingForUpdates = false;
         }
+
+        if (userInitiated && info is not null && IsVisible)
+            ShowPendingUpdate();
     }
 
-    private void OnShowUpdateDialog(object sender, RoutedEventArgs e)
+    private void OnShowUpdateDialog(object sender, RoutedEventArgs e) => ShowPendingUpdate();
+
+    private void ShowPendingUpdate()
     {
         if (_pendingUpdate is null || _updateService is null) return;
         var dialog = new UpdateDialog(_updateService, _pendingUpdate)
