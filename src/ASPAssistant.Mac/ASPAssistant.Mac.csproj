@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Version>0.1.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ASPAssistant.Core/ASPAssistant.Core.csproj" />
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Native" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Skia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ASPAssistant.Mac.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../data/**" Link="data/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="BuildMacWindowList" AfterTargets="Build" Condition="'$(OS)' != 'Windows_NT'">
+    <Exec Command="swiftc &quot;$(MSBuildProjectDirectory)/Native/window-list.swift&quot; -o &quot;$(TargetDir)aspa-window-list&quot;" />
+    <Exec Command="swiftc &quot;$(MSBuildProjectDirectory)/Native/passport-login.swift&quot; -o &quot;$(TargetDir)aspa-passport-login&quot;" />
+    <Exec Command="clang -arch arm64 -dynamiclib -fobjc-arc -framework AppKit -framework CoreGraphics &quot;$(MSBuildProjectDirectory)/Native/window-position.m&quot; -o &quot;$(TargetDir)libaspa-window.dylib&quot;" />
+  </Target>
+</Project>

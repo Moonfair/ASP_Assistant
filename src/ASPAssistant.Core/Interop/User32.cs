@@ -15,6 +15,7 @@ public struct RECT
     public int Height => Bottom - Top;
 }
 
+#if !NET9_0
 public static class User32
 {
     private delegate bool EnumWindowsCallback(nint window, nint parameter);
@@ -200,3 +201,4 @@ public static class User32
         return info.rcMonitor;
     }
 }
+#endif

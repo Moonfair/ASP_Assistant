@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <ProjectReference Include="../ASPAssistant.Mac/ASPAssistant.Mac.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../ASPAssistant.Tests/TestData/preparation-bans.png;../ASPAssistant.Tests/TestData/preparation-core-bans.png;../ASPAssistant.Tests/TestData/shop-new-skin.png"
+             Link="TestData/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

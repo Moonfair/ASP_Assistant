@@ -3,6 +3,10 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Text;
+#if NET9_0
+using Bitmap = ASPAssistant.Core.Imaging.PortableBitmap;
+using Graphics = ASPAssistant.Core.Imaging.PortableGraphics;
+#endif
 using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Services;
 using MaaFramework.Binding.Buffers;

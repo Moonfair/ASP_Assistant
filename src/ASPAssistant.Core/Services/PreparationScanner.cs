@@ -1,5 +1,8 @@
 using System.Collections.Frozen;
 using System.Drawing;
+#if NET9_0
+using Bitmap = ASPAssistant.Core.Imaging.PortableBitmap;
+#endif
 using System.Text.RegularExpressions;
 using ASPAssistant.Core.Models;
 

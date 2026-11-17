@@ -1,5 +1,9 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+#if NET9_0
+using Bitmap = ASPAssistant.Core.Imaging.PortableBitmap;
+using Graphics = ASPAssistant.Core.Imaging.PortableGraphics;
+#endif
 using System.Text.RegularExpressions;
 
 namespace ASPAssistant.Core.Services;

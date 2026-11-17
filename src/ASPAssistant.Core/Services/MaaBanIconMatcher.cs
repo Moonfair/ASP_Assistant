@@ -101,7 +101,11 @@ public sealed class MaaBanIconMatcher : IDisposable
         if (slot is { } portrait)
         {
             using var input = new MemoryStream(screenshotPng);
+#if NET9_0
+            using var source = new ASPAssistant.Core.Imaging.PortableBitmap(input);
+#else
             using var source = new System.Drawing.Bitmap(input);
+#endif
             using var cropped = source.Clone(portrait, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
             using var output = new MemoryStream();
             cropped.Save(output, System.Drawing.Imaging.ImageFormat.Png);

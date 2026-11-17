@@ -2,6 +2,10 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+#if NET9_0
+using Bitmap = ASPAssistant.Core.Imaging.PortableBitmap;
+using Graphics = ASPAssistant.Core.Imaging.PortableGraphics;
+#endif
 
 namespace ASPAssistant.Core.Services;
 
@@ -15,22 +19,28 @@ public static class BanCardLocator
         using var source = new Bitmap(stream);
         using var canvas = new Bitmap(1920, 1080, PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(canvas)) g.DrawImage(source, 0, 0, 1920, 1080);
+#if NET9_0
+        var pixels = canvas.CopyBgraPixels();
+        int stride = canvas.Width * 4;
+#else
         var bitmapData = canvas.LockBits(new Rectangle(0, 0, 1920, 1080), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
         var pixels = new byte[bitmapData.Stride * 1080];
         Marshal.Copy(bitmapData.Scan0, pixels, 0, pixels.Length);
         canvas.UnlockBits(bitmapData);
+        int stride = bitmapData.Stride;
+#endif
         var mask = new bool[1920 * 1080];
         for (int y = 180; y < 1035; y++)
         for (int x = 250; x < 1330; x++)
         {
-            int p = y * bitmapData.Stride + x * 4;
+            int p = y * stride + x * 4;
             int b = pixels[p], green = pixels[p + 1], red = pixels[p + 2];
             mask[y * 1920 + x] = red > 120 && red > green * 1.55 && Math.Abs(green - b) < 30;
         }
 
         bool Pale(int x, int y)
         {
-            int p = y * bitmapData.Stride + x * 4;
+            int p = y * stride + x * 4;
             int min = Math.Min(pixels[p], Math.Min(pixels[p + 1], pixels[p + 2]));
             int max = Math.Max(pixels[p], Math.Max(pixels[p + 1], pixels[p + 2]));
             return min > 130 && max - min < 65;

@@ -32,7 +32,12 @@ public sealed class GameTargetSelection
         var window = User32.FindArknightsWindow();
         if (window == 0) return null;
         User32.GetWindowThreadProcessId(window, out var pid);
-        return new GameTarget(GameTarget.WindowsId, "Windows 客户端",
+        return new GameTarget(GameTarget.WindowsId,
+#if NET9_0
+            "macOS 客户端",
+#else
+            "Windows 客户端",
+#endif
             GameTargetKind.Windows, window, window, WindowPid: pid);
     }
 

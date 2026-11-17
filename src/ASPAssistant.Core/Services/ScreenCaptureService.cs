@@ -5,6 +5,10 @@ using System.Drawing.Imaging;
 using ASPAssistant.Core.Interop;
 using MaaFramework.Binding;
 using MaaFramework.Binding.Buffers;
+#if NET9_0
+using Bitmap = ASPAssistant.Core.Imaging.PortableBitmap;
+using Graphics = ASPAssistant.Core.Imaging.PortableGraphics;
+#endif
 
 namespace ASPAssistant.Core.Services;
 
@@ -51,6 +55,11 @@ public sealed class ScreenCaptureService : IDisposable
                 Volatile.Write(ref _geometry, null);
                 return null;
             }
+#if NET9_0
+            // Screen-region capture includes overlapping windows; never feed a covered game into OCR.
+            if (target.Kind == GameTargetKind.Windows && User32.GetForegroundWindow() != target.Window)
+                return null;
+#endif
 
             byte[]? image = null;
             if (target.Kind != GameTargetKind.Windows)
@@ -61,6 +70,10 @@ public sealed class ScreenCaptureService : IDisposable
             image ??= await Task.Run(() =>
             {
                 if (target.GetRenderRect() is not { } rect) return null;
+#if NET9_0
+                if (target.Kind == GameTargetKind.Windows && User32.GetForegroundWindow() != target.Window)
+                    return null;
+#endif
                 if (target.Kind != GameTargetKind.Windows)
                 {
                     var captured = CaptureWindow(target, rect);
@@ -137,6 +150,9 @@ public sealed class ScreenCaptureService : IDisposable
 
     private static byte[]? CopyScreen(RECT rect)
     {
+#if NET9_0
+        return MacScreenCapture.CaptureRect(rect);
+#else
         try
         {
             using var bitmap = new Bitmap(rect.Width, rect.Height, PixelFormat.Format32bppArgb);
@@ -149,6 +165,7 @@ public sealed class ScreenCaptureService : IDisposable
             AppLogger.Warn("ScreenCapture", $"Screen copy failed ({ex.NativeErrorCode}): {ex.Message}");
             return null;
         }
+#endif
     }
 
     private static byte[] Encode(Bitmap bitmap)

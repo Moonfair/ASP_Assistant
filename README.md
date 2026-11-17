@@ -3,7 +3,7 @@
   <h1>ASP Assistant</h1>
   <p>明日方舟·卫戍协议 实时辅助工具<br/>由 <a href="https://github.com/MaaXYZ/MaaFramework">MaaFramework</a> 强力驱动！</p>
   <p>
-    <img src="https://img.shields.io/badge/platform-Windows-blue?style=flat-square"/>
+    <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue?style=flat-square"/>
     <img src="https://img.shields.io/badge/.NET-8.0-purple?style=flat-square"/>
     <img src="https://img.shields.io/badge/game-卫戍协议-orange?style=flat-square"/>
     <img src="https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square"/>
@@ -106,6 +106,25 @@ ASP Assistant 是一款用于《明日方舟》**卫戍协议**玩法的透明�
 ---
 
 ## 构建方法
+
+### macOS（Apple Silicon）
+
+需要 macOS 13 或更新版本、.NET 9 SDK、Xcode 命令行工具。打开工程根目录后执行：
+
+```bash
+dotnet test src/ASPAssistant.Mac.Tests/ASPAssistant.Mac.Tests.csproj -c Release
+./scripts/publish-mac.sh
+open publish/mac-arm64/ASPAssistant.app
+```
+
+首次识别原生游戏窗口时，在 macOS「系统设置 → 隐私与安全性 → 屏幕录制」允许 ASP Assistant 截图，然后重新打开应用。连接安卓模拟器时，还需要安装 Android platform-tools，在应用的「设置」中选择本机 ADB 可执行文件、设备和游戏窗口。Mac 数据保存在 `~/Library/Application Support/ASPAssistant`；网站登录信息保存在系统钥匙串。
+
+Mac 版默认自动连接《明日方舟》窗口并跟随其位置；两侧空间不足时，工具窗贴在游戏右侧内沿。可在「设置 → 应用」关闭「跟随游戏窗口」。未授权屏幕录制时仍可连接窗口，但截图识别会暂停，授权后需重新打开应用。
+
+Mac 入口位于 `src/ASPAssistant.Mac`，使用与 Windows 版相同的数据目录和识别核心。`scripts/publish-mac.sh` 会在 `publish/mac-arm64` 生成供本机使用的 `.app`（默认临时签名）；当前包依赖本机 .NET 9 运行时。
+如果有 Apple Development 或 Developer ID 签名证书，可设置 `CODESIGN_IDENTITY` 后再运行打包脚本，让屏幕录制授权在重复构建间保持稳定。
+
+### Windows
 
 ```bash
 # 克隆仓库
