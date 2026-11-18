@@ -181,7 +181,7 @@ public class OcrScannerService : IDisposable
             var trackedNames = _getTrackedNames();
             targetMs = timing.ElapsedMilliseconds - captureMs - preparationMs - hudMs;
             var rawItems = await _shopRecognizer.RecognizeAsync(
-                screenshot, imgWidth, imgHeight, trackedNames, shopRegion);
+                screenshot, imgWidth, imgHeight, trackedNames, shopRegion, hud.ShopLevel.HasValue && hud.Gold.HasValue);
             shopMs = timing.ElapsedMilliseconds - captureMs - preparationMs - hudMs - targetMs;
             if (!IsCurrentTarget) return;
 

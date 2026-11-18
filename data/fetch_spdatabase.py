@@ -436,10 +436,13 @@ def process_covenants(season_data: dict, bond_info_dict: dict) -> dict:
         catalog["jobChangeActivators"] = activators
         catalog["jobChangeEquipment"] = job_change_equipment
 
+    # 极速模拟 also presents a core-group choice when GROUP_SINGLE is absent.
     mode_pools = {
         mode["name"]: {
             **pool(mode["activeBondIdList"]),
-            **({"selectCoreGroup": True} if "GROUP_SINGLE" in mode.get("groupList", []) else {}),
+            **({"selectCoreGroup": True} if (
+                "GROUP_SINGLE" in mode.get("groupList", []) or mode["name"] == "极速模拟"
+            ) else {}),
         }
         for mode in season_data.get("modeDataDict", {}).values()
         if mode.get("activeBondIdList")

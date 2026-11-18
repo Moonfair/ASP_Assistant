@@ -8,6 +8,25 @@ spec.loader.exec_module(fetcher)
 
 
 class CovenantCatalogTests(unittest.TestCase):
+    def test_speed_mode_selects_one_core_group_without_the_single_group_flag(self):
+        season = {
+            "bondInfoDict": {"yan": {}, "egir": {}, "precision": {}},
+            "modeDataDict": {
+                "speed": {"name": "极速模拟", "activeBondIdList": ["yan", "egir", "precision"]},
+            },
+        }
+        bonds = {
+            "yan": {"name": "炎", "bondType": "SEASON"},
+            "egir": {"name": "阿戈尔", "bondType": "SEASON"},
+            "precision": {"name": "精准", "bondType": "REGULAR"},
+        }
+
+        speed = fetcher.process_covenants(season, bonds)["modePools"]["极速模拟"]
+
+        self.assertTrue(speed.get("selectCoreGroup"))
+        self.assertEqual(["炎", "阿戈尔"], speed["coreCovenants"])
+        self.assertEqual(["精准"], speed["additionalCovenants"])
+
     def test_exports_activation_templates_harmony_bonus_and_transformation_pairing(self):
         bonds = {
             key: {"name": name, "bondType": kind}

@@ -18,13 +18,18 @@ public sealed class PreparationMapMatcher(string directory)
         using var graphics = Graphics.FromImage(scaled);
         graphics.InterpolationMode = InterpolationMode.HighQualityBilinear;
         var scores = new Dictionary<int, double>();
-        // Account for the thumbnail border and small client-window scaling differences.
+        // The right-hand preview may be aligned to the top or to the centered design area.
+        double uiHeight = 720 * GarrisonFrameGeometry.UiScale(screenshot.Width, screenshot.Height);
+        double excessHeight = screenshot.Height - uiHeight;
+        var placements = new[] { (0d, (double)screenshot.Height), (0d, uiHeight),
+            (excessHeight / 2, uiHeight) }.Distinct();
+        foreach (var (offset, height) in placements)
         foreach (double left in new[] { .720, .723, .726 })
         foreach (double top in new[] { .176, .181, .186 })
         foreach (double width in new[] { .255, .260, .265 })
         {
-            var area = new RectangleF((float)(screenshot.Width * left), (float)(screenshot.Height * top),
-                (float)(screenshot.Width * width), (float)(screenshot.Height * .260));
+            var area = new RectangleF((float)(screenshot.Width * left), (float)(offset + height * top),
+                (float)(screenshot.Width * width), (float)(height * .260));
             graphics.DrawImage(screenshot, new Rectangle(0, 0, SampleWidth, SampleHeight),
                 area.X, area.Y, area.Width, area.Height, GraphicsUnit.Pixel);
             var pixels = ReadInterior(scaled, 0);

@@ -12,26 +12,29 @@ public sealed class PreparationEnemyRecognizer(IOcrEngine ocr, string mapDirecto
     internal async Task<PreparationEnemyInfo?> ReadAsync(byte[] png, Bitmap image, string? mode, int? knownMap)
     {
         int x = (int)(image.Width * .72);
-        int y = (int)(image.Height * .43);
-        var labels = await ocr.RecognizeRegionAsync(png, x, y, image.Width - x, (int)(image.Height * .41));
+        double height = 720 * GarrisonFrameGeometry.UiScale(image.Width, image.Height);
+        int y = (int)(height * .38);
+        int bottom = (int)(image.Height - height * .16);
+        var labels = await ocr.RecognizeRegionAsync(png, x, y, image.Width - x, bottom - y);
         var header = labels.FirstOrDefault(text => Compact(text.Text).Contains("敌方领袖", StringComparison.Ordinal));
         if (header == null) return null;
 
-        double height = image.Height;
         // The labels can wrap or be split by the mouse pointer.
-        var nameLabels = labels.Where(text => text.Box.X > image.Width * .79 &&
+        double textLeft = header.Box.X - header.Box.H * 1.8;
+        var nameLabels = labels.Where(text => text.Box.X > textLeft &&
             CenterY(text) > CenterY(header) + height * .026 && CenterY(text) < CenterY(header) + height * .12)
             .OrderBy(CenterY).ThenBy(text => text.Box.X);
         string boss = CanonicalBoss(Compact(string.Concat(nameLabels.Select(text => text.Text))));
-        var types = Enumerable.Range(0, 3)
-            .Select(row =>
+        var typeLabels = labels.Where(text => text.Box.X > textLeft &&
+            CenterY(text) > CenterY(header) + height * .12 && CenterY(text) < CenterY(header) + height * .4).ToList();
+        // Anchor rows to the detected training labels; compact panels reduce the row spacing.
+        var types = typeLabels.Where(t => Compact(t.Text).Contains("特训", StringComparison.Ordinal))
+            .OrderBy(CenterY).Select(label =>
             {
-                double center = CenterY(header) + height * (.174 + row * .070);
-                var line = string.Concat(labels.Where(text => text.Box.X > image.Width * .79 &&
-                    Math.Abs(CenterY(text) - center) <= height * .029)
-                    .OrderBy(text => text.Box.X).Select(text => Compact(text.Text)));
+                string line = string.Concat(typeLabels.Where(t => Math.Abs(CenterY(t) - CenterY(label)) <= label.Box.H * .65)
+                    .OrderBy(t => t.Box.X).Select(t => Compact(t.Text)));
                 return EnemyTypes.FirstOrDefault(type => line.EndsWith(type, StringComparison.Ordinal));
-            }).OfType<string>().Distinct().ToArray();
+            }).OfType<string>().Distinct().Take(3).ToArray();
 
         return new(boss.Length > 0 ? boss : null, types, knownMap ?? _mapMatcher.Match(image), mode);
     }
@@ -43,8 +46,8 @@ public sealed class PreparationEnemyRecognizer(IOcrEngine ocr, string mapDirecto
     {
         "假想敌：统" or "假想敌：銃" => "假想敌：铳",
         "假想敌：鰭" => "假想敌：鳍",
-        "萨米的意志" or "“萨米的意志”" or "\"萨米的意志\"" => "“萨米的意志”",
-        "阿利斯泰尔,帝国余晖" => "阿利斯泰尔，帝国余晖",
+        "萨米的意志" or "“萨米的意志”" or "\"萨米的意志\"" or "“萨光的意志”" or "“萨的意志”" => "“萨米的意志”",
+        "阿利斯泰尔,帝国余晖" or "阿利斯泰尔，帝国余" or "阿利斯泰尔,帝国余" => "阿利斯泰尔，帝国余晖",
         var text => text
     };
 }

@@ -1,9 +1,7 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
+using static ASPAssistant.Core.Services.GarrisonFrameGeometry;
 using System.Globalization;
 using System.Text;
-using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Services;
 using MaaFramework.Binding.Buffers;
 
@@ -18,13 +16,13 @@ public readonly record struct GarrisonVoiceFrame(int? Health = null, bool Prepar
 
 public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
 {
-    private const int ReferenceWidth = 1280;
+    private double _lastHudScale = 1;
     private const int ReferenceHeight = 720;
     private const string PositiveNumber = "^[1-9][0-9]?$";
     private const string GoldNumber = "^(0|[1-9][0-9]{0,2})$";
     private const string RomanNumber = "^[IVivl1/|ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]{1,4}$";
 
-    private enum LevelGlyph { LightRoman, DarkRoman, Arabic }
+    private enum LevelGlyph { LightRoman, DarkRoman, CyanRoman, Arabic }
 
     private readonly record struct ShopPreset(string Template, double Threshold, Rectangle Level,
         Point BadgeOffset, LevelGlyph Glyph);
@@ -33,6 +31,7 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
     [
         new("level-light", .84, new Rectangle(0, 18, 49, 28), new Point(5, -38), LevelGlyph.DarkRoman),
         new("level-modern", .82, new Rectangle(5, 24, 65, 61), new Point(20, -26), LevelGlyph.LightRoman),
+        new("level-terminal", .84, new Rectangle(-6, 18, 65, 44), new Point(8, -48), LevelGlyph.CyanRoman),
         new("level-classic", .84, new Rectangle(-9, 13, 60, 49), new Point(2, -48), LevelGlyph.Arabic)
     ];
 
@@ -58,10 +57,12 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
         using var input = new MemoryStream(png);
         using var source = new Bitmap(input);
         var sourceBounds = new Rectangle(Point.Empty, source.Size);
-        var viewport = FindViewport(source, sourceBounds);
-        int normalizedWidth = (int)Math.Round(viewport.Width * (double)ReferenceHeight / viewport.Height);
-        if (normalizedWidth < 900 || normalizedWidth > 2200) return default;
-        var bounds = new Rectangle(0, 0, normalizedWidth, ReferenceHeight);
+        var viewport = Viewport(source);
+        double aspect = (double)viewport.Width / viewport.Height;
+        if (aspect < 1.25 || aspect > 2200.0 / ReferenceHeight) return default;
+        double uiScale = UiScale(viewport.Width, viewport.Height);
+        var bounds = new Rectangle(0, 0, (int)Math.Round(viewport.Width / uiScale),
+            (int)Math.Round(viewport.Height / uiScale));
         using var normalized = viewport == sourceBounds && viewport.Size == bounds.Size
             ? null : Resize(source, viewport, bounds);
 
@@ -69,37 +70,80 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
         var pixels = normalized == null ? png : Encode(normalized);
         if (!frame.TrySetEncodedData(pixels)) return default;
 
+        var bitmap = normalized ?? source;
+        var hud = ReadHud(frame, bitmap, bounds.Size, 1);
+        if (!hud.Round.HasValue)
+        {
+            // HUD skins can change widget size independently of the game viewport.
+            // Recheck each candidate on this frame, keeping only the successful search order.
+            foreach (double scale in new[] { _lastHudScale, 1.1, .9, 1.2, .8 }.Distinct().Where(scale => scale != 1))
+            {
+                var roundArea = new Rectangle(bounds.Width / 2 - 280, 10, 200, 50);
+                var probeBounds = new Rectangle(0, 0, (int)Math.Round(roundArea.Width * scale),
+                    (int)Math.Round(roundArea.Height * scale));
+                using var probe = Resize(bitmap, roundArea, probeBounds);
+                using var probeFrame = new MaaImageBuffer();
+                if (!probeFrame.TrySetEncodedData(Encode(probe)) ||
+                    !ReadRound(probeFrame, probeBounds, probeBounds).Value.HasValue) continue;
+
+                var scaledBounds = new Rectangle(0, 0, (int)Math.Round(bounds.Width * scale), (int)Math.Round(bounds.Height * scale));
+                using var scaled = Resize(bitmap, bounds, scaledBounds);
+                using var scaledFrame = new MaaImageBuffer();
+                if (!scaledFrame.TrySetEncodedData(Encode(scaled))) continue;
+                var candidate = ReadHud(scaledFrame, scaled, bounds.Size, scale);
+                if (!candidate.Round.HasValue) continue;
+                hud = new(candidate.Round, candidate.ShopLevel ?? hud.ShopLevel,
+                    candidate.Gold ?? hud.Gold, candidate.UpgradeCost ?? hud.UpgradeCost);
+                _lastHudScale = scale;
+                break;
+            }
+        }
+
+        var voice = includeVoice && hud.Round.HasValue ? ReadVoiceFrame(frame, bitmap, bounds) : default;
+        return (hud, voice);
+    }
+
+    private GarrisonHud ReadHud(MaaImageBuffer frame, Bitmap bitmap, Size layout, double scale)
+    {
+        var bounds = new Rectangle(Point.Empty, bitmap.Size);
+        Rectangle SearchArea(Rectangle area) => Rectangle.FromLTRB(
+            (int)Math.Round(area.Left * scale), (int)Math.Round(area.Top * scale),
+            (int)Math.Round(area.Right * scale), (int)Math.Round(area.Bottom * scale));
+
         // Match the in-game label first so shop illustrations in menus cannot supply live values.
-        var roundArea = new Rectangle(normalizedWidth / 2 - 280, 10, 200, 50);
-        var roundAnchor = recognition.FindHudTemplate(frame, roundArea, .78, ["round-modern", "round-classic"]);
-        // The two label variants can align a couple of pixels apart after downsampling.
-        int? roundValue = roundAnchor is { } round
-            ? ReadNumber(frame, bounds, round, new Rectangle(35, -1, 44, 18), PositiveNumber)
-                ?? ReadNumber(frame, bounds, round, new Rectangle(36, 1, 44, 18), PositiveNumber)
-            : ReadRoundLabel(frame, roundArea);
-        if (roundAnchor == null && roundValue == null) return default;
+        var roundArea = SearchArea(new Rectangle(layout.Width / 2 - 280, 10, 200, 50));
+        var (roundValue, hasRoundLabel) = ReadRound(frame, bounds, roundArea);
+        if (!hasRoundLabel) return default;
 
-        var voice = includeVoice && roundValue.HasValue
-            ? ReadVoiceFrame(frame, normalized ?? source, bounds)
-            : default;
-
-        var goldArea = new Rectangle(normalizedWidth - 210, 490, 204, 160);
+        var goldArea = SearchArea(new Rectangle(layout.Width - 210, layout.Height - 230, 204, 160));
         var goldAnchor = recognition.FindHudTemplate(frame, goldArea, .83, ["gold-modern", "gold-classic"]);
         int? gold = goldAnchor is { } coin
-            ? ReadNumber(frame, bounds, coin, new Rectangle(26, 0, 42, 22), GoldNumber) : null;
+            ? ReadNumber(frame, bounds, coin, new Rectangle(26, 0, 38, 22), GoldNumber) : null;
 
-        var levelArea = new Rectangle(Math.Max(0, normalizedWidth - 1090), 510, 350, 140);
+        var levelArea = SearchArea(new Rectangle(Math.Max(0, layout.Width - 1090), layout.Height - 210, 350, 140));
         foreach (var preset in ShopPresets)
         {
             if (recognition.FindHudTemplate(frame, levelArea, preset.Threshold, [preset.Template]) is not { } anchor)
                 continue;
             int? level = preset.Glyph == LevelGlyph.Arabic
                 ? ReadNumber(frame, bounds, anchor, preset.Level, "^[1-9]$")
-                : ReadRoman(frame, normalized ?? source, bounds, anchor, preset);
+                : ReadRoman(frame, bitmap, bounds, anchor, preset);
             int? cost = ReadUpgradeCost(frame, bounds, anchor, preset.BadgeOffset);
-            return (new GarrisonHud(roundValue, level, gold, cost), voice);
+            return new(roundValue, level, gold, cost);
         }
-        return (new GarrisonHud(roundValue, null, gold), voice);
+        return new(roundValue, null, gold);
+    }
+
+    private (int? Value, bool HasLabel) ReadRound(MaaImageBuffer frame, Rectangle bounds, Rectangle area)
+    {
+        var anchor = recognition.FindHudTemplate(frame, area, .78, ["round-modern", "round-classic"]);
+        // The two label variants can align a couple of pixels apart after downsampling.
+        int? value = anchor is { } round
+            ? ReadNumber(frame, bounds, round, new Rectangle(35, -1, 44, 18), PositiveNumber)
+                ?? ReadNumber(frame, bounds, round, new Rectangle(36, 1, 44, 18), PositiveNumber)
+                ?? ReadNumber(frame, bounds, round, new Rectangle(46, 0, 25, 17), PositiveNumber)
+            : ReadRoundLabel(frame, area);
+        return (value, anchor.HasValue || value.HasValue);
     }
 
     private int? ReadUpgradeCost(MaaImageBuffer frame, Rectangle bounds, Rectangle anchor, Point offset)
@@ -107,7 +151,7 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
         // Match only the badge rim. The changing price is excluded from the template.
         var search = new Rectangle(anchor.X + offset.X - 8, anchor.Y + offset.Y - 6, 52, 39);
         if (!bounds.Contains(search)) return null;
-        var badge = recognition.FindHudTemplate(frame, search, .72, ["upgrade-badge"], greenMask: true);
+        var badge = recognition.FindHudTemplate(frame, search, .72, ["upgrade-badge", "upgrade-badge-round"], greenMask: true);
         return badge is { } price
             ? ReadNumber(frame, bounds, price, new Rectangle(6, 3, 24, 21), GoldNumber) : null;
     }
@@ -133,7 +177,7 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
         var area = preset.Level;
         area.Offset(anchor.Location);
         if (!bounds.Contains(area)) return null;
-        if (ReadLevelStrokes(bitmap, area, preset.Glyph == LevelGlyph.DarkRoman) is { } strokes)
+        if (ReadLevelStrokes(bitmap, area, preset.Glyph) is { } strokes)
             return strokes;
 
         var text = recognition.ReadHudText(frame, area, RomanNumber)?.Normalize(NormalizationForm.FormKC)
@@ -147,7 +191,7 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
     }
 
     // The dark glyph fades out at the bottom, so classify from the rows where the strokes remain visible.
-    private static int? ReadLevelStrokes(Bitmap bitmap, Rectangle area, bool dark)
+    private static int? ReadLevelStrokes(Bitmap bitmap, Rectangle area, LevelGlyph glyph)
     {
         var rows = new List<List<(int Left, int Width)>>(area.Height);
         for (int y = area.Top; y < area.Bottom; y++)
@@ -157,8 +201,12 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
             for (int x = left; x < area.Right; x++)
             {
                 var color = bitmap.GetPixel(x, y);
-                bool foreground = dark ? color.R + color.G + color.B < 450
-                    : color.R >= 150 && color.G >= 150 && color.B >= 150;
+                bool foreground = glyph switch
+                {
+                    LevelGlyph.DarkRoman => color.R + color.G + color.B < 450,
+                    LevelGlyph.CyanRoman => color.G >= 150 && color.B >= 120 && color.G - color.R > 30,
+                    _ => color.R >= 150 && color.G >= 150 && color.B >= 150
+                };
                 if (foreground) continue;
                 if (x - left >= 3) runs.Add((left, x - left));
                 left = x + 1;
@@ -176,7 +224,8 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
             first = runStart;
             height = length;
         }
-        if (height < (dark ? 10 : 16) || height > 32) return null;
+        if (height < (glyph == LevelGlyph.DarkRoman ? 10 : 16) ||
+            height > (glyph == LevelGlyph.CyanRoman ? 40 : 32)) return null;
         var top = rows[first + height / 5];
         var middle = rows[first + height / 2];
         var bottom = rows[first + height - 1 - height / 5];
@@ -233,49 +282,4 @@ public sealed partial class GarrisonHudRecognizer(MaaOcrEngine recognition)
             row[left + 1].Left - row[left].Left - row[left].Width;
     }
 
-    private static Rectangle FindViewport(Bitmap bitmap, Rectangle bounds)
-    {
-        var fitted = GameViewport.Fit(new RECT { Right = bounds.Width, Bottom = bounds.Height },
-            ReferenceWidth, ReferenceHeight);
-        // Preserve wider render surfaces unless both margins actually contain black bars.
-        if (fitted.Top >= 4 &&
-            IsDarkLine(bitmap, fitted.Top - 2, horizontal: true) &&
-            IsDarkLine(bitmap, fitted.Bottom + 1, horizontal: true))
-            return Rectangle.FromLTRB(0, fitted.Top, bounds.Width, fitted.Bottom);
-        if (fitted.Left >= 4 &&
-            IsDarkLine(bitmap, fitted.Left - 2, horizontal: false) &&
-            IsDarkLine(bitmap, fitted.Right + 1, horizontal: false))
-            return Rectangle.FromLTRB(fitted.Left, 0, fitted.Right, bounds.Height);
-        return bounds;
-    }
-
-    private static bool IsDarkLine(Bitmap bitmap, int index, bool horizontal)
-    {
-        int length = horizontal ? bitmap.Width : bitmap.Height;
-        for (int i = 1; i < 16; i++)
-        {
-            int position = length * i / 16;
-            var color = horizontal ? bitmap.GetPixel(position, index) : bitmap.GetPixel(index, position);
-            if (color.R > 12 || color.G > 12 || color.B > 12) return false;
-        }
-        return true;
-    }
-
-    private static Bitmap Resize(Bitmap source, Rectangle viewport, Rectangle bounds)
-    {
-        if (viewport.Size == bounds.Size)
-            return source.Clone(viewport, PixelFormat.Format24bppRgb);
-        var resized = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format24bppRgb);
-        using var graphics = Graphics.FromImage(resized);
-        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        graphics.DrawImage(source, bounds, viewport, GraphicsUnit.Pixel);
-        return resized;
-    }
-
-    private static byte[] Encode(Bitmap bitmap)
-    {
-        using var output = new MemoryStream();
-        bitmap.Save(output, ImageFormat.Png);
-        return output.ToArray();
-    }
 }

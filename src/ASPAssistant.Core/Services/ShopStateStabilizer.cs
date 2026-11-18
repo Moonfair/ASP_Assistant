@@ -14,9 +14,7 @@ namespace ASPAssistant.Core.Services;
 ///    the stable set.  This prevents a single missed frame from triggering a
 ///    fade-out / fade-in flicker.
 ///
-/// <see cref="TryUpdate"/> returns <see langword="true"/> only when the stable set
-/// actually changes (operator added or removed), so callers can skip overlay updates
-/// on no-op scans.
+/// <see cref="TryUpdate"/> reports changes to the stable set or its marker positions.
 /// </summary>
 public sealed class ShopStateStabilizer
 {
@@ -36,11 +34,11 @@ public sealed class ShopStateStabilizer
     /// </summary>
     /// <param name="detectedItems">Raw shop items from the latest detection scan.</param>
     /// <param name="stableItems">
-    /// The current stable set with locked positions.  Only meaningful when the
+    /// The current stable set with updated positions. Only meaningful when the
     /// method returns <see langword="true"/>.
     /// </param>
     /// <returns>
-    /// <see langword="true"/> if the stable operator set changed and the overlay
+    /// <see langword="true"/> if the cards or their positions changed and the overlay
     /// should be updated; <see langword="false"/> if nothing meaningful changed.
     /// </returns>
     public bool TryUpdate(IReadOnlyList<ShopItem> detectedItems, out IReadOnlyList<ShopItem> stableItems)
@@ -53,7 +51,8 @@ public sealed class ShopStateStabilizer
         {
             if (_stable.TryGetValue(item.Id, out var existing))
             {
-                // Card still present — update card boundary and reset miss counter.
+                // Changing only window height can move a card without changing its name or X-based ID.
+                changed |= existing.Item.OcrRegion != item.OcrRegion;
                 _stable[item.Id] = existing with { Item = item, MissCount = 0 };
             }
             else

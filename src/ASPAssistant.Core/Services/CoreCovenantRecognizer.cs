@@ -139,12 +139,27 @@ internal static class CovenantIconClassifier
         int cx = (int)Math.Round(centerX), cy = (int)Math.Round(centerY);
         var icon = Rectangle.FromLTRB(cx - (int)(w * .022), cy - (int)(h * .039),
             cx + (int)(w * .022), cy + (int)(h * .039));
+        var badge = Rectangle.FromLTRB(cx + (int)(w * .013), cy - (int)(h * .060),
+            cx + (int)(w * .034), cy - (int)(h * .019));
+        return Classify(image, icon, badge);
+    }
+
+    internal static bool? IsDisabled(Bitmap image, Rectangle bounds)
+    {
+        double cx = CovenantIconLocator.CenterX(bounds), cy = CovenantIconLocator.CenterY(bounds);
+        var icon = Rectangle.FromLTRB(bounds.Left + (int)(bounds.Width * .06), bounds.Top + (int)(bounds.Height * .06),
+            bounds.Right - (int)(bounds.Width * .06), bounds.Bottom - (int)(bounds.Height * .06));
+        var badge = Rectangle.FromLTRB((int)(cx + bounds.Width * .26), (int)(cy - bounds.Height * .75),
+            (int)(cx + bounds.Width * .70), (int)(cy - bounds.Height * .20));
+        return Classify(image, icon, badge);
+    }
+
+    private static bool? Classify(Bitmap image, Rectangle icon, Rectangle badge)
+    {
         double cyan = Fraction(image, icon, c => c.G > 100 && c.G - c.R > 45 && c.B - c.R > 25);
         if (cyan >= .18) return false;
         double gray = Fraction(image, icon, c => Math.Min(c.R, Math.Min(c.G, c.B)) > 80
             && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) < 65);
-        var badge = Rectangle.FromLTRB(cx + (int)(w * .013), cy - (int)(h * .060),
-            cx + (int)(w * .034), cy - (int)(h * .019));
         double white = Fraction(image, badge, c => Math.Min(c.R, Math.Min(c.G, c.B)) > 140
             && Math.Max(c.R, Math.Max(c.G, c.B)) - Math.Min(c.R, Math.Min(c.G, c.B)) < 50);
         return cyan < .04 && gray > .07 && white > .07 ? true : null;

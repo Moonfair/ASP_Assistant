@@ -8,7 +8,7 @@ internal readonly record struct CovenantGrid(
         new(width * .046875, width * .0671875, width * .025, height * .075,
             height * .07, height * .219, height * .20);
 
-    public static CovenantGrid Overview(OcrTextResult coreTitle, OcrTextResult additionalTitle)
+    public static CovenantGrid FromSectionTitles(OcrTextResult coreTitle, OcrTextResult additionalTitle)
     {
         // Compare text centers so a box that includes the icon doesn't stretch the grid.
         double sectionHeight = additionalTitle.Box.Y + additionalTitle.Box.H / 2.0
@@ -20,4 +20,8 @@ internal readonly record struct CovenantGrid(
 
     public double ColumnCenter(int column) => FirstColumn + column * ColumnSpacing;
     public int NearestColumn(double x) => (int)Math.Round((x - FirstColumn) / ColumnSpacing);
+
+    public bool HasMatchingColumns(CovenantGrid other, int count) => count <= 0 ||
+        (Math.Abs(FirstColumn - other.FirstColumn) <= ColumnTolerance &&
+         Math.Abs(ColumnCenter(count - 1) - other.ColumnCenter(count - 1)) <= ColumnTolerance);
 }

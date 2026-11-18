@@ -312,7 +312,8 @@
         "协防干员",
         "聚合",
         "奥术"
-      ]
+      ],
+      "selectCoreGroup": true
     },
     "规程等级1": {
       "coreCovenants": [

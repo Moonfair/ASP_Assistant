@@ -10,6 +10,29 @@ public sealed class GarrisonHudRecognizerTests : IDisposable
 {
     private readonly MaaOcrEngine _ocr = new(Path.Combine(AppContext.BaseDirectory, "data"));
 
+    [Fact]
+    public async Task ReadsTheLiveDefaultThemeIncludingItsCyanRomanLevel()
+    {
+        var png = PreparationScannerTests.Frame("shop-default-live.png");
+
+        var result = await new GarrisonHudRecognizer(_ocr).RecognizeAsync(png);
+
+        Assert.Equal(new GarrisonHud(1, 1, 6, 1), result);
+    }
+
+    [Theory]
+    [InlineData(1012)]
+    [InlineData(1280)]
+    public async Task ReadsTheReportedCompactHudWithoutLosingAllFields(int width)
+    {
+        using var source = LoadGameFrame("shop-reported-small-hud.png");
+        using var scaled = new Bitmap(source, width, (int)Math.Round(source.Height * (double)width / source.Width));
+
+        var result = await new GarrisonHudRecognizer(_ocr).RecognizeAsync(Encode(scaled));
+
+        Assert.Equal(new GarrisonHud(2, 1, 5, 4), result);
+    }
+
     [Theory]
     [InlineData("shop-new-skin.png", 1280)]
     [InlineData("shop-new-skin.png", 960)]

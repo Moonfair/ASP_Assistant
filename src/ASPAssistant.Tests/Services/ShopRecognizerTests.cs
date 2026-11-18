@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Services;
 using FluentAssertions;
 using Moq;
@@ -7,6 +8,24 @@ namespace ASPAssistant.Tests.Services;
 
 public class ShopRecognizerTests
 {
+    [Fact]
+    public async Task ReadsTheReportedWindowedShopIncludingBothMeteorCards()
+    {
+        var data = Path.Combine(AppContext.BaseDirectory, "data");
+        var store = new JsonDataStore(data);
+        var operators = await store.LoadOperatorsAsync();
+        var (equipment, _) = await store.LoadEquipmentAsync();
+        var names = operators.Select(op => op.Name).Concat(equipment.Select(item => item.Name)).ToArray();
+        using var ocr = new MaaOcrEngine(data);
+        var png = PreparationScannerTests.Frame("shop-reported-small-hud.png");
+        var (width, height) = ScreenCaptureService.GetPngSize(png);
+
+        var items = await new ShopRecognizer(ocr, names).RecognizeAsync(png, width, height, names, Region);
+
+        items.Select(item => item.Name).Should().Equal("虹彩活血饮料", "陨星", "灰喉", "陨星");
+        items.Select(item => item.Id).Should().OnlyHaveUniqueItems();
+    }
+
     private static IReadOnlyList<OcrTextResult> ReportedTexts => JsonSerializer.Deserialize<List<OcrTextResult>>(
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", "shop-new-skin-ocr.json")),
         new JsonSerializerOptions { IncludeFields = true })!;

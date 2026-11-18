@@ -1,4 +1,5 @@
 using System.Drawing;
+using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Services;
 using FluentAssertions;
 
@@ -7,6 +8,26 @@ namespace ASPAssistant.Tests.Services;
 public class ReportedCovenantRecognitionTests
 {
     private const string FileName = "preparation-reported-incomplete.png";
+
+    [Fact]
+    public async Task RecognizesBansFromTheReportedInsetPreparationGrid()
+    {
+        var data = Path.Combine(AppContext.BaseDirectory, "data");
+        var catalog = await new JsonDataStore(data).LoadCovenantCatalogAsync();
+        using var ocr = new MaaOcrEngine(data);
+        var scanner = new PreparationScanner(ocr, [], covenantCatalog: catalog);
+
+        await scanner.ProcessAsync(PreparationScannerTests.Frame("preparation-reported-547p.png"));
+
+        scanner.Phase.Should().Be(PreparationPhase.Information);
+        scanner.CovenantAvailability.Should().NotBeNull(scanner.Status);
+        var pool = catalog.ModePools["终极模拟"];
+        pool.CoreCovenants.Except(scanner.CovenantAvailability!.EnabledCore).Should()
+            .BeEquivalentTo("维多利亚", "叙拉古", "乌萨斯", "伊比利亚", "莱塔尼亚");
+        pool.AdditionalCovenants.Except(scanner.CovenantAvailability.EnabledAdditional).Should()
+            .BeEquivalentTo("灵巧", "坚守", "助力", "突袭", "聚合");
+    }
+
     // Native OCR from the user's failing windowed screenshot: a green 阿戈尔 is read as 阿尔.
     internal static IReadOnlyList<OcrTextResult> Texts => [
         new("核心盟约", (64, 136, 106, 30)), new("附加盟约", (64, 344, 104, 33)),

@@ -15,7 +15,7 @@ public sealed partial class GarrisonHudRecognizer
         if (HasClosureRoundBadge(bitmap, center))
             return ReadClosureVoiceFrame(frame, bitmap, center, right);
 
-        var resultArea = new Rectangle(center - 240, 288, 212, 122);
+        var resultArea = new Rectangle(center - 240, bitmap.Height / 2 - 72, 212, 122);
         bool victory = recognition.FindHudTemplate(frame, resultArea, .85, ["voice-victory"]) != null;
         bool loss = !victory && recognition.FindHudTemplate(frame, resultArea, .85, ["voice-loss"]) != null;
         bool preparation = !victory && !loss &&
@@ -39,7 +39,7 @@ public sealed partial class GarrisonHudRecognizer
     private GarrisonVoiceFrame ReadOrangeVoiceFrame(MaaImageBuffer frame, Bitmap bitmap, int center, int right)
     {
         // Match the result subtitles so the portrait and the variable damage number do not influence the outcome.
-        var resultArea = new Rectangle(center - 29, 382, 148, 44);
+        var resultArea = new Rectangle(center - 29, bitmap.Height / 2 + 22, 148, 44);
         if (recognition.FindHudTemplate(frame, resultArea, .87, ["voice-victory-orange"]) != null)
             return new GarrisonVoiceFrame(BattleCue: BobVoiceCue.BattleVictory);
         if (recognition.FindHudTemplate(frame, resultArea, .87, ["voice-loss-orange"]) != null)
@@ -108,7 +108,7 @@ public sealed partial class GarrisonHudRecognizer
 
     private GarrisonVoiceFrame ReadClosureVoiceFrame(MaaImageBuffer frame, Bitmap bitmap, int center, int right)
     {
-        var resultArea = new Rectangle(center + 38, 363, 142, 49);
+        var resultArea = new Rectangle(center + 38, bitmap.Height / 2 + 3, 142, 49);
         if (recognition.FindHudTemplate(frame, resultArea, .87, ["voice-victory-closure"]) != null)
             return new GarrisonVoiceFrame(BattleCue: BobVoiceCue.BattleVictory);
         if (recognition.FindHudTemplate(frame, resultArea, .87, ["voice-loss-closure"]) != null)
