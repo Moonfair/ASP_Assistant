@@ -529,6 +529,7 @@ public class LineupInteractionTests
                 tracking.LoadEntries([new TrackingEntry { Name = "角峰", Type = TrackingType.Operator }]);
                 var view = new LineupView { DataContext = library, Tracking = tracking };
                 view.TrackRequested += item => tracking.TrackLineup(item);
+                view.UntrackRequested += item => tracking.UntrackLineup(item);
                 var cards = (ItemsControl)view.FindName("LineupCards");
                 Layout(view, 278, 500);
 
@@ -544,15 +545,18 @@ public class LineupInteractionTests
 
                 var button = TrackButton(lineup);
                 CheckLabel(button, "追踪");
-                tracking.AddTracking("地灵", TrackingType.Operator);
-                CheckLabel(button, "追踪中");
                 CheckLabel(TrackButton(strategyOnly), "追踪");
                 button.IsEnabled.Should().BeTrue();
+
                 button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                CheckLabel(button, "追踪中");
                 tracking.TrackedEquipment.Should().ContainSingle(entry => entry.Name == "长剑");
 
-                tracking.RemoveTracking("地灵");
+                // Same button untracks in place instead of piling a second strategy on top.
+                button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 CheckLabel(button, "追踪");
+                tracking.AllEntries.Should().BeEmpty();
+
                 tracking.AddTracking("地灵", TrackingType.Equipment);
                 CheckLabel(button, "追踪");
                 tracking.LoadEntries([new TrackingEntry { Name = "角峰", Type = TrackingType.Operator },
