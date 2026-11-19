@@ -1,0 +1,118 @@
+<UserControl x:Class="ASPAssistant.App.Views.MatchView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource PanelBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Resources/LineupStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="FieldLabel" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                <Setter Property="Margin" Value="0,10,0,4" />
+            </Style>
+            <Style x:Key="PrimaryAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Tag" Value="tracked" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <DockPanel x:Name="Page" Margin="12" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                <DockPanel>
+                    <TextBlock x:Name="Countdown" DockPanel.Dock="Right" Visibility="Collapsed" Margin="5,0,0,0"
+                               VerticalAlignment="Center" FontSize="17" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                    <TextBlock x:Name="Heading" Text="组队匹配" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                </DockPanel>
+                <TextBlock x:Name="Description" Visibility="Collapsed" Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,4,0,0" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom">
+                <TextBlock x:Name="Feedback" Visibility="Collapsed" Margin="0,5" TextWrapping="Wrap"
+                           Foreground="{StaticResource AccentBrush}" AutomationProperties.LiveSetting="Polite" />
+                <Grid Margin="0,5,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="JoinButton" Content="发起匹配" Click="OnJoin" IsEnabled="False" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="ConfirmButton" Content="确认匹配" Click="OnConfirm" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="SendInvitationButton" Content="提交邀请文本" Click="OnSendInvitation" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="ReadyButton" Content="我已就位" Click="OnReady" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="MarkButton" Content="开始标记" Click="OnMark" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="LeaveButton" Grid.Column="1" Content="退出房间" Click="OnAskLeave" Margin="6,0,0,0" Visibility="Collapsed" />
+                </Grid>
+            </StackPanel>
+
+            <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <StackPanel x:Name="Profile">
+                        <TextBlock x:Name="NicknameLabel" Text="昵称" Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="Nickname" AutomationProperties.Name="昵称" MaxLength="32" TextChanged="OnInputChanged"
+                                 LostKeyboardFocus="OnNicknameLostFocus" KeyDown="OnNicknameKeyDown" />
+                    </StackPanel>
+                    <StackPanel x:Name="Preferences">
+                        <TextBlock Text="擅长的策略（必选）" Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="StrategyPicker" IsEditable="True" IsReadOnly="True" MaxDropDownHeight="240"
+                                  AutomationProperties.Name="擅长的策略" SelectionChanged="OnInputChanged" />
+                        <TextBlock Text="意向的盟约" Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="CovenantPicker" IsEditable="True" IsReadOnly="True" MaxDropDownHeight="240" AutomationProperties.Name="意向的盟约" />
+                        <TextBlock Text="意向的战术策略" Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="TacticPicker" IsEditable="True" IsReadOnly="True" AutomationProperties.Name="意向的战术策略" />
+                    </StackPanel>
+                    <StackPanel x:Name="CreateRoom" Visibility="Collapsed">
+                        <TextBlock Text="房间邀请文本" Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="InvitationDraft" MinHeight="62" MaxHeight="110" AcceptsReturn="True" MaxLength="1024"
+                                 VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" TextChanged="OnInputChanged" AutomationProperties.Name="房间邀请文本" />
+                        <Button x:Name="PasteButton" Content="一键粘贴" Click="OnPaste" HorizontalAlignment="Right" Margin="0,4,0,6" />
+                    </StackPanel>
+                    <StackPanel x:Name="PublishedRoom" Visibility="Collapsed">
+                        <TextBlock Text="房间邀请文本" Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="PublishedInvitation" IsReadOnly="True" MaxHeight="100" VerticalScrollBarVisibility="Auto"
+                                 TextWrapping="Wrap" AutomationProperties.Name="已发布的房间邀请文本" />
+                        <Button x:Name="CopyButton" Content="一键复制" Click="OnCopy" HorizontalAlignment="Right" Margin="0,4,0,6" />
+                    </StackPanel>
+                    <DockPanel x:Name="RosterHeading" Visibility="Collapsed" Margin="0,6,0,4">
+                        <Button x:Name="MuteAllButton" DockPanel.Dock="Right" Content="屏蔽所有人" Click="OnMuteAll" Padding="7,3" Visibility="Collapsed" />
+                        <TextBlock Text="队伍成员" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ItemsControl x:Name="Roster">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource ItemCardBorder}" Padding="8,5">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="{Binding MuteLabel}" Tag="{Binding Id}" Click="OnMuteMember"
+                                                    AutomationProperties.Name="{Binding MuteDescription}" Padding="6,2"
+                                                    Visibility="{Binding MuteVisibility}" />
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="{Binding Color}" FontWeight="Bold" TextWrapping="Wrap" />
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding Preferences}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Status}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button x:Name="EditProfileButton" Content="修改昵称" Click="OnEditProfile" Visibility="Collapsed"
+                            HorizontalAlignment="Left" Margin="0,4,0,0" Padding="6,3" />
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+
+        <Border x:Name="LeavePrompt" Visibility="Collapsed" Background="#DF121222" Padding="12"
+                KeyboardNavigation.TabNavigation="Cycle">
+            <Border VerticalAlignment="Center" Style="{StaticResource ItemCardBorder}" Padding="14">
+                <StackPanel>
+                    <TextBlock x:Name="LeaveQuestion" Text="确定退出房间吗？" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <UniformGrid Columns="2" Margin="0,14,0,0">
+                        <Button x:Name="StayButton" Content="留下" Click="OnStay" Margin="0,0,4,0" />
+                        <Button x:Name="ApproveLeaveButton" Content="确认退出" Click="OnLeave" Margin="4,0,0,0" />
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

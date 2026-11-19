@@ -7,6 +7,7 @@ using ASPAssistant.App.Windows;
 using ASPAssistant.Core;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.GameModes.GarrisonProtocol;
+using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
@@ -22,6 +23,7 @@ public partial class App : Application
     private SettingsManager? _settingsManager;
     private LineupActivation? _activation;
     private LineupSiteClient? _lineupSite;
+    private MatchSession? _match;
     private BobVoicePlayer? _bobVoice;
     private readonly TaskCompletionSource<SidePanelWindow> _readyForActivation = new();
     private Task _trackingSave = Task.CompletedTask;
@@ -189,6 +191,10 @@ public partial class App : Application
         _sidePanel.ConfigureCatalogDetails(catalogDetails, () => dataStore.LoadSelfSelectedSkillsAsync(catalogDetails.Season));
         _overlay = new OverlayWindow(_settingsManager);
         _sidePanel.ConfigureMarkerCalibration(_overlay);
+        _match = new MatchSession(_lineupSite);
+        _overlay.ConfigureMatch(_match, () => _sidePanel.IsActive || _gameTarget.Current is { } target &&
+            User32.GetRootWindow(User32.GetForegroundWindow()) == target.Window);
+        _sidePanel.ConfigureMatch(_match, _settingsManager, strategies, covenantCatalog, _overlay);
         ConfigureGameSource();
 
         var bobVoice = _bobVoice = new BobVoicePlayer(Path.Combine(dataDir, "voice", "bob"));
@@ -251,8 +257,9 @@ public partial class App : Application
                 _overlay.SetTarget(target);
                 var viewport = captureService.GetViewport(target);
                 var calibratingFromPanel = _overlay.IsCalibratingMarkers && _sidePanel.IsActive;
+                var playingFromPanel = _match.State?.Phase == "playing" && _sidePanel.IsActive;
                 if (viewport == null || (target.Kind != GameTargetKind.Windows &&
-                        !_windowTracker.IsGameFocused && !calibratingFromPanel))
+                        !_windowTracker.IsGameFocused && !calibratingFromPanel && !playingFromPanel))
                     _overlay.Hide();
                 else
                     _overlay.UpdatePosition(viewport.Value);
@@ -361,6 +368,7 @@ public partial class App : Application
         AppLogger.Info("App", "Shutting down");
         _readyForActivation.TrySetCanceled();
         _activation?.Dispose();
+        _match?.CloseForAppExit();
         _lineupSite?.Dispose();
         StopGameSource();
         _ocrScanner?.Dispose();

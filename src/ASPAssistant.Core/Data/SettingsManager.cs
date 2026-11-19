@@ -54,6 +54,22 @@ public class SettingsManager
 
     public void SaveBobVoice(bool enabled) => SavePreference("bob-voice", enabled);
 
+    public string LoadMatchNickname()
+    {
+        try
+        {
+            var path = Path.Combine(_settingsDir, "match-nickname.json");
+            return File.Exists(path) ? JsonSerializer.Deserialize<string>(File.ReadAllText(path)) ?? "" : "";
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("Settings", "Could not read match nickname", ex);
+            return "";
+        }
+    }
+
+    public void SaveMatchNickname(string nickname) => SavePreference("match-nickname", nickname.Trim());
+
     public MarkerOffset LoadMarkerOffset()
     {
         try

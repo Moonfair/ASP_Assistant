@@ -49,11 +49,14 @@ public partial class OverlayWindow : Window
     {
         if (ReferenceEquals(_target, target)) return;
         EndMarkerDrag(save: false);
+        ResetMatchInput();
+        _bounds = null;
         _target = target;
         _markerPool.Clear();
         _banMarkerPool.Clear();
         HideBanInstructionOverlay();
         OverlayCanvas.Children.Clear();
+        if (_inkLayer != null) OverlayCanvas.Children.Add(_inkLayer);
     }
 
     public void UpdatePosition(RECT gameClientRect)
@@ -256,6 +259,7 @@ public partial class OverlayWindow : Window
         container.Opacity = 0;
         OverlayCanvas.Children.Add(container);
         _banInstructionLayer = container;
+        RefreshMatchInput();
 
         container.BeginAnimation(OpacityProperty,
             new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)));

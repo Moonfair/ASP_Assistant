@@ -98,6 +98,11 @@ public static class User32
     public static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int virtualKey);
+
+    public static bool IsControlPressed() => (GetAsyncKeyState(0x11) & 0x8000) != 0;
+
+    [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool IsWindow(IntPtr hWnd);
 

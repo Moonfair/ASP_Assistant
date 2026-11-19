@@ -22,6 +22,7 @@ public partial class OverlayWindow
     {
         if (!enabled) EndMarkerDrag(save: false);
         IsCalibratingMarkers = enabled;
+        RefreshMatchInput();
         RefreshMarkerInput();
     }
 
@@ -66,7 +67,7 @@ public partial class OverlayWindow
 
     private void RefreshMarkerInput()
     {
-        SetClickThrough(!IsCalibratingMarkers && _banInstructionLayer == null);
+        SetClickThrough(!IsMatchMarking && !IsCalibratingMarkers && _banInstructionLayer == null);
         OverlayCanvas.Cursor = IsCalibratingMarkers && _banInstructionLayer == null ? Cursors.SizeAll : null;
     }
 

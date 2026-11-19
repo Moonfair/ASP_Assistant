@@ -108,13 +108,13 @@ internal sealed partial class LineupSiteClient : IDisposable
             using var response = await _http.SendAsync(request, deadline.Token);
             if (!response.IsSuccessStatusCode)
             {
-                if (token is not null && response.StatusCode == HttpStatusCode.Unauthorized)
+                if (token is not null && _session?.Token == token && response.StatusCode == HttpStatusCode.Unauthorized)
                 {
-                    if (_session?.Token == token) await StoreSessionAsync(null);
+                    await StoreSessionAsync(null);
                     throw new LineupSiteException("登录已失效，请重新登录卫戍阵容库。");
                 }
                 var error = await response.Content.ReadFromJsonAsync<ApiError>(deadline.Token);
-                throw new LineupSiteException(error?.Error ?? "阵容库暂时无法处理请求，请稍后重试。");
+                throw new LineupSiteException(error?.Error ?? "阵容库暂时无法处理请求，请稍后重试。", response.StatusCode);
             }
             return await response.Content.ReadFromJsonAsync<T>(deadline.Token)
                 ?? throw new LineupSiteException("阵容库响应为空，请稍后重试。");
@@ -164,4 +164,7 @@ internal sealed partial class LineupSiteClient : IDisposable
     private sealed record Session(string Email, string Token, long ExpiresAt);
 }
 
-internal sealed class LineupSiteException(string message) : Exception(message);
+internal sealed class LineupSiteException(string message, HttpStatusCode? status = null) : Exception(message)
+{
+    public HttpStatusCode? Status { get; } = status;
+}
