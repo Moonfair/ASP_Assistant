@@ -25,28 +25,34 @@ public class MatchSessionTests
         finally { path.Delete(true); }
     }
 
-    [Fact]
-    public async Task LostJoinResponseCanRecoverWithTheSameTicketAndNextMatchGetsANewTicket()
+    [Theory]
+    [InlineData(null, "join")]
+    [InlineData("卫戍协议\n房间 A", "join-room")]
+    public async Task LostJoinResponseCanRecoverWithTheSameTicketAndNextMatchGetsANewTicket(string? invitation, string expectedAction)
     {
         var attempts = new List<string>();
         bool lost = true;
-        using var client = new LineupSiteClient("", new Handler((action, token, _) =>
+        using var client = new LineupSiteClient("", new Handler((action, token, body) =>
         {
             attempts.Add(token);
-            if (attempts.Count == 2) Assert.Equal("join", action);
+            if (attempts.Count <= 2)
+            {
+                Assert.Equal(expectedAction, action);
+                if (invitation is not null) Assert.Equal(invitation, body.GetProperty("invitation").GetString());
+            }
             if (lost)
             {
                 lost = false;
                 throw new HttpRequestException("connection lost");
             }
-            return Reply(action == "leave" ? "ended" : "queued");
+            return Reply(action switch { "leave" => "ended", "join-room" => "joining", _ => "queued" });
         }));
         using var session = new MatchSession(client);
-        await session.JoinAsync("测试", "策略", "随便", "随便");
+        await session.JoinAsync("测试", "策略", "随便", "随便", invitation);
         Assert.NotNull(session.Error);
         Assert.Equal("recovering", session.State?.Phase);
         await session.RefreshAsync();
-        Assert.Equal("queued", session.State?.Phase);
+        Assert.Equal(invitation is null ? "queued" : "joining", session.State?.Phase);
         await session.LeaveAsync();
         await session.JoinAsync("测试", "策略", "随便", "随便");
         Assert.Matches("^[a-f0-9]{64}$", attempts[0]);

@@ -48,6 +48,13 @@
 
             <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
+                    <UniformGrid x:Name="TeamMode" Rows="1" Columns="2">
+                        <RadioButton Content="自动匹配" GroupName="TeamMode" IsChecked="True"
+                                     Style="{StaticResource VariantToggleButton}" />
+                        <RadioButton x:Name="CustomTeam" Content="自建队伍" GroupName="TeamMode"
+                                     Checked="OnTeamModeChanged" Unchecked="OnTeamModeChanged"
+                                     Style="{StaticResource VariantToggleButton}" />
+                    </UniformGrid>
                     <StackPanel x:Name="Profile">
                         <TextBlock x:Name="NicknameLabel" Text="昵称" Style="{StaticResource FieldLabel}" />
                         <TextBox x:Name="Nickname" AutomationProperties.Name="昵称" MaxLength="32" TextChanged="OnInputChanged"
@@ -63,7 +70,7 @@
                         <ComboBox x:Name="TacticPicker" IsEditable="True" IsReadOnly="True" AutomationProperties.Name="意向的战术策略" />
                     </StackPanel>
                     <StackPanel x:Name="CreateRoom" Visibility="Collapsed">
-                        <TextBlock Text="房间邀请文本" Style="{StaticResource FieldLabel}" />
+                        <TextBlock x:Name="InvitationLabel" Text="房间邀请文本" Style="{StaticResource FieldLabel}" />
                         <TextBox x:Name="InvitationDraft" MinHeight="62" MaxHeight="110" AcceptsReturn="True" MaxLength="1024"
                                  VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" TextChanged="OnInputChanged" AutomationProperties.Name="房间邀请文本" />
                         <Button x:Name="PasteButton" Content="一键粘贴" Click="OnPaste" HorizontalAlignment="Right" Margin="0,4,0,6" />
@@ -76,7 +83,7 @@
                     </StackPanel>
                     <DockPanel x:Name="RosterHeading" Visibility="Collapsed" Margin="0,6,0,4">
                         <Button x:Name="MuteAllButton" DockPanel.Dock="Right" Content="屏蔽所有人" Click="OnMuteAll" Padding="7,3" Visibility="Collapsed" />
-                        <TextBlock Text="队伍成员" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock x:Name="RosterTitle" Text="队伍成员" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </DockPanel>
                     <ItemsControl x:Name="Roster">
                         <ItemsControl.ItemTemplate>

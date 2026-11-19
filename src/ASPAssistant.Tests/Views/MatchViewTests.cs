@@ -83,6 +83,20 @@ public class MatchViewTests
                 Click(view.ApproveLeaveButton);
                 Assert.Equal(1, server.LeaveRequests);
                 Assert.Equal(Visibility.Visible, view.JoinButton.Visibility);
+
+                view.CustomTeam.IsChecked = true;
+                Assert.Equal("创建或加入队伍", view.JoinButton.Content);
+                Assert.Equal(Visibility.Visible, view.CreateRoom.Visibility);
+                Assert.False(view.JoinButton.IsEnabled);
+                view.InvitationDraft.Text = "卫戍协议房间 A";
+                Assert.True(view.JoinButton.IsEnabled);
+                Click(view.JoinButton);
+                Assert.Equal("joining", session.State?.Phase);
+                Assert.False(view.ShowConfirmationTakeover);
+                Assert.Equal("等待队友加入房间", view.Heading.Text);
+                Assert.Equal("队伍成员（1/4）", view.RosterTitle.Text);
+                Assert.Equal(Visibility.Visible, view.CopyButton.Visibility);
+                Assert.Equal(Visibility.Collapsed, view.ReadyButton.Visibility);
             }
             finally
             {
@@ -101,7 +115,7 @@ public class MatchViewTests
         public string Phase = "queued";
         public int LeaveRequests;
         public bool DeadlineElapsed;
-        private bool _confirmed, _muted, _lostJoin;
+        private bool _confirmed, _muted, _lostJoin, _manual;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
@@ -111,16 +125,17 @@ public class MatchViewTests
                     _lostJoin = true;
                     throw new HttpRequestException("Lost the join response");
                 case "confirm": _confirmed = true; break;
+                case "join-room": _manual = true; Phase = "joining"; break;
                 case "ready": Phase = "playing"; break;
                 case "mute": _muted = !_muted; break;
                 case "leave": LeaveRequests++; Phase = "ended"; break;
             }
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var members = Enumerable.Range(0, 4).Select(i => new MatchMember($"p{i}", $"成员{i}", "坚不可摧",
+            var members = Enumerable.Range(0, _manual ? 1 : 4).Select(i => new MatchMember($"p{i}", $"成员{i}", "坚不可摧",
                 "随便", "兜底", "兜底", "#89DEEA", i != 0 || _confirmed, i != 0)).ToArray();
             var snapshot = new MatchSnapshot
             {
-                Phase = Phase, SelfId = "p0", CaptainId = "p1", RoomId = "room", Deadline = DeadlineElapsed ? now - 1 : now + 20000,
+                Phase = Phase, SelfId = "p0", CaptainId = _manual ? "p0" : "p1", RoomId = "room", Deadline = DeadlineElapsed ? now - 1 : now + 20000,
                 ServerNow = now, Invitation = Phase == "joining" ? "游戏邀请" : null, Members = members,
                 Muted = _muted ? ["p1", "p2", "p3"] : []
             };

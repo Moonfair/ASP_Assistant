@@ -2,7 +2,8 @@ const MATCH_ANY = '随便';
 const MATCH_DEFENSE = '兜底';
 const MATCH_ATTACK = '攻坚';
 const MATCH_COLORS = ['#56B4E9', '#E69F00', '#CC79A7', '#48C790'];
-const MATCH_ACTIONS = new Set(['join', 'state', 'confirm', 'invite', 'ready', 'leave', 'mute', 'stroke']);
+const MATCH_ACTIONS = new Set(['join', 'join-room', 'state', 'confirm', 'invite', 'ready', 'leave', 'mute', 'stroke']);
+const MATCH_TEAM_SIZE = 4;
 const MATCH_QUEUE_LIMIT = 64;
 const MATCH_ACTIVE_LIMIT = 1024;
 const MATCH_IDLE_MS = 90_000;
@@ -66,13 +67,18 @@ function findMatch(queue, anchor, relaxed) {
   return best;
 }
 
-function assignMatchRoles(players) {
-  const colors = MATCH_COLORS.slice();
+function addRoomMember(room, player) {
+  const colors = MATCH_COLORS.filter(color => !room.players.some(p => p.member.color === color));
+  player.member.color = colors[Math.floor(Math.random() * colors.length)];
+  player.room = room;
+  room.players.push(player);
+  if (room.players.length === MATCH_TEAM_SIZE) assignMatchTactics(room.players);
+}
+
+function assignMatchTactics(players) {
   let defense = players.filter(p => p.member.tactic === MATCH_DEFENSE).length;
   let attack = players.filter(p => p.member.tactic === MATCH_ATTACK).length;
   for (const { member } of players) {
-    const index = Math.floor(Math.random() * colors.length);
-    member.color = colors.splice(index, 1)[0];
     if (member.tactic !== MATCH_ANY) member.assignedTactic = member.tactic;
     else if (defense <= attack) { member.assignedTactic = MATCH_DEFENSE; defense++; }
     else { member.assignedTactic = MATCH_ATTACK; attack++; }
@@ -118,7 +124,7 @@ export class DesktopMatchService {
     this.now = now;
     this.players = new Map();
     this.queue = [];
-    this.rooms = new Set();
+    this.rooms = new Map();
     this.ended = new Map();
     this.claimsByIp = new Map();
     this.claimCount = 0;
@@ -150,7 +156,7 @@ export class DesktopMatchService {
 
   closeRoom(room, message, now) {
     for (const participant of room.players) this.forget(participant, message, now);
-    this.rooms.delete(room);
+    this.rooms.delete(room.key);
   }
 
   remove(player, message, now) {
@@ -165,18 +171,24 @@ export class DesktopMatchService {
       for (const p of room.players) p.muted.delete(id);
       room.strokes = room.strokes.filter(s => s.playerId !== id);
       if (room.captainId === id) room.captainId = undefined;
-      if (!room.players.length) this.rooms.delete(room);
+      if (!room.players.length) this.rooms.delete(room.key);
     } else this.queue = this.queue.filter(p => p !== player);
     this.forget(player, message, now);
+  }
+
+  openRoom(phase, key) {
+    const id = crypto.randomUUID();
+    const room = { id, key: key ?? id, phase, players: [], strokes: [], strokeIds: new Map() };
+    this.rooms.set(room.key, room);
+    return room;
   }
 
   createRoom(group, now) {
     const players = this.queue.filter(p => group.includes(p));
     this.queue = this.queue.filter(p => !group.includes(p));
-    assignMatchRoles(players);
-    const room = { id: crypto.randomUUID(), phase: 'confirming', deadline: now + 20_000, players, strokes: [], strokeIds: new Map() };
-    for (const player of players) player.room = room;
-    this.rooms.add(room);
+    const room = this.openRoom('confirming');
+    room.deadline = now + 20_000;
+    for (const player of players) addRoomMember(room, player);
   }
 
   admitWaiting(now) {
@@ -185,16 +197,22 @@ export class DesktopMatchService {
     }
   }
 
+  removeIdlePlayers(players, now) {
+    for (const player of players) {
+      if (player.seen + MATCH_IDLE_MS <= now && this.players.has(player.key)) {
+        this.remove(player, '玩家已掉线，本次匹配已结束。', now);
+      }
+    }
+  }
+
   maintain(now = this.now()) {
     if (now >= this.nextSweep) {
       this.nextSweep = now + 1000;
-      for (const room of this.rooms) {
+      for (const room of this.rooms.values()) {
         if (room.deadline <= now) this.closeRoom(room, '确认超时，本次匹配已结束。', now);
         else pruneMatchStrokes(room, now);
       }
-      for (const player of this.players.values()) {
-        if (player.seen + MATCH_IDLE_MS <= now) this.remove(player, '玩家已掉线，本次匹配已结束。', now);
-      }
+      this.removeIdlePlayers(this.players.values(), now);
       for (const [key, record] of this.ended) {
         if (record.at + MATCH_REPLAY_MS > now) break;
         this.ended.delete(key);
@@ -203,15 +221,39 @@ export class DesktopMatchService {
     this.admitWaiting(now);
   }
 
-  enqueue(key, body, ip, now) {
+  registerPlayer(key, body, ip, now) {
     const info = matchProfile(body);
-    if (this.queue.length >= MATCH_QUEUE_LIMIT || this.players.size >= MATCH_ACTIVE_LIMIT) {
-      throw new HttpError(429, '匹配队列已满，请稍后再试。');
-    }
+    if (this.players.size >= MATCH_ACTIVE_LIMIT) throw new HttpError(429, '组队人数已满，请稍后再试。');
     this.countNewAttempt(ip, now);
     const member = { id: crypto.randomUUID(), ...info, assignedTactic: info.tactic, color: '', confirmed: false, ready: false };
     const player = { key, member, joined: now, seen: now, room: null, muted: new Set() };
     this.players.set(key, player);
+    return player;
+  }
+
+  joinSharedRoom(key, body, ip, now) {
+    const invitation = matchText(body.invitation, 1024, '房间分享文本').replace(/\r\n?/g, '\n');
+    const roomKey = 'share:' + invitation;
+    this.removeIdlePlayers(this.rooms.get(roomKey)?.players ?? [], now);
+    let room = this.rooms.get(roomKey);
+    if (room && room.phase !== 'joining') throw new HttpError(409, '这支队伍已经开始游戏。');
+    if (room?.players.length >= MATCH_TEAM_SIZE) throw new HttpError(409, '这支队伍已有四名成员。');
+
+    const player = this.registerPlayer(key, body, ip, now);
+    if (!room) {
+      room = this.openRoom('joining', roomKey);
+      room.invitation = invitation;
+      room.captainId = player.member.id;
+      player.member.ready = true;
+    }
+    player.member.confirmed = true;
+    player.member.assignedTactic = player.member.tactic === MATCH_ANY ? '' : player.member.tactic;
+    addRoomMember(room, player);
+  }
+
+  enqueue(key, body, ip, now) {
+    if (this.queue.length >= MATCH_QUEUE_LIMIT) throw new HttpError(429, '匹配队列已满，请稍后再试。');
+    const player = this.registerPlayer(key, body, ip, now);
     this.queue.push(player);
     if (this.queue.length >= 4 && this.queue[0].joined + 60_000 <= now) this.admitWaiting(now);
     else {
@@ -224,6 +266,7 @@ export class DesktopMatchService {
     const room = player.room, member = player.member;
     switch (action) {
       case 'join':
+      case 'join-room':
       case 'state': return;
       case 'leave':
         this.remove(player, '玩家已退出，本次匹配已结束。', now);
@@ -252,7 +295,7 @@ export class DesktopMatchService {
         if (member.ready) return;
         if (room?.phase !== 'joining') throw new HttpError(409, '请等待队长创建房间。');
         member.ready = true;
-        if (room.players.every(p => p.member.ready)) room.phase = 'playing';
+        if (room.players.length === MATCH_TEAM_SIZE && room.players.every(p => p.member.ready)) room.phase = 'playing';
         return;
       case 'mute': {
         if (room?.phase !== 'playing') throw new HttpError(409, '进入游戏后才可屏蔽画笔。');
@@ -301,6 +344,7 @@ export class DesktopMatchService {
       }
     } else if (!this.ended.has(key)) {
       if (action === 'join') this.enqueue(key, body, ip, now);
+      else if (action === 'join-room') this.joinSharedRoom(key, body, ip, now);
       // Leave may arrive before an in-flight join for the same attempt.
       else if (action === 'leave') {
         this.countNewAttempt(ip, now);

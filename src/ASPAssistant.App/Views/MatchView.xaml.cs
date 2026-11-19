@@ -81,6 +81,7 @@ public partial class MatchView : UserControl
         }
 
         var form = phase is null or "ended";
+        var customForm = form && CustomTeam.IsChecked == true;
         var confirming = phase == "confirming";
         if (confirming && _session.ConfirmationSecondsRemaining == 0) _confirmationElapsed = true;
         var captain = state is not null && state.SelfId == state.CaptainId;
@@ -99,7 +100,7 @@ public partial class MatchView : UserControl
             "joining" => captain || self?.Ready == true ? "等待队友加入房间" : "加入游戏房间",
             "playing" => "游戏进行中",
             "ended" => "本次匹配已结束",
-            _ => "组队匹配"
+            _ => customForm ? "自建队伍" : "组队匹配"
         };
         var instruction = phase switch
         {
@@ -109,19 +110,25 @@ public partial class MatchView : UserControl
             "confirming" => self?.Confirmed == true ? "你已确认，正在等待其他队员。" : "请在倒计时结束前确认参加。",
             "creating" => captain ? "你是队长。请在游戏中创建房间，并在下方提交邀请文本。" : "队长提交后，这里会显示房间邀请文本。",
             "joining" when !captain && self?.Ready != true => "复制邀请文本并在游戏中加入房间，然后点击“我已就位”。",
+            "joining" when state!.Members.Length < 4 => "将房间分享文本发给队友，在「自建队伍」中输入同一段文本即可加入。四人就位后开始。",
             "playing" => "点击“开始标记”或按住 Ctrl 在游戏画面上作画。笔迹保留 10 秒。",
+            _ when customForm => "输入游戏房间的分享文本。第一个提交的人成为队长，其余队员使用同一段文本加入。",
             _ => null
         };
         SetText(Description, string.Join(" ", new[] { instruction, state?.Message }.Where(text => !string.IsNullOrWhiteSpace(text))));
         Show(Profile, form || _editingNickname);
+        Show(TeamMode, form);
+        TeamMode.IsEnabled = !_session.Busy && !_clipboardBusy;
         NicknameLabel.Text = form ? "昵称" : "下次匹配使用的昵称";
         EditProfileButton.Content = _editingNickname ? "完成修改" : "修改昵称";
         Show(EditProfileButton, !form);
         Show(Preferences, form);
         Show(JoinButton, form);
+        JoinButton.Content = customForm ? "创建或加入队伍" : "发起匹配";
         Show(ConfirmButton, confirming);
         Show(Countdown, confirming);
-        Show(CreateRoom, creating);
+        Show(CreateRoom, creating || customForm);
+        InvitationLabel.Text = customForm ? "游戏房间分享文本" : "房间邀请文本";
         Show(SendInvitationButton, creating);
         Show(PublishedRoom, joining);
         if (PublishedInvitation.Text != state?.Invitation) PublishedInvitation.Text = state?.Invitation ?? "";
@@ -134,6 +141,7 @@ public partial class MatchView : UserControl
         LeaveButton.IsEnabled = !_session.Busy;
         ApproveLeaveButton.IsEnabled = !_session.Busy;
         Show(RosterHeading, !form && state?.Members.Length > 0);
+        RosterTitle.Text = joining ? $"队伍成员（{state!.Members.Length}/4）" : "队伍成员";
         Show(MuteAllButton, playing);
 
         UpdateMembers(form ? null : state);
@@ -156,7 +164,8 @@ public partial class MatchView : UserControl
     private void UpdateInputs()
     {
         if (_session is null) return;
-        JoinButton.IsEnabled = !_session.Busy && !string.IsNullOrWhiteSpace(Nickname.Text) && StrategyPicker.SelectedItem is string;
+        JoinButton.IsEnabled = !_session.Busy && !_clipboardBusy && !string.IsNullOrWhiteSpace(Nickname.Text) &&
+            StrategyPicker.SelectedItem is string && (CustomTeam.IsChecked != true || !string.IsNullOrWhiteSpace(InvitationDraft.Text));
         SendInvitationButton.IsEnabled = !_session.Busy && !_clipboardBusy && !string.IsNullOrWhiteSpace(InvitationDraft.Text);
         PasteButton.IsEnabled = !_session.Busy && !_clipboardBusy;
         CopyButton.IsEnabled = !_clipboardBusy && !string.IsNullOrEmpty(PublishedInvitation.Text);
@@ -213,6 +222,7 @@ public partial class MatchView : UserControl
     }
 
     private void OnInputChanged(object sender, RoutedEventArgs e) => UpdateInputs();
+    private void OnTeamModeChanged(object sender, RoutedEventArgs e) => Refresh();
     private void OnNicknameLostFocus(object sender, KeyboardFocusChangedEventArgs e) => SaveNickname();
 
     private void OnNicknameKeyDown(object sender, KeyEventArgs e)
@@ -263,7 +273,8 @@ public partial class MatchView : UserControl
     {
         if (_session is null || !JoinButton.IsEnabled || StrategyPicker.SelectedItem is not string strategy) return;
         SaveNickname();
-        await _session.JoinAsync(Nickname.Text.Trim(), strategy, (string)CovenantPicker.SelectedItem, (string)TacticPicker.SelectedItem);
+        await _session.JoinAsync(Nickname.Text.Trim(), strategy, (string)CovenantPicker.SelectedItem, (string)TacticPicker.SelectedItem,
+            CustomTeam.IsChecked == true ? InvitationDraft.Text.Trim() : null);
     }
 
     private async void OnConfirm(object sender, RoutedEventArgs e)
@@ -296,13 +307,14 @@ public partial class MatchView : UserControl
 
     private async void OnPaste(object sender, RoutedEventArgs e)
     {
-        if (_clipboardBusy || Window.GetWindow(this) is not { } window || _session?.State is not { Phase: "creating" } state) return;
+        if (_clipboardBusy || Window.GetWindow(this) is not { } window || CreateRoom.Visibility != Visibility.Visible) return;
+        var roomId = _session?.State?.RoomId;
         _clipboardBusy = true;
-        UpdateInputs();
+        Refresh();
         try
         {
             var text = await LineupClipboard.ReadAsync(window, InvitationDraft.MaxLength);
-            if (_session.State?.RoomId != state.RoomId || _session.State?.Phase != "creating") return;
+            if (_session?.State?.RoomId != roomId || CreateRoom.Visibility != Visibility.Visible) return;
             if (text.Length > InvitationDraft.MaxLength) Notify("邀请文本超过 1024 个字符。");
             else if (string.IsNullOrWhiteSpace(text)) Notify("剪贴板中没有邀请文本。");
             else
@@ -312,7 +324,7 @@ public partial class MatchView : UserControl
             }
         }
         catch (ExternalException) { Notify("读取剪贴板失败，请重试。"); }
-        finally { _clipboardBusy = false; UpdateInputs(); }
+        finally { _clipboardBusy = false; Refresh(); }
     }
 
     private async void OnCopy(object sender, RoutedEventArgs e)

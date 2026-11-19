@@ -11,7 +11,7 @@ internal sealed class MatchSession : IDisposable
     private readonly SemaphoreSlim _requests = new(1);
     private readonly DispatcherTimer _timer = new();
     private string? _ticket;
-    private object? _pendingJoin;
+    private (string Action, object Body)? _pendingJoin;
     private long _snapshotTick;
     private bool _pollFailed;
 
@@ -34,16 +34,18 @@ internal sealed class MatchSession : IDisposable
     internal bool CanSendStroke => !Busy && State is { Phase: "playing" } s &&
         s.Members.Any(m => m.Id != s.SelfId && !s.Muted.Contains(m.Id));
 
-    internal Task JoinAsync(string nickname, string strategy, string covenant, string tactic)
+    internal Task JoinAsync(string nickname, string strategy, string covenant, string tactic, string? invitation = null)
     {
         if (Busy || State is { Phase: not "ended" } || _shutdown.IsCancellationRequested)
             return Task.CompletedTask;
 
         _ticket ??= Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
-        _pendingJoin = new { nickname, strategy, covenant, tactic };
+        string action = invitation is null ? "join" : "join-room";
+        var body = new { nickname, strategy, covenant, tactic, invitation };
+        _pendingJoin = (action, body);
         State = null;
         _timer.Start();
-        return ActAsync("join", _pendingJoin);
+        return ActAsync(action, body);
     }
 
     internal Task ConfirmAsync() => ActAsync("confirm", new { });
@@ -70,7 +72,7 @@ internal sealed class MatchSession : IDisposable
         catch (LineupSiteException ex)
         {
             Error = ex.Message;
-            if (action == "join")
+            if (_pendingJoin?.Action == action)
             {
                 if ((int?)ex.Status is >= 400 and < 500) EndTicket();
                 else
@@ -123,7 +125,7 @@ internal sealed class MatchSession : IDisposable
         if (Busy || _ticket is not { } ticket || _shutdown.IsCancellationRequested || !_requests.Wait(0)) return;
         try
         {
-            if (_pendingJoin is { } join) await SendAsync(ticket, "join", join);
+            if (_pendingJoin is { } join) await SendAsync(ticket, join.Action, join.Body);
             else
             {
                 var knownStrokes = State?.Strokes.Select(s => s.Id).ToArray() ?? [];

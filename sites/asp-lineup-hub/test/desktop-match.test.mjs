@@ -200,3 +200,61 @@ test('画笔按自己和队友的屏蔽关系分发，客户端可略过缓存�
   for (const token of [b,c,d]) await ok(token, 'leave');
   assert.equal((await request(a, 'stroke', { ...stroke, id: randomUUID() })).status, 409);
 });
+
+test('相同分享文本创建一支四人队伍，首位是房主，集齐并就位后共用游戏房间', async t => {
+  const { ok, request, tokens } = setup(t);
+  const join = (token, invitation = '卫戍协议\n房间 A') =>
+    ok(token, 'join-room', { ...profile('博士'), invitation });
+  const host = await join(tokens[0], '  卫戍协议\r\n房间 A  ');
+  assert.equal(host.phase, 'joining');
+  assert.equal(host.captainId, host.selfId);
+  assert.equal(host.members[0].ready, true);
+  assert.equal(host.invitation, '卫戍协议\n房间 A');
+  const guest = await join(tokens[1]);
+  assert.equal(guest.roomId, host.roomId);
+  assert.equal(guest.members[0].color, host.members[0].color);
+  assert.equal((await ok(tokens[1], 'ready')).phase, 'joining');
+  const arrivals = await Promise.all([join(tokens[2]), join(tokens[3]), join(tokens[1])]);
+  assert.ok(arrivals.every(s => s.roomId === host.roomId));
+  const group = await ok(tokens[0], 'state');
+  assert.equal(group.members.length, 4);
+  assert.equal(new Set(group.members.map(m => m.color)).size, 4);
+  assert.equal(group.members.filter(m => m.assignedTactic === '兜底').length, 2);
+  const extra = ticket();
+  const body = { ...profile('第五人'), invitation: host.invitation };
+  assert.equal((await request(extra, 'join-room', body)).status, 409);
+  await ok(tokens[2], 'ready');
+  assert.equal((await ok(tokens[3], 'ready')).phase, 'playing');
+  const stroke = { id: randomUUID(), points: [{ x: 0.25, y: 0.5 }] };
+  await ok(tokens[0], 'stroke', stroke);
+  assert.equal((await ok(tokens[2], 'state')).strokes[0].id, stroke.id);
+  assert.deepEqual((await ok(tokens[2], 'mute', { muted: [host.selfId] })).strokes, []);
+  await ok(tokens[0], 'leave');
+  assert.equal((await request(extra, 'join-room', body)).status, 409);
+  for (const token of tokens.slice(1)) await ok(token, 'leave');
+  const next = await join(extra);
+  assert.notEqual(next.roomId, host.roomId);
+  assert.equal(next.captainId, next.selfId);
+});
+
+test('分享文本彼此隔离，退出或掉线释放手动房间，重试旧票据不会占新队伍席位', async t => {
+  const { ok, request, advance, tokens } = setup(t);
+  const join = (token, invitation) => ok(token, 'join-room', { ...profile('博士'), invitation });
+  for (const invitation of ['', '  ', 'A'.repeat(1025)]) {
+    assert.equal((await request(tokens[0], 'join-room', { ...profile('博士'), invitation })).status, 400);
+  }
+  const a = await join(tokens[0], '邀请 A');
+  const b = await join(tokens[1], '邀请 B');
+  assert.notEqual(a.roomId, b.roomId);
+  await join(tokens[2], '邀请 A');
+  await ok(tokens[2], 'leave');
+  assert.equal((await join(tokens[0], '邀请 A')).phase, 'ended');
+  assert.equal((await ok(tokens[1], 'state')).phase, 'joining');
+  assert.equal((await ok(tokens[3], 'join', profile('排队玩家'))).phase, 'queued');
+  advance(89_999);
+  await ok(ticket(), 'state'); // Sweep just before the original host's heartbeat expires.
+  advance(1);
+  const reopened = await join(ticket(), '邀请 B');
+  assert.notEqual(reopened.roomId, b.roomId);
+  assert.equal(reopened.members.length, 1);
+});
