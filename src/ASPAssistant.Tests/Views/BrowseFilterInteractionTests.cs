@@ -2,6 +2,7 @@ using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ASPAssistant.App.Controls;
@@ -170,6 +171,7 @@ public class BrowseFilterInteractionTests
             VerifyDuplicateLabelsAndEmptyResults();
             VerifyDisabledCovenantsRemainFilterable();
             VerifySideFilterLayout();
+            VerifySettingsPreferences();
             VerifySideFilterWheelOverChips();
             VerifySideFilterOutsideClickAndShortcuts();
             VerifyLineupPanelFollowsGameWindow();
@@ -180,6 +182,70 @@ public class BrowseFilterInteractionTests
             RenderFilterPreviews();
         }
         finally { app.Shutdown(); }
+    }
+
+    private static void VerifySettingsPreferences()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"asp_preferences_{Guid.NewGuid():N}");
+        try
+        {
+            var settings = new SettingsManager(directory);
+            settings.SaveBobChatterIntervalSeconds(60);
+            settings.SaveSidePanelOpacity(0.65);
+            var window = new ASPAssistant.App.Windows.SidePanelWindow(new(), new(), new(), new(), new());
+            int intervalChanges = 0;
+            int opacityChanges = 0;
+            window.ConfigureBobVoice(true, true, _ => { }, () => { });
+            window.ConfigureBobChatter(settings.LoadBobChatterIntervalSeconds(), seconds =>
+            {
+                intervalChanges++;
+                settings.SaveBobChatterIntervalSeconds(seconds);
+            });
+            window.ConfigureSidePanelOpacity(settings.LoadSidePanelOpacity(), opacity =>
+            {
+                opacityChanges++;
+                settings.SaveSidePanelOpacity(opacity);
+            });
+
+            var interval = (Slider)window.FindName("BobChatterIntervalSlider");
+            var opacity = (Slider)window.FindName("SidePanelOpacitySlider");
+            interval.Value.Should().Be(60);
+            opacity.Value.Should().Be(65);
+            intervalChanges.Should().Be(0, "initializing settings must not save them again");
+            opacityChanges.Should().Be(0);
+            window.Opacity.Should().Be(0.65, "saved opacity must apply before the native window is created");
+
+            var hwnd = new WindowInteropHelper(window).EnsureHandle();
+            (User32.GetWindowLong(hwnd, User32.GWL_EXSTYLE) & User32.WS_EX_LAYERED).Should().NotBe(0,
+                "the native window must support compositing over the game");
+            window.Opacity.Should().Be(0.65);
+            window.ResizeMode.Should().Be(ResizeMode.CanResizeWithGrip);
+            System.Windows.Shell.WindowChrome.GetWindowChrome(window).Should().NotBeNull();
+
+            interval.Value = 10;
+            settings.LoadBobChatterIntervalSeconds().Should().Be(10);
+            intervalChanges.Should().Be(1);
+            opacity.Value = 35;
+            settings.LoadSidePanelOpacity().Should().Be(0.35);
+            window.Opacity.Should().Be(0.35, "the slider must immediately update the whole window");
+            window.Width = 350;
+            window.Height = 600;
+            LayoutFilterWindow(window);
+            window.Opacity.Should().Be(0.35, "resizing must retain opacity");
+
+            opacity.Value = 100;
+            settings.LoadSidePanelOpacity().Should().Be(1);
+            window.Opacity.Should().Be(1);
+            opacityChanges.Should().Be(2);
+
+            var voice = (CheckBox)window.FindName("BobVoiceToggle");
+            voice.IsChecked = false;
+            interval.IsEnabled.Should().BeFalse();
+            voice.IsChecked = true;
+            interval.IsEnabled.Should().BeTrue();
+            interval.Value.Should().Be(10, "disabling voice keeps its configured frequency");
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
     }
 
     private static void VerifySideFilterLayout()

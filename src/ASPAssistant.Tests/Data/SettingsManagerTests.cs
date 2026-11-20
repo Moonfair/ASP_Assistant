@@ -37,6 +37,73 @@ public class SettingsManagerTests : IDisposable
         Assert.False(new SettingsManager(_tempDir).LoadBobVoice());
     }
 
+    [Fact]
+    public void VoiceIntervalAndPanelOpacityRestoreDefaultsAndSavedPreferences()
+    {
+        Assert.Equal(15, _manager.LoadBobChatterIntervalSeconds());
+        Assert.Equal(1, _manager.LoadSidePanelOpacity());
+
+        _manager.SaveBobVoice(false);
+        _manager.SaveSideFilterLayout(false);
+        _manager.SaveBobChatterIntervalSeconds(60);
+        _manager.SaveSidePanelOpacity(0.65);
+
+        var restored = new SettingsManager(_tempDir);
+        Assert.Equal(60, restored.LoadBobChatterIntervalSeconds());
+        Assert.Equal(0.65, restored.LoadSidePanelOpacity());
+        Assert.False(restored.LoadBobVoice());
+        Assert.False(restored.LoadSideFilterLayout());
+    }
+
+    [Theory]
+    [InlineData("{broken")]
+    [InlineData("null")]
+    [InlineData("\"NaN\"")]
+    [InlineData("1e1000")]
+    [InlineData("-1")]
+    [InlineData("0")]
+    [InlineData("200")]
+    public void InvalidNumericPreferencesUseDefaults(string json)
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "bob-chatter-interval.json"), json);
+        File.WriteAllText(Path.Combine(_tempDir, "side-panel-opacity.json"), json);
+
+        Assert.Equal(15, _manager.LoadBobChatterIntervalSeconds());
+        Assert.Equal(1, _manager.LoadSidePanelOpacity());
+    }
+
+    [Fact]
+    public void FractionalChatterIntervalUsesDefault()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "bob-chatter-interval.json"), "15.5");
+        Assert.Equal(15, _manager.LoadBobChatterIntervalSeconds());
+    }
+
+    [Theory]
+    [InlineData(-20, 10, -1, 0.2)]
+    [InlineData(10, 10, 0.2, 0.2)]
+    [InlineData(120, 120, 1, 1)]
+    [InlineData(500, 120, 2, 1)]
+    public void NumericPreferencesStayWithinUsableLimits(int interval, int expectedInterval,
+        double opacity, double expectedOpacity)
+    {
+        _manager.SaveBobChatterIntervalSeconds(interval);
+        _manager.SaveSidePanelOpacity(opacity);
+
+        Assert.Equal(expectedInterval, _manager.LoadBobChatterIntervalSeconds());
+        Assert.Equal(expectedOpacity, _manager.LoadSidePanelOpacity());
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void NonFiniteOpacitySavesAUsableDefault(double opacity)
+    {
+        _manager.SaveSidePanelOpacity(opacity);
+        Assert.Equal(1, _manager.LoadSidePanelOpacity());
+    }
+
     [Theory]
     [InlineData("windows")]
     [InlineData("mumu:C:\\MuMu:0")]

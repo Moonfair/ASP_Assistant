@@ -72,4 +72,65 @@ public sealed class BobVoiceRuleTests
         Assert.Equal(BobVoiceCue.BeforeBattle, triggers.Observe(round, [], new(Preparation: true, BattleCue: BobVoiceCue.BeforeBattle), t(70)));
         Assert.Null(triggers.Observe(round, [], new(Preparation: true), t(100)));
     }
+
+    [Theory]
+    [InlineData(10)]
+    [InlineData(60)]
+    [InlineData(120)]
+    public void ChatterWaitsWithinTheConfiguredRandomInterval(int interval)
+    {
+        var triggers = new BobVoiceTriggers { ChatterIntervalSeconds = interval };
+        var hud = new GarrisonHud(5, null, null);
+
+        Assert.Null(Observe(0));
+        Assert.Null(Observe(interval - 1));
+        Assert.Equal(BobVoiceCue.PreparationChatter, Observe(interval * 2));
+        Assert.Null(Observe(interval * 3 - 1));
+        Assert.Equal(BobVoiceCue.PreparationChatter, Observe(interval * 4));
+
+        triggers.Reset();
+        Assert.Null(Observe(0));
+        Assert.Null(Observe(interval - 1));
+        Assert.Equal(BobVoiceCue.PreparationChatter, Observe(interval * 2));
+
+        BobVoiceCue? Observe(int seconds) =>
+            triggers.Observe(hud, [], new(Preparation: true), TimeSpan.FromSeconds(seconds));
+    }
+
+    [Fact]
+    public void ChangingChatterIntervalReplacesPendingWaitWithoutRepeatingEventCues()
+    {
+        var triggers = new BobVoiceTriggers();
+        var hud = new GarrisonHud(5, null, null);
+
+        Assert.Null(Observe(0));
+        triggers.ChatterIntervalSeconds = 60;
+        Assert.Null(Observe(1));
+        Assert.Null(Observe(40));
+        triggers.ChatterIntervalSeconds = 10;
+        Assert.Null(Observe(41));
+        Assert.Equal(BobVoiceCue.PreparationChatter, Observe(61));
+
+        var battle = new GarrisonVoiceFrame(BattleCue: BobVoiceCue.BeforeBattle);
+        Assert.Equal(BobVoiceCue.BeforeBattle, triggers.Observe(hud, [], battle));
+        triggers.ChatterIntervalSeconds = 120;
+        Assert.Null(triggers.Observe(hud, [], battle));
+        Assert.Null(Observe(1000));
+
+        BobVoiceCue? Observe(int seconds) =>
+            triggers.Observe(hud, [], new(Preparation: true), TimeSpan.FromSeconds(seconds));
+    }
+
+    [Fact]
+    public void ApplyingTheSameChatterIntervalDoesNotPostponeChatter()
+    {
+        var triggers = new BobVoiceTriggers();
+        var hud = new GarrisonHud(5, null, null);
+        Assert.Null(triggers.Observe(hud, [], new(Preparation: true), TimeSpan.Zero));
+
+        triggers.ChatterIntervalSeconds = 15;
+
+        Assert.Equal(BobVoiceCue.PreparationChatter,
+            triggers.Observe(hud, [], new(Preparation: true), TimeSpan.FromSeconds(30)));
+    }
 }

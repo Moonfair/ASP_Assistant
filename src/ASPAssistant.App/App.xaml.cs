@@ -177,6 +177,11 @@ public partial class App : Application
 
         // Windows
         _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm, banVm);
+        _sidePanel.ConfigureSidePanelOpacity(_settingsManager.LoadSidePanelOpacity(), opacity =>
+        {
+            try { _settingsManager.SaveSidePanelOpacity(opacity); }
+            catch (Exception ex) { AppLogger.Error("Settings", "Could not save side panel opacity", ex); }
+        });
         _sidePanel.UseSideFilters = _settingsManager.LoadSideFilterLayout();
         _sidePanel.FilterLayoutChanged += side =>
         {
@@ -193,7 +198,16 @@ public partial class App : Application
 
         var bobVoice = _bobVoice = new BobVoicePlayer(Path.Combine(dataDir, "voice", "bob"));
         bobVoice.Spoken += _sidePanel.ShowCannotSpeech;
-        var bobTriggers = new BobVoiceTriggers();
+        var bobTriggers = new BobVoiceTriggers
+        {
+            ChatterIntervalSeconds = _settingsManager.LoadBobChatterIntervalSeconds()
+        };
+        _sidePanel.ConfigureBobChatter(bobTriggers.ChatterIntervalSeconds, seconds =>
+        {
+            bobTriggers.ChatterIntervalSeconds = seconds;
+            try { _settingsManager.SaveBobChatterIntervalSeconds(seconds); }
+            catch (Exception ex) { AppLogger.Error("Settings", "Could not save Bob chatter interval", ex); }
+        });
         bool bobEnabled = _settingsManager.LoadBobVoice();
         var bobClock = Stopwatch.StartNew();
         _ocrScanner.EnableVoiceRecognition = bobVoice.Available && bobEnabled;

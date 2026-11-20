@@ -10,6 +10,10 @@ public enum BobVoiceCue
 
 public sealed class BobVoiceTriggers
 {
+    public const int MinimumChatterIntervalSeconds = 10;
+    public const int MaximumChatterIntervalSeconds = 120;
+    public const int DefaultChatterIntervalSeconds = 15;
+
     private readonly record struct ShopFrame(int Round, int Level, int Gold);
 
     private ShopFrame? _previousFrame;
@@ -23,6 +27,19 @@ public sealed class BobVoiceTriggers
     private bool? _previousHealthWasLow;
     private bool _lowHealthAnnounced;
     private TimeSpan? _nextChatter;
+    private int _chatterIntervalSeconds = DefaultChatterIntervalSeconds;
+
+    public int ChatterIntervalSeconds
+    {
+        get => _chatterIntervalSeconds;
+        set
+        {
+            int interval = Math.Clamp(value, MinimumChatterIntervalSeconds, MaximumChatterIntervalSeconds);
+            if (_chatterIntervalSeconds == interval) return;
+            _chatterIntervalSeconds = interval;
+            _nextChatter = null;
+        }
+    }
 
     public BobVoiceCue? Observe(GarrisonHud hud, IEnumerable<string> trackedShopNames,
         GarrisonVoiceFrame voice = default, TimeSpan? elapsed = null)
@@ -121,7 +138,8 @@ public sealed class BobVoiceTriggers
 
     public void RetryLowHealth() => _lowHealthAnnounced = false;
 
-    private static TimeSpan ChatterDelay() => TimeSpan.FromSeconds(Random.Shared.Next(15, 31));
+    private TimeSpan ChatterDelay() =>
+        TimeSpan.FromSeconds(Random.Shared.Next(_chatterIntervalSeconds, _chatterIntervalSeconds * 2 + 1));
 
     public void Reset()
     {

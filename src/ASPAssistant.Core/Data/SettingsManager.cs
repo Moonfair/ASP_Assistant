@@ -54,6 +54,39 @@ public class SettingsManager
 
     public void SaveBobVoice(bool enabled) => SavePreference("bob-voice", enabled);
 
+    public int LoadBobChatterIntervalSeconds() => LoadPreference("bob-chatter-interval",
+        BobVoiceTriggers.DefaultChatterIntervalSeconds,
+        value => value is >= BobVoiceTriggers.MinimumChatterIntervalSeconds and <= BobVoiceTriggers.MaximumChatterIntervalSeconds);
+
+    public void SaveBobChatterIntervalSeconds(int seconds) => SavePreference("bob-chatter-interval",
+        Math.Clamp(seconds, BobVoiceTriggers.MinimumChatterIntervalSeconds, BobVoiceTriggers.MaximumChatterIntervalSeconds));
+
+    public const double MinimumSidePanelOpacity = 0.2;
+
+    public double LoadSidePanelOpacity() => LoadPreference("side-panel-opacity", 1.0,
+        value => double.IsFinite(value) && value is >= MinimumSidePanelOpacity and <= 1);
+
+    public void SaveSidePanelOpacity(double opacity) => SavePreference("side-panel-opacity",
+        double.IsFinite(opacity) ? Math.Clamp(opacity, MinimumSidePanelOpacity, 1) : 1);
+
+    private T LoadPreference<T>(string name, T fallback, Func<T, bool> isValid) where T : struct
+    {
+        try
+        {
+            var path = Path.Combine(_settingsDir, $"{name}.json");
+            if (File.Exists(path))
+            {
+                var value = JsonSerializer.Deserialize<T>(File.ReadAllText(path), JsonOptions);
+                if (isValid(value)) return value;
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("Settings", $"Could not read {name} preference; using default", ex);
+        }
+        return fallback;
+    }
+
     public MarkerOffset LoadMarkerOffset()
     {
         try
