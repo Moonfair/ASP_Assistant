@@ -4,6 +4,7 @@ const MATCH_ATTACK = '攻坚';
 const MATCH_COLORS = ['#56B4E9', '#E69F00', '#CC79A7', '#48C790'];
 const MATCH_ACTIONS = new Set(['join', 'join-room', 'state', 'confirm', 'invite', 'ready', 'leave', 'mute', 'stroke']);
 const MATCH_TEAM_SIZE = 4;
+const MATCH_PREFERENCE_LIMIT = 4;
 const MATCH_QUEUE_LIMIT = 64;
 const MATCH_ACTIVE_LIMIT = 1024;
 const MATCH_IDLE_MS = 90_000;
@@ -16,20 +17,34 @@ function matchText(value, limit, field) {
   return text;
 }
 
+function matchChoices(values, label, minimum, allowed) {
+  if (!Array.isArray(values) || values.length < minimum || values.length > MATCH_PREFERENCE_LIMIT)
+    throw new HttpError(400, label + '可选 ' + minimum + ' 至 ' + MATCH_PREFERENCE_LIMIT + ' 项。');
+  const choices = values.map(value => matchText(value, 64, label));
+  if (!choices.every(allowed) || new Set(choices).size !== choices.length)
+    throw new HttpError(400, '请选择目录中不同的' + label + '。');
+  return choices;
+}
+
 function matchProfile(body) {
   const nickname = matchText(body.nickname, 32, '昵称');
-  const strategy = matchText(body.strategy, 64, '策略');
-  const covenant = matchText(body.covenant ?? MATCH_ANY, 64, '盟约');
-  if (!hasOwn(catalog.strategies, strategy)) throw new HttpError(400, '请选择目录中的策略。');
-  if (covenant !== MATCH_ANY && !catalog.covenantTags.includes(covenant)) throw new HttpError(400, '请选择目录中的盟约。');
+  // Clients from the first test build submit one name per field and display the singular labels.
+  const strategies = matchChoices(body.strategies === undefined ? [body.strategy] : body.strategies,
+    '策略', 1, name => hasOwn(catalog.strategies, name));
+  const legacyCovenant = cleanText(body.covenant ?? MATCH_ANY);
+  const legacyCovenants = legacyCovenant === MATCH_ANY ? [] : [legacyCovenant];
+  const covenants = matchChoices(body.covenants === undefined ? legacyCovenants : body.covenants,
+    '盟约', 0, name => catalog.covenantTags.includes(name));
   const tactic = body.tactic ?? MATCH_ANY;
   if (![MATCH_ANY, MATCH_DEFENSE, MATCH_ATTACK].includes(tactic)) throw new HttpError(400, '战术无效。');
-  return { nickname, strategy, covenant, tactic };
+  return { nickname, strategies, covenants, strategy: strategies.join('、'), covenant: covenants.join('、') || MATCH_ANY, tactic };
 }
 
 function preferenceOverlap(a, b) {
-  return Number(a.strategy === b.strategy) +
-    Number(a.covenant !== MATCH_ANY && a.covenant === b.covenant);
+  let overlap = 0;
+  for (const name of a.strategies) if (b.strategies.includes(name)) overlap++;
+  for (const name of a.covenants) if (b.covenants.includes(name)) overlap++;
+  return overlap;
 }
 
 // A fresh strict quartet must contain the new arrival. A relaxed quartet always
@@ -38,7 +53,7 @@ function findMatch(queue, anchor, relaxed) {
   const candidates = queue.filter(p => p !== anchor);
   if (candidates.length < 3) return null;
   const base = anchor.member;
-  let best = null, bestScore = Infinity;
+  let best = null, bestImbalance = Infinity, bestOverlap = Infinity;
   for (let i = 0; i < candidates.length - 2; i++) {
     const a = candidates[i].member;
     const aOverlap = preferenceOverlap(base, a);
@@ -54,12 +69,12 @@ function findMatch(queue, anchor, relaxed) {
         const c = candidates[k].member;
         const imbalance = Math.max(0, nDefense + Number(c.tactic === MATCH_DEFENSE) - 2,
           nAttack + Number(c.tactic === MATCH_ATTACK) - 2);
-        // At most 12 overlapping pairs across both preferences.
-        const score = 13 * imbalance + abOverlap + preferenceOverlap(base, c) + preferenceOverlap(a, c) + preferenceOverlap(b, c);
-        if (score === 0) return [anchor, candidates[i], candidates[j], candidates[k]];
-        if (relaxed && score < bestScore) {
+        const overlap = abOverlap + preferenceOverlap(base, c) + preferenceOverlap(a, c) + preferenceOverlap(b, c);
+        if (imbalance === 0 && overlap === 0) return [anchor, candidates[i], candidates[j], candidates[k]];
+        if (relaxed && (imbalance < bestImbalance || (imbalance === bestImbalance && overlap < bestOverlap))) {
           best = [anchor, candidates[i], candidates[j], candidates[k]];
-          bestScore = score;
+          bestImbalance = imbalance;
+          bestOverlap = overlap;
         }
       }
     }
