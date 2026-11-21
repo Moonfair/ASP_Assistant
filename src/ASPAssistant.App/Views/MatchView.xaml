@@ -16,8 +16,13 @@
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="Tag" Value="tracked" />
             </Style>
-            <Style x:Key="PreferenceChip" TargetType="ListBoxItem" BasedOn="{StaticResource FilterChipItem}">
-                <Setter Property="Padding" Value="6,4" />
+            <Style x:Key="PreferenceCard" TargetType="ListBoxItem" BasedOn="{StaticResource FilterChipItem}">
+                <Setter Property="Padding" Value="6,5" />
+                <Setter Property="Margin" Value="2" />
+                <Setter Property="MinHeight" Value="58" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
                 <Style.Triggers>
                     <MultiDataTrigger>
                         <MultiDataTrigger.Conditions>
@@ -29,13 +34,34 @@
                     </MultiDataTrigger>
                 </Style.Triggers>
             </Style>
-            <Style x:Key="PreferencePanel" TargetType="ListBox" BasedOn="{StaticResource FilterChipListBox}">
+            <Style x:Key="PreferencePanel" TargetType="ListBox">
                 <Setter Property="SelectionMode" Value="Multiple" />
-                <Setter Property="ItemContainerStyle" Value="{StaticResource PreferenceChip}" />
+                <Setter Property="ItemContainerStyle" Value="{StaticResource PreferenceCard}" />
+                <Setter Property="MaxHeight" Value="204" />
+                <Setter Property="ItemsPanel">
+                    <Setter.Value>
+                        <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBox">
+                            <Border Padding="3" CornerRadius="6" BorderThickness="1" BorderBrush="{StaticResource BorderBrush}"
+                                    Background="{StaticResource PanelBackgroundBrush}">
+                                <ScrollViewer x:Name="PART_ScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                              CanContentScroll="False" PanningMode="VerticalOnly" Focusable="False"
+                                              PreviewMouseWheel="OnPreferenceWheel">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
             <Style x:Key="PreferenceName" TargetType="TextBlock">
                 <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Margin" Value="4,0,0,0" />
+                <Setter Property="Margin" Value="6,0,0,0" />
+                <Setter Property="TextWrapping" Value="Wrap" />
                 <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
             </Style>
         </ResourceDictionary>
@@ -90,10 +116,10 @@
                                      SelectionChanged="OnPreferenceChanged">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" ToolTip="{Binding Description}">
-                                            <Image Width="22" Height="22" controls:DeferredIcon.Path="{Binding IconPath}" />
+                                        <DockPanel ToolTip="{Binding Description}">
+                                            <Image DockPanel.Dock="Left" Width="38" Height="38" Stretch="Uniform" controls:DeferredIcon.Path="{Binding IconPath}" />
                                             <TextBlock Text="{Binding Name}" Style="{StaticResource PreferenceName}" />
-                                        </StackPanel>
+                                        </DockPanel>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
@@ -107,11 +133,11 @@
                                          SelectionChanged="OnPreferenceChanged">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel Orientation="Horizontal">
-                                                <controls:CovenantIcon Covenant="{Binding}" Width="18" Height="18"
+                                            <DockPanel>
+                                                <controls:CovenantIcon DockPanel.Dock="Left" Covenant="{Binding}" Width="38" Height="38"
                                                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
                                                 <TextBlock Text="{Binding}" Style="{StaticResource PreferenceName}" />
-                                            </StackPanel>
+                                            </DockPanel>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>

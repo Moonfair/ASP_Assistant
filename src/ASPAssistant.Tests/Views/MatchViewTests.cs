@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using ASPAssistant.App.Services;
 using ASPAssistant.App.Views;
 using ASPAssistant.App.Windows;
@@ -15,6 +16,50 @@ namespace ASPAssistant.Tests.Views;
 [Collection("WPF views")]
 public class MatchViewTests
 {
+    [Theory]
+    [InlineData(280)]
+    [InlineData(400)]
+    public void PreferenceCardsScrollIndependentlyAtSidebarWidths(int width)
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var view = new MatchView { Width = width, Height = 390 };
+            view.StrategyPicker.ItemsSource = Enumerable.Range(1, 61).Select(i => new Strategy { Name = $"策略{i}" }).ToArray();
+            view.CovenantPicker.ItemsSource = Enumerable.Range(1, 26).Select(i => $"盟约{i}").ToArray();
+            view.StrategySection.IsExpanded = view.CovenantSection.IsExpanded = true;
+            LineupPerformanceTests.Layout(view);
+
+            foreach (var picker in new[] { view.StrategyPicker, view.CovenantPicker })
+            {
+                var scroll = Assert.IsType<ScrollViewer>(picker.Template.FindName("PART_ScrollViewer", picker));
+                Assert.True(scroll.ScrollableHeight > scroll.ViewportHeight);
+                Assert.Equal(0, scroll.ScrollableWidth);
+                var first = (ListBoxItem)picker.ItemContainerGenerator.ContainerFromIndex(0);
+                var second = (ListBoxItem)picker.ItemContainerGenerator.ContainerFromIndex(1);
+                Assert.True(first.ActualHeight >= 56);
+                Assert.True(first.ActualWidth >= 100);
+                Assert.Equal(first.TranslatePoint(new Point(), picker).Y, second.TranslatePoint(new Point(), picker).Y);
+                picker.SelectedIndex = 0;
+                var pageOffset = view.PageScroll.VerticalOffset;
+                scroll.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, 0, -120) { RoutedEvent = Mouse.MouseWheelEvent });
+                LineupPerformanceTests.Layout(view);
+                Assert.True(scroll.VerticalOffset > 0);
+                Assert.Equal(pageOffset, view.PageScroll.VerticalOffset);
+                Assert.Equal(0, picker.SelectedIndex);
+                scroll.ScrollToEnd();
+                LineupPerformanceTests.Layout(view);
+                Assert.Equal(scroll.ScrollableHeight, scroll.VerticalOffset);
+                view.PageScroll.ScrollToTop();
+                LineupPerformanceTests.Layout(view);
+                var wheel = new MouseWheelEventArgs(Mouse.PrimaryDevice, 0, -120) { RoutedEvent = Mouse.PreviewMouseWheelEvent };
+                scroll.RaiseEvent(wheel);
+                LineupPerformanceTests.Layout(view);
+                Assert.True(wheel.Handled);
+                Assert.True(view.PageScroll.VerticalOffset > 0);
+            }
+        });
+    }
+
     [Fact]
     public void MatchRequiresProfileAndShowsRosterCountdownAndExitConfirmation()
     {

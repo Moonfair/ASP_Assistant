@@ -249,6 +249,17 @@ public partial class MatchView : UserControl
     }
 
     private void OnAnyCovenant(object sender, RoutedEventArgs e) => CovenantPicker.UnselectAll();
+
+    private void OnPreferenceWheel(object sender, MouseWheelEventArgs e)
+    {
+        var scroll = (ScrollViewer)sender;
+        if (e.Delta == 0 || (e.Delta > 0 ? scroll.VerticalOffset > 0 : scroll.VerticalOffset < scroll.ScrollableHeight))
+            return;
+
+        // At either end, let the surrounding form continue in the same direction.
+        e.Handled = true;
+        PageScroll.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta) { RoutedEvent = Mouse.MouseWheelEvent });
+    }
     private void OnTeamModeChanged(object sender, RoutedEventArgs e) => Refresh();
     private void OnNicknameLostFocus(object sender, KeyboardFocusChangedEventArgs e) => SaveNickname();
 
