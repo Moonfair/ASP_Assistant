@@ -190,16 +190,16 @@ public class BrowseFilterInteractionTests
         try
         {
             var settings = new SettingsManager(directory);
-            settings.SaveBobChatterIntervalSeconds(60);
+            settings.SaveBobChatterFrequency(0.6);
             settings.SaveSidePanelOpacity(0.65);
             var window = new ASPAssistant.App.Windows.SidePanelWindow(new(), new(), new(), new(), new());
-            int intervalChanges = 0;
+            int frequencyChanges = 0;
             int opacityChanges = 0;
             window.ConfigureBobVoice(true, true, _ => { }, () => { });
-            window.ConfigureBobChatter(settings.LoadBobChatterIntervalSeconds(), seconds =>
+            window.ConfigureBobChatter(settings.LoadBobChatterFrequency(), frequency =>
             {
-                intervalChanges++;
-                settings.SaveBobChatterIntervalSeconds(seconds);
+                frequencyChanges++;
+                settings.SaveBobChatterFrequency(frequency);
             });
             window.ConfigureSidePanelOpacity(settings.LoadSidePanelOpacity(), opacity =>
             {
@@ -207,11 +207,11 @@ public class BrowseFilterInteractionTests
                 settings.SaveSidePanelOpacity(opacity);
             });
 
-            var interval = (Slider)window.FindName("BobChatterIntervalSlider");
+            var frequency = (Slider)window.FindName("BobChatterFrequencySlider");
             var opacity = (Slider)window.FindName("SidePanelOpacitySlider");
-            interval.Value.Should().Be(60);
+            frequency.Value.Should().Be(0.6);
             opacity.Value.Should().Be(65);
-            intervalChanges.Should().Be(0, "initializing settings must not save them again");
+            frequencyChanges.Should().Be(0, "initializing settings must not save them again");
             opacityChanges.Should().Be(0);
             window.Opacity.Should().Be(0.65, "saved opacity must apply before the native window is created");
 
@@ -222,9 +222,14 @@ public class BrowseFilterInteractionTests
             window.ResizeMode.Should().Be(ResizeMode.CanResizeWithGrip);
             System.Windows.Shell.WindowChrome.GetWindowChrome(window).Should().NotBeNull();
 
-            interval.Value = 10;
-            settings.LoadBobChatterIntervalSeconds().Should().Be(10);
-            intervalChanges.Should().Be(1);
+            frequency.Value = 0.25;
+            settings.LoadBobChatterFrequency().Should().Be(0.25);
+            ((TextBlock)window.FindName("BobChatterFrequencyLabel")).Text.Should().Be("0.25");
+            frequencyChanges.Should().Be(1);
+            frequency.Value = 0;
+            settings.LoadBobChatterFrequency().Should().Be(0);
+            frequency.Value = 1;
+            settings.LoadBobChatterFrequency().Should().Be(1);
             opacity.Value = 35;
             settings.LoadSidePanelOpacity().Should().Be(0.35);
             window.Opacity.Should().Be(0.35, "the slider must immediately update the whole window");
@@ -240,10 +245,10 @@ public class BrowseFilterInteractionTests
 
             var voice = (CheckBox)window.FindName("BobVoiceToggle");
             voice.IsChecked = false;
-            interval.IsEnabled.Should().BeFalse();
+            frequency.IsEnabled.Should().BeFalse();
             voice.IsChecked = true;
-            interval.IsEnabled.Should().BeTrue();
-            interval.Value.Should().Be(10, "disabling voice keeps its configured frequency");
+            frequency.IsEnabled.Should().BeTrue();
+            frequency.Value.Should().Be(1, "disabling voice keeps its configured frequency");
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true); }
     }

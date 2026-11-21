@@ -10,9 +10,10 @@ public enum BobVoiceCue
 
 public sealed class BobVoiceTriggers
 {
-    public const int MinimumChatterIntervalSeconds = 10;
-    public const int MaximumChatterIntervalSeconds = 120;
-    public const int DefaultChatterIntervalSeconds = 15;
+    public const double DefaultChatterFrequency = 1;
+    private readonly Random _random;
+
+    public BobVoiceTriggers(Random? random = null) => _random = random ?? Random.Shared;
 
     private readonly record struct ShopFrame(int Round, int Level, int Gold);
 
@@ -27,18 +28,12 @@ public sealed class BobVoiceTriggers
     private bool? _previousHealthWasLow;
     private bool _lowHealthAnnounced;
     private TimeSpan? _nextChatter;
-    private int _chatterIntervalSeconds = DefaultChatterIntervalSeconds;
+    private double _chatterFrequency = DefaultChatterFrequency;
 
-    public int ChatterIntervalSeconds
+    public double ChatterFrequency
     {
-        get => _chatterIntervalSeconds;
-        set
-        {
-            int interval = Math.Clamp(value, MinimumChatterIntervalSeconds, MaximumChatterIntervalSeconds);
-            if (_chatterIntervalSeconds == interval) return;
-            _chatterIntervalSeconds = interval;
-            _nextChatter = null;
-        }
+        get => _chatterFrequency;
+        set => _chatterFrequency = double.IsFinite(value) ? Math.Clamp(value, 0, 1) : DefaultChatterFrequency;
     }
 
     public BobVoiceCue? Observe(GarrisonHud hud, IEnumerable<string> trackedShopNames,
@@ -84,7 +79,7 @@ public sealed class BobVoiceTriggers
         if (shopCue.HasValue || now < _nextChatter) return shopCue;
 
         _nextChatter = now + ChatterDelay();
-        return BobVoiceCue.PreparationChatter;
+        return _random.NextDouble() < _chatterFrequency ? BobVoiceCue.PreparationChatter : null;
     }
 
     private BobVoiceCue? ObserveShop(GarrisonHud hud, IEnumerable<string> trackedShopNames, GarrisonVoiceFrame voice)
@@ -139,7 +134,7 @@ public sealed class BobVoiceTriggers
     public void RetryLowHealth() => _lowHealthAnnounced = false;
 
     private TimeSpan ChatterDelay() =>
-        TimeSpan.FromSeconds(Random.Shared.Next(_chatterIntervalSeconds, _chatterIntervalSeconds * 2 + 1));
+        TimeSpan.FromSeconds(_random.Next(5, 11));
 
     public void Reset()
     {

@@ -6,6 +6,30 @@ namespace ASPAssistant.Tests.Services;
 public sealed class BobVoiceCaptionTests
 {
     [Theory]
+    [InlineData(4.9, 3.9, true)]
+    [InlineData(5, 3.9, false)]
+    [InlineData(7, 3.9, false)]
+    [InlineData(5, 5.593, true)]
+    [InlineData(5.593, 5.593, false)]
+    public void RandomChatterCanPlayAfterFiveSecondsWithoutCuttingOffAnUnfinishedClip(
+        double elapsed, double previousDuration, bool coolingDown)
+    {
+        Assert.Equal(coolingDown, BobVoicePlayer.IsCoolingDown(BobVoiceCue.PreparationChatter,
+            TimeSpan.FromSeconds(elapsed), TimeSpan.FromSeconds(previousDuration)));
+    }
+
+    [Theory]
+    [InlineData(BobVoiceCue.BeforeBattle, 0.9, true)]
+    [InlineData(BobVoiceCue.BeforeBattle, 1, false)]
+    [InlineData(BobVoiceCue.Opening, 7, true)]
+    [InlineData(BobVoiceCue.Opening, 8, false)]
+    public void EventVoicesKeepTheirExistingPlaybackCooldown(BobVoiceCue cue, double elapsed, bool coolingDown)
+    {
+        Assert.Equal(coolingDown, BobVoicePlayer.IsCoolingDown(cue,
+            TimeSpan.FromSeconds(elapsed), TimeSpan.FromSeconds(3)));
+    }
+
+    [Theory]
     [InlineData(BobVoiceCue.Opening, "NewGame_03", "嘿，我最喜欢的指挥官回来了！准备来一局吗？")]
     [InlineData(BobVoiceCue.BeforeBattle, "Ahead_03", "这局我觉得你能赢。")]
     [InlineData(BobVoiceCue.BattleLoss, "CombatLoss_01", "没关系，人生难免不如意。")]

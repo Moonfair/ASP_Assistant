@@ -300,15 +300,15 @@
                                 <TextBlock x:Name="BobVoiceStatus" Text="在开局、战前和战斗结算等时机播放，战备时会随机闲聊。"
                                            Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,8" />
                                 <DockPanel Margin="0,0,0,6">
-                                    <TextBlock x:Name="BobChatterIntervalLabel" Text="15～30 秒" DockPanel.Dock="Right"
+                                    <TextBlock x:Name="BobChatterFrequencyLabel" Text="1.00" DockPanel.Dock="Right"
                                                Foreground="{StaticResource TextSecondaryBrush}" />
-                                    <TextBlock Text="随机语音间隔" Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="随机语音频率" Foreground="{StaticResource TextPrimaryBrush}" />
                                 </DockPanel>
-                                <Slider x:Name="BobChatterIntervalSlider" Minimum="10" Maximum="120" Value="15"
-                                        TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5"
+                                <Slider x:Name="BobChatterFrequencySlider" Minimum="0" Maximum="1" Value="1"
+                                        TickFrequency="0.05" IsSnapToTickEnabled="True" SmallChange="0.05" LargeChange="0.1"
                                         IsEnabled="{Binding IsChecked, ElementName=BobVoiceToggle}"
-                                        Foreground="{StaticResource AccentBrush}" AutomationProperties.Name="随机语音间隔" />
-                                <TextBlock Text="仅调整战备时的随机闲聊。间隔越短，触发越频繁。"
+                                        Foreground="{StaticResource AccentBrush}" AutomationProperties.Name="随机语音触发概率" />
+                                <TextBlock Text="战备时每5～10秒判定一次，按设置概率播放。0为关闭闲聊，1为每次都播放。"
                                            Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,8" />
                                 <StackPanel Orientation="Horizontal">
                                     <Border x:Name="CannotPreviewPortrait" Width="30" Height="30"

@@ -5,23 +5,20 @@ namespace ASPAssistant.App.Windows;
 
 public partial class SidePanelWindow
 {
-    internal void ConfigureBobChatter(int intervalSeconds, Action<int> change)
+    internal void ConfigureBobChatter(double frequency, Action<double> change)
     {
-        BobChatterIntervalSlider.Value = Math.Clamp(intervalSeconds,
-            BobVoiceTriggers.MinimumChatterIntervalSeconds, BobVoiceTriggers.MaximumChatterIntervalSeconds);
-        UpdateChatterIntervalLabel();
-        BobChatterIntervalSlider.ValueChanged += (_, _) =>
+        BobChatterFrequencySlider.Value = double.IsFinite(frequency)
+            ? Math.Clamp(frequency, 0, 1) : BobVoiceTriggers.DefaultChatterFrequency;
+        UpdateChatterFrequencyLabel();
+        BobChatterFrequencySlider.ValueChanged += (_, _) =>
         {
-            UpdateChatterIntervalLabel();
-            change((int)Math.Round(BobChatterIntervalSlider.Value));
+            UpdateChatterFrequencyLabel();
+            change(BobChatterFrequencySlider.Value);
         };
     }
 
-    private void UpdateChatterIntervalLabel()
-    {
-        int interval = (int)Math.Round(BobChatterIntervalSlider.Value);
-        BobChatterIntervalLabel.Text = $"{interval}～{interval * 2} 秒";
-    }
+    private void UpdateChatterFrequencyLabel() =>
+        BobChatterFrequencyLabel.Text = $"{BobChatterFrequencySlider.Value:0.00}";
 
     internal void ConfigureSidePanelOpacity(double opacity, Action<double> change)
     {

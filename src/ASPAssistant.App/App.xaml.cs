@@ -200,13 +200,13 @@ public partial class App : Application
         bobVoice.Spoken += _sidePanel.ShowCannotSpeech;
         var bobTriggers = new BobVoiceTriggers
         {
-            ChatterIntervalSeconds = _settingsManager.LoadBobChatterIntervalSeconds()
+            ChatterFrequency = _settingsManager.LoadBobChatterFrequency()
         };
-        _sidePanel.ConfigureBobChatter(bobTriggers.ChatterIntervalSeconds, seconds =>
+        _sidePanel.ConfigureBobChatter(bobTriggers.ChatterFrequency, frequency =>
         {
-            bobTriggers.ChatterIntervalSeconds = seconds;
-            try { _settingsManager.SaveBobChatterIntervalSeconds(seconds); }
-            catch (Exception ex) { AppLogger.Error("Settings", "Could not save Bob chatter interval", ex); }
+            bobTriggers.ChatterFrequency = frequency;
+            try { _settingsManager.SaveBobChatterFrequency(frequency); }
+            catch (Exception ex) { AppLogger.Error("Settings", "Could not save Bob chatter frequency", ex); }
         });
         bool bobEnabled = _settingsManager.LoadBobVoice();
         var bobClock = Stopwatch.StartNew();

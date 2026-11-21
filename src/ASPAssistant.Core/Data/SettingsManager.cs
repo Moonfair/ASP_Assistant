@@ -54,12 +54,12 @@ public class SettingsManager
 
     public void SaveBobVoice(bool enabled) => SavePreference("bob-voice", enabled);
 
-    public int LoadBobChatterIntervalSeconds() => LoadPreference("bob-chatter-interval",
-        BobVoiceTriggers.DefaultChatterIntervalSeconds,
-        value => value is >= BobVoiceTriggers.MinimumChatterIntervalSeconds and <= BobVoiceTriggers.MaximumChatterIntervalSeconds);
+    public double LoadBobChatterFrequency() => LoadPreference("bob-chatter-frequency",
+        BobVoiceTriggers.DefaultChatterFrequency,
+        value => double.IsFinite(value) && value is >= 0 and <= 1);
 
-    public void SaveBobChatterIntervalSeconds(int seconds) => SavePreference("bob-chatter-interval",
-        Math.Clamp(seconds, BobVoiceTriggers.MinimumChatterIntervalSeconds, BobVoiceTriggers.MaximumChatterIntervalSeconds));
+    public void SaveBobChatterFrequency(double frequency) => SavePreference("bob-chatter-frequency",
+        double.IsFinite(frequency) ? Math.Clamp(frequency, 0, 1) : BobVoiceTriggers.DefaultChatterFrequency);
 
     public const double MinimumSidePanelOpacity = 0.2;
 

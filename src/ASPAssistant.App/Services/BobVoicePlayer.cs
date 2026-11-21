@@ -12,6 +12,7 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
     private readonly SoundPlayer _player = new();
     private readonly Dictionary<BobVoiceCue, string> _previousClip = [];
     private long? _lastPlayback;
+    private TimeSpan _lastClipDuration;
 
     internal event Action<string, TimeSpan>? Spoken;
 
@@ -95,11 +96,20 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
 
     internal bool Available => File.Exists(Path.Combine(directory, Prefix + "NewGame_01.wav"));
 
+    internal static bool IsCoolingDown(BobVoiceCue cue, TimeSpan elapsed, TimeSpan previousDuration)
+    {
+        var seconds = cue switch
+        {
+            BobVoiceCue.BeforeBattle or BobVoiceCue.BattleLoss or BobVoiceCue.BattleVictory => 1,
+            BobVoiceCue.PreparationChatter => Math.Max(5, previousDuration.TotalSeconds),
+            _ => 8
+        };
+        return elapsed < TimeSpan.FromSeconds(seconds);
+    }
+
     internal bool Play(BobVoiceCue cue, bool preview = false)
     {
-        var cooldown = cue is BobVoiceCue.BeforeBattle or BobVoiceCue.BattleLoss or BobVoiceCue.BattleVictory
-            ? TimeSpan.FromSeconds(1) : TimeSpan.FromSeconds(8);
-        if (!preview && _lastPlayback is long last && Stopwatch.GetElapsedTime(last) < cooldown)
+        if (!preview && _lastPlayback is long last && IsCoolingDown(cue, Stopwatch.GetElapsedTime(last), _lastClipDuration))
             return false;
 
         var clips = GetClips(cue).Where(clip => File.Exists(PathFor(clip))).ToArray();
@@ -113,6 +123,7 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
             _player.SoundLocation = PathFor(chosen);
             _player.Play();
             _lastPlayback = Stopwatch.GetTimestamp();
+            _lastClipDuration = chosen.Duration;
             _previousClip[cue] = chosen.Suffix;
             AppLogger.Info("BobVoice", $"Playing {cue}: {Path.GetFileName(_player.SoundLocation)}");
         }
@@ -130,6 +141,7 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
     {
         _player.Stop();
         _lastPlayback = null;
+        _lastClipDuration = TimeSpan.Zero;
     }
 
     public void Dispose()

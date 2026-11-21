@@ -38,18 +38,18 @@ public class SettingsManagerTests : IDisposable
     }
 
     [Fact]
-    public void VoiceIntervalAndPanelOpacityRestoreDefaultsAndSavedPreferences()
+    public void VoiceFrequencyAndPanelOpacityRestoreDefaultsAndSavedPreferences()
     {
-        Assert.Equal(15, _manager.LoadBobChatterIntervalSeconds());
+        Assert.Equal(1, _manager.LoadBobChatterFrequency());
         Assert.Equal(1, _manager.LoadSidePanelOpacity());
 
         _manager.SaveBobVoice(false);
         _manager.SaveSideFilterLayout(false);
-        _manager.SaveBobChatterIntervalSeconds(60);
+        _manager.SaveBobChatterFrequency(0.6);
         _manager.SaveSidePanelOpacity(0.65);
 
         var restored = new SettingsManager(_tempDir);
-        Assert.Equal(60, restored.LoadBobChatterIntervalSeconds());
+        Assert.Equal(0.6, restored.LoadBobChatterFrequency());
         Assert.Equal(0.65, restored.LoadSidePanelOpacity());
         Assert.False(restored.LoadBobVoice());
         Assert.False(restored.LoadSideFilterLayout());
@@ -61,36 +61,39 @@ public class SettingsManagerTests : IDisposable
     [InlineData("\"NaN\"")]
     [InlineData("1e1000")]
     [InlineData("-1")]
-    [InlineData("0")]
     [InlineData("200")]
     public void InvalidNumericPreferencesUseDefaults(string json)
     {
-        File.WriteAllText(Path.Combine(_tempDir, "bob-chatter-interval.json"), json);
+        File.WriteAllText(Path.Combine(_tempDir, "bob-chatter-frequency.json"), json);
         File.WriteAllText(Path.Combine(_tempDir, "side-panel-opacity.json"), json);
 
-        Assert.Equal(15, _manager.LoadBobChatterIntervalSeconds());
+        Assert.Equal(1, _manager.LoadBobChatterFrequency());
         Assert.Equal(1, _manager.LoadSidePanelOpacity());
     }
 
     [Fact]
-    public void FractionalChatterIntervalUsesDefault()
+    public void SavedFractionalFrequencyIsUsedAndOldIntervalDoesNotReduceTheNewDefault()
     {
-        File.WriteAllText(Path.Combine(_tempDir, "bob-chatter-interval.json"), "15.5");
-        Assert.Equal(15, _manager.LoadBobChatterIntervalSeconds());
+        File.WriteAllText(Path.Combine(_tempDir, "bob-chatter-interval.json"), "120");
+        Assert.Equal(1, _manager.LoadBobChatterFrequency());
+        File.WriteAllText(Path.Combine(_tempDir, "bob-chatter-frequency.json"), "0.35");
+        Assert.Equal(0.35, _manager.LoadBobChatterFrequency());
+        Assert.Equal("120", File.ReadAllText(Path.Combine(_tempDir, "bob-chatter-interval.json")));
     }
 
     [Theory]
-    [InlineData(-20, 10, -1, 0.2)]
-    [InlineData(10, 10, 0.2, 0.2)]
-    [InlineData(120, 120, 1, 1)]
-    [InlineData(500, 120, 2, 1)]
-    public void NumericPreferencesStayWithinUsableLimits(int interval, int expectedInterval,
+    [InlineData(-1, 0, -1, 0.2)]
+    [InlineData(0, 0, 0.2, 0.2)]
+    [InlineData(0.5, 0.5, 0.5, 0.5)]
+    [InlineData(1, 1, 1, 1)]
+    [InlineData(2, 1, 2, 1)]
+    public void NumericPreferencesStayWithinUsableLimits(double frequency, double expectedFrequency,
         double opacity, double expectedOpacity)
     {
-        _manager.SaveBobChatterIntervalSeconds(interval);
+        _manager.SaveBobChatterFrequency(frequency);
         _manager.SaveSidePanelOpacity(opacity);
 
-        Assert.Equal(expectedInterval, _manager.LoadBobChatterIntervalSeconds());
+        Assert.Equal(expectedFrequency, _manager.LoadBobChatterFrequency());
         Assert.Equal(expectedOpacity, _manager.LoadSidePanelOpacity());
     }
 
@@ -102,6 +105,16 @@ public class SettingsManagerTests : IDisposable
     {
         _manager.SaveSidePanelOpacity(opacity);
         Assert.Equal(1, _manager.LoadSidePanelOpacity());
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void NonFiniteFrequencySavesAUsableDefault(double frequency)
+    {
+        _manager.SaveBobChatterFrequency(frequency);
+        Assert.Equal(1, _manager.LoadBobChatterFrequency());
     }
 
     [Theory]
