@@ -30,14 +30,35 @@ public class MatchViewTests
             try
             {
                 settings.SaveMatchNickname("博士");
-                view.Configure(session, settings, [new Strategy { Name = "坚不可摧" }],
-                    new CovenantCatalog { CoreCovenants = ["炎"] }, overlay);
+                string[] names = ["坚不可摧", "众志合一", "加急调派", "食腐之蝶", "统御号令"];
+                string[] covenants = ["炎", "萨尔贡", "谢拉格", "乌萨斯", "维多利亚"];
+                view.Configure(session, settings, names.Select(name => new Strategy { Name = name }).ToArray(),
+                    new CovenantCatalog { CoreCovenants = [.. covenants] }, overlay);
                 session.Changed += view.Refresh;
                 Assert.Equal("博士", view.Nickname.Text);
-                Assert.Equal("随便", view.CovenantPicker.SelectedItem);
+                Assert.Empty(view.CovenantPicker.SelectedItems);
+                Assert.Equal("随便", view.CovenantSummary.Text);
                 Assert.Equal("随便", view.TacticPicker.SelectedItem);
                 Assert.False(view.JoinButton.IsEnabled);
-                view.StrategyPicker.SelectedIndex = 0;
+                view.StrategySection.IsExpanded = view.CovenantSection.IsExpanded = true;
+                LineupPerformanceTests.Layout(view);
+                view.StrategyPicker.SelectAll();
+                Assert.Equal(4, view.StrategyPicker.SelectedItems.Count);
+                Assert.Equal(string.Join("、", names.Take(4)), view.StrategySummary.Text);
+                LineupPerformanceTests.Layout(view);
+                var fifthStrategy = (ListBoxItem)view.StrategyPicker.ItemContainerGenerator.ContainerFromIndex(4);
+                Assert.False(fifthStrategy.IsEnabled);
+                view.StrategyPicker.SelectedItems.RemoveAt(0);
+                LineupPerformanceTests.Layout(view);
+                Assert.True(fifthStrategy.IsEnabled);
+                view.StrategyPicker.SelectedItems.Add(view.StrategyPicker.Items[4]);
+                Assert.Contains(names[4], view.StrategySummary.Text);
+                view.CovenantPicker.SelectAll();
+                Assert.Equal(4, view.CovenantPicker.SelectedItems.Count);
+                Assert.Equal(string.Join("、", covenants.Take(4)), view.CovenantSummary.Text);
+                Click(view.AnyCovenant);
+                Assert.Empty(view.CovenantPicker.SelectedItems);
+                Assert.Equal("随便", view.CovenantSummary.Text);
                 Assert.True(view.JoinButton.IsEnabled);
                 view.Nickname.Text = "小刻";
                 Click(view.JoinButton);

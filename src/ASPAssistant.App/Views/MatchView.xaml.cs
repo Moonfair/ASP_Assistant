@@ -47,10 +47,11 @@ public partial class MatchView : UserControl
         _overlay = overlay;
         _savedNickname = settings.LoadMatchNickname();
         Nickname.Text = _savedNickname;
-        StrategyPicker.ItemsSource = strategies.Select(item => item.Name).Distinct().ToArray();
-        CovenantPicker.ItemsSource = new[] { "随便" }.Concat(covenants.CoreCovenants).Concat(covenants.AdditionalCovenants).Distinct().ToArray();
+        StrategyPicker.ItemsSource = strategies.DistinctBy(item => item.Name).ToArray();
+        CovenantPicker.ItemsSource = covenants.CoreCovenants.Concat(covenants.AdditionalCovenants).Distinct().ToArray();
         TacticPicker.ItemsSource = new[] { "随便", "兜底", "攻坚" };
-        TacticPicker.SelectedIndex = CovenantPicker.SelectedIndex = 0;
+        TacticPicker.SelectedIndex = 0;
+        UpdatePreferenceSummaries();
         _session = session;
         Refresh();
     }
@@ -165,7 +166,7 @@ public partial class MatchView : UserControl
     {
         if (_session is null) return;
         JoinButton.IsEnabled = !_session.Busy && !_clipboardBusy && !string.IsNullOrWhiteSpace(Nickname.Text) &&
-            StrategyPicker.SelectedItem is string && (CustomTeam.IsChecked != true || !string.IsNullOrWhiteSpace(InvitationDraft.Text));
+            StrategyPicker.SelectedItems.Count > 0 && (CustomTeam.IsChecked != true || !string.IsNullOrWhiteSpace(InvitationDraft.Text));
         SendInvitationButton.IsEnabled = !_session.Busy && !_clipboardBusy && !string.IsNullOrWhiteSpace(InvitationDraft.Text);
         PasteButton.IsEnabled = !_session.Busy && !_clipboardBusy;
         CopyButton.IsEnabled = !_clipboardBusy && !string.IsNullOrEmpty(PublishedInvitation.Text);
@@ -222,6 +223,32 @@ public partial class MatchView : UserControl
     }
 
     private void OnInputChanged(object sender, RoutedEventArgs e) => UpdateInputs();
+    private string[] SelectedStrategies() => StrategyPicker.SelectedItems.Cast<Strategy>().Select(item => item.Name).ToArray();
+    private string[] SelectedCovenants() => CovenantPicker.SelectedItems.Cast<string>().ToArray();
+
+    private void UpdatePreferenceSummaries()
+    {
+        var strategies = SelectedStrategies();
+        var covenants = SelectedCovenants();
+        StrategySummary.Text = strategies.Length == 0 ? "请选择策略" : string.Join("、", strategies);
+        CovenantSummary.Text = covenants.Length == 0 ? "随便" : string.Join("、", covenants);
+        AnyCovenant.IsEnabled = covenants.Length > 0;
+    }
+
+    private void OnPreferenceChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var picker = (ListBox)sender;
+        // Keyboard select-all and UI automation can select multiple items in one event.
+        foreach (var item in e.AddedItems.Cast<object>().Reverse())
+        {
+            if (picker.SelectedItems.Count <= 4) break;
+            picker.SelectedItems.Remove(item);
+        }
+        UpdatePreferenceSummaries();
+        UpdateInputs();
+    }
+
+    private void OnAnyCovenant(object sender, RoutedEventArgs e) => CovenantPicker.UnselectAll();
     private void OnTeamModeChanged(object sender, RoutedEventArgs e) => Refresh();
     private void OnNicknameLostFocus(object sender, KeyboardFocusChangedEventArgs e) => SaveNickname();
 
@@ -230,7 +257,11 @@ public partial class MatchView : UserControl
         if (e.Key != Key.Enter) return;
         SaveNickname();
         if (_editingNickname) ToggleProfileEditor();
-        else StrategyPicker.Focus();
+        else
+        {
+            StrategySection.IsExpanded = true;
+            StrategyPicker.Focus();
+        }
         e.Handled = true;
     }
 
@@ -271,9 +302,9 @@ public partial class MatchView : UserControl
 
     private async void OnJoin(object sender, RoutedEventArgs e)
     {
-        if (_session is null || !JoinButton.IsEnabled || StrategyPicker.SelectedItem is not string strategy) return;
+        if (_session is null || !JoinButton.IsEnabled) return;
         SaveNickname();
-        await _session.JoinAsync(Nickname.Text.Trim(), strategy, (string)CovenantPicker.SelectedItem, (string)TacticPicker.SelectedItem,
+        await _session.JoinAsync(Nickname.Text.Trim(), SelectedStrategies(), SelectedCovenants(), (string)TacticPicker.SelectedItem,
             CustomTeam.IsChecked == true ? InvitationDraft.Text.Trim() : null);
     }
 

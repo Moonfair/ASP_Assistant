@@ -1,6 +1,7 @@
 <UserControl x:Class="ASPAssistant.App.Views.MatchView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ASPAssistant.App.Controls"
              Background="{DynamicResource PanelBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
     <UserControl.Resources>
         <ResourceDictionary>
@@ -14,6 +15,28 @@
             <Style x:Key="PrimaryAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="Tag" Value="tracked" />
+            </Style>
+            <Style x:Key="PreferenceChip" TargetType="ListBoxItem" BasedOn="{StaticResource FilterChipItem}">
+                <Setter Property="Padding" Value="6,4" />
+                <Style.Triggers>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding SelectedItems.Count, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="4" />
+                            <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="False" />
+                        </MultiDataTrigger.Conditions>
+                        <Setter Property="IsEnabled" Value="False" />
+                        <Setter Property="Opacity" Value="0.45" />
+                    </MultiDataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="PreferencePanel" TargetType="ListBox" BasedOn="{StaticResource FilterChipListBox}">
+                <Setter Property="SelectionMode" Value="Multiple" />
+                <Setter Property="ItemContainerStyle" Value="{StaticResource PreferenceChip}" />
+            </Style>
+            <Style x:Key="PreferenceName" TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="4,0,0,0" />
+                <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
@@ -61,11 +84,40 @@
                                  LostKeyboardFocus="OnNicknameLostFocus" KeyDown="OnNicknameKeyDown" />
                     </StackPanel>
                     <StackPanel x:Name="Preferences">
-                        <TextBlock Text="擅长的策略（必选）" Style="{StaticResource FieldLabel}" />
-                        <ComboBox x:Name="StrategyPicker" IsEditable="True" IsReadOnly="True" MaxDropDownHeight="240"
-                                  AutomationProperties.Name="擅长的策略" SelectionChanged="OnInputChanged" />
-                        <TextBlock Text="意向的盟约" Style="{StaticResource FieldLabel}" />
-                        <ComboBox x:Name="CovenantPicker" IsEditable="True" IsReadOnly="True" MaxDropDownHeight="240" AutomationProperties.Name="意向的盟约" />
+                        <Expander x:Name="StrategySection" Style="{StaticResource FilterSectionExpander}" IsExpanded="False"
+                                  Header="擅长的策略（必选 1–4 项）" Margin="0,8,0,0">
+                            <ListBox x:Name="StrategyPicker" Style="{StaticResource PreferencePanel}" AutomationProperties.Name="擅长的策略" TextSearch.TextPath="Name"
+                                     SelectionChanged="OnPreferenceChanged">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" ToolTip="{Binding Description}">
+                                            <Image Width="22" Height="22" controls:DeferredIcon.Path="{Binding IconPath}" />
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource PreferenceName}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Expander>
+                        <TextBlock x:Name="StrategySummary" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" />
+                        <Expander x:Name="CovenantSection" Style="{StaticResource FilterSectionExpander}" IsExpanded="False"
+                                  Header="意向的盟约（最多 4 项）" Margin="0,8,0,0">
+                            <StackPanel>
+                                <Button x:Name="AnyCovenant" Content="随便" Click="OnAnyCovenant" HorizontalAlignment="Left" Padding="8,3" Margin="0,0,0,4" />
+                                <ListBox x:Name="CovenantPicker" Style="{StaticResource PreferencePanel}" AutomationProperties.Name="意向的盟约"
+                                         SelectionChanged="OnPreferenceChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <controls:CovenantIcon Covenant="{Binding}" Width="18" Height="18"
+                                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
+                                                <TextBlock Text="{Binding}" Style="{StaticResource PreferenceName}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Expander>
+                        <TextBlock x:Name="CovenantSummary" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" />
                         <TextBlock Text="意向的战术策略" Style="{StaticResource FieldLabel}" />
                         <ComboBox x:Name="TacticPicker" IsEditable="True" IsReadOnly="True" AutomationProperties.Name="意向的战术策略" />
                     </StackPanel>

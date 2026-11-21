@@ -38,6 +38,8 @@ public class MatchSessionTests
             if (attempts.Count <= 2)
             {
                 Assert.Equal(expectedAction, action);
+                Assert.Equal(new[] { "策略一", "策略二" }, body.GetProperty("strategies").Deserialize<string[]>());
+                Assert.Equal(new[] { "炎", "萨尔贡" }, body.GetProperty("covenants").Deserialize<string[]>());
                 if (invitation is not null) Assert.Equal(invitation, body.GetProperty("invitation").GetString());
             }
             if (lost)
@@ -48,13 +50,13 @@ public class MatchSessionTests
             return Reply(action switch { "leave" => "ended", "join-room" => "joining", _ => "queued" });
         }));
         using var session = new MatchSession(client);
-        await session.JoinAsync("测试", "策略", "随便", "随便", invitation);
+        await session.JoinAsync("测试", ["策略一", "策略二"], ["炎", "萨尔贡"], "随便", invitation);
         Assert.NotNull(session.Error);
         Assert.Equal("recovering", session.State?.Phase);
         await session.RefreshAsync();
         Assert.Equal(invitation is null ? "queued" : "joining", session.State?.Phase);
         await session.LeaveAsync();
-        await session.JoinAsync("测试", "策略", "随便", "随便");
+        await session.JoinAsync("测试", ["策略"], [], "随便");
         Assert.Matches("^[a-f0-9]{64}$", attempts[0]);
         Assert.All(attempts.Take(3), ticket => Assert.Equal(attempts[0], ticket));
         Assert.NotEqual(attempts[0], attempts[3]);
@@ -68,7 +70,7 @@ public class MatchSessionTests
             Content = JsonContent.Create(new { phase = "confirming", serverNow = 1_000_000, deadline = 1_020_000 })
         }));
         using var session = new MatchSession(client);
-        await session.JoinAsync("博士", "众志合一", "随便", "随便");
+        await session.JoinAsync("博士", ["众志合一"], [], "随便");
         Assert.InRange(session.ConfirmationSecondsRemaining, 19, 20);
     }
 
@@ -83,11 +85,11 @@ public class MatchSessionTests
             return Reply("queued");
         }));
         using var session = new MatchSession(client);
-        await session.JoinAsync("博士", "众志合一", "随便", "随便");
+        await session.JoinAsync("博士", ["众志合一"], [], "随便");
         await session.LeaveAsync();
         Assert.Equal("ended", session.State?.Phase);
         Assert.Equal(("leave", requests[0].Ticket), requests[1]);
-        await session.JoinAsync("小刻", "坚不可摧", "随便", "攻坚");
+        await session.JoinAsync("小刻", ["坚不可摧"], [], "攻坚");
         Assert.Equal("queued", session.State?.Phase);
         Assert.NotEqual(requests[0].Ticket, requests[2].Ticket);
     }
@@ -112,7 +114,7 @@ public class MatchSessionTests
                 [new MatchStroke(strokeId, "peer", points, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 10000)]);
         }));
         using var session = new MatchSession(client);
-        await session.JoinAsync("测试", "策略", "随便", "随便");
+        await session.JoinAsync("测试", ["策略"], [], "随便");
         Assert.True(session.CanSendStroke);
         await session.RefreshAsync();
         Assert.Equal(new MatchPoint(.7, .8), Assert.Single(session.State!.Strokes).Points.Last());

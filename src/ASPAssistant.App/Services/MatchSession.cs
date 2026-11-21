@@ -34,14 +34,19 @@ internal sealed class MatchSession : IDisposable
     internal bool CanSendStroke => !Busy && State is { Phase: "playing" } s &&
         s.Members.Any(m => m.Id != s.SelfId && !s.Muted.Contains(m.Id));
 
-    internal Task JoinAsync(string nickname, string strategy, string covenant, string tactic, string? invitation = null)
+    internal Task JoinAsync(string nickname, string[] strategies, string[] covenants, string tactic, string? invitation = null)
     {
         if (Busy || State is { Phase: not "ended" } || _shutdown.IsCancellationRequested)
             return Task.CompletedTask;
 
         _ticket ??= Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
         string action = invitation is null ? "join" : "join-room";
-        var body = new { nickname, strategy, covenant, tactic, invitation };
+        var body = new
+        {
+            nickname, strategies, covenants, tactic, invitation,
+            // The previous server can still accept single-choice profiles during rollout.
+            strategy = string.Join("、", strategies), covenant = covenants.Length == 0 ? "随便" : string.Join("、", covenants)
+        };
         _pendingJoin = (action, body);
         State = null;
         _timer.Start();
