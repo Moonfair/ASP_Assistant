@@ -92,6 +92,39 @@ test('优先等待战术二比二、策略与盟约各异的队友，随便可�
   assert.ok(tokens.every(token => !JSON.stringify(state).includes(token)));
 });
 
+test('两类偏好各有四个名额，队员可查看完整列表，旧版单选仍可加入', async t => {
+  const { ok, request, tokens } = setup(t);
+  const covenants = ['炎', '萨尔贡', '谢拉格', '维多利亚'];
+  const body = { nickname: '队长', strategies: strategies.slice(0, 4), covenants, invitation: '房间A' };
+  for (const change of [{ strategies: [] }, { strategies }, { covenants: [...covenants, '乌萨斯'] },
+    { strategies: [strategies[0], strategies[0]] }, { covenants: ['随便', '炎'] },
+    { strategies: [strategies[0], '未知'] }, { covenants: '炎' }]) {
+    assert.equal((await request(tokens[0], 'join-room', { ...body, ...change })).status, 400);
+  }
+  await ok(tokens[0], 'join-room', body);
+  const room = await ok(tokens[1], 'join-room', { ...profile('队员'), invitation: body.invitation });
+  const [captain, guest] = room.members;
+  assert.deepEqual(captain.strategies, body.strategies);
+  assert.deepEqual(captain.covenants, covenants);
+  assert.equal(captain.strategy, body.strategies.join('、'));
+  assert.equal(captain.covenant, covenants.join('、'));
+  assert.deepEqual(guest.strategies, [strategies[0]]);
+  assert.deepEqual(guest.covenants, []);
+  assert.equal(guest.covenant, '随便');
+});
+
+test('仅第二项策略或盟约重合也延迟成组，超时后仍可成局', async t => {
+  for (const field of ['strategies', 'covenants']) {
+    const { ok, tokens, advance } = setup(t);
+    const profiles = tokens.map((_, i) => ({ nickname: String(i), strategies: [strategies[i]], covenants: [] }));
+    profiles[0][field].push(field === 'strategies' ? strategies[4] : '炎');
+    profiles[1][field].push(field === 'strategies' ? strategies[4] : '炎');
+    for (let i = 0; i < 4; i++) assert.equal((await ok(tokens[i], 'join', profiles[i])).phase, 'queued');
+    advance(60_000);
+    assert.equal((await ok(tokens[0], 'state')).phase, 'confirming');
+  }
+});
+
 test('四名偏好冲突的玩家等待一分钟后仍可成组', async t => {
   const { ok, tokens, advance } = setup(t);
   for (const token of tokens) await ok(token, 'join', profile('玩家', '兜底', '众志合一', '炎'));
