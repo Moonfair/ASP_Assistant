@@ -19,8 +19,6 @@ public class OcrScannerService : IDisposable
     private readonly GarrisonHudRecognizer? _hudRecognizer;
     private readonly IOcrEngine _ocrEngine;
     public bool EnableVoiceRecognition { get; set; }
-    private volatile bool _compareWindowsHud;
-    public bool CompareWindowsHud { get => _compareWindowsHud; set => _compareWindowsHud = value; }
     private readonly GameState.GameState _gameState;
     private readonly Func<IReadOnlyList<string>> _getTrackedNames;
     private readonly PreparationScanner? _preparation;
@@ -168,7 +166,7 @@ public class OcrScannerService : IDisposable
 
             bool windows = target?.Kind == GameTargetKind.Windows;
             var (hud, voice, shopVisible) = _hudRecognizer == null ? default
-                : await _hudRecognizer.ScanAsync(screenshot, EnableVoiceRecognition, !windows || CompareWindowsHud);
+                : await _hudRecognizer.ScanAsync(screenshot, EnableVoiceRecognition, !windows);
             if (windows) voice = voice with { ShopVisible = shopVisible };
             hudMs = timing.ElapsedMilliseconds - captureMs - preparationMs;
             if (!IsCurrentTarget) return;

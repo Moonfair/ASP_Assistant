@@ -64,8 +64,6 @@ public partial class SidePanelWindow : Window
         BanVm = banVm;
 
         InitializeComponent();
-        GarrisonDebug.Attach(BattleData);
-        GarrisonDebug.DataContext = gameStateVm;
         Loaded += async (_, _) => CannotPortraitImage.Source =
             await IconLoadQueue.Shared.RequestAsync("icons/strategies/band_cannot.png");
         CannotSpeechLayer.SizeChanged += (_, _) => PositionCannotSpeech();

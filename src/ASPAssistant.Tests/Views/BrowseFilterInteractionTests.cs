@@ -549,6 +549,9 @@ public class BrowseFilterInteractionTests
         var mainWidth = window.Width;
         window.UseSideFilters = true;
         var tabs = (TabControl)window.FindName("MainTabs");
+        var items = tabs.Items.Cast<TabItem>().ToArray();
+        items.Select(t => t.Header?.ToString()).Should().NotContain("Debug");
+        items.Single(t => Equals(t.Header, "数据")).Content.Should().BeOfType<BattleDataView>();
         var expand = (Button)window.FindName("ExpandSideFiltersButton");
         var monitor = User32.GetMonitorRect(0, 0);
         var game = new RECT

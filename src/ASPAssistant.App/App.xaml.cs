@@ -192,8 +192,6 @@ public partial class App : Application
         });
         _sidePanel.BattleData.Updated += update => gameStateVm.UpdateMemoryHud(update.Garrison);
         _gameTarget.Changed += () => gameStateVm.SetHudSource(_gameTarget.Current?.Kind);
-        _sidePanel.GarrisonDebug.IsVisibleChanged += (_, _) =>
-            _ocrScanner.CompareWindowsHud = _sidePanel.GarrisonDebug.IsVisible;
         ConfigureGameSource();
         await _lineupSite.RestoreSessionAsync();
         _sidePanel.UseSideFilters = _settingsManager.LoadSideFilterLayout();
@@ -214,7 +212,6 @@ public partial class App : Application
         _sidePanel.ConfigureMatch(_match, _settingsManager, strategies, covenantCatalog, _overlay);
         var battleNames = await dataStore.LoadBattleOperatorNamesAsync();
         _sidePanel.BattleData.SetNames(battleNames);
-        _sidePanel.GarrisonDebug.SetNames(await dataStore.LoadChessNamesAsync(), battleNames);
 
         var bobVoice = _bobVoice = new BobVoicePlayer(Path.Combine(dataDir, "voice", "bob"));
         bobVoice.Spoken += _sidePanel.ShowCannotSpeech;
