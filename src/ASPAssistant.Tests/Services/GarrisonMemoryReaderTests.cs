@@ -41,7 +41,20 @@ public class GarrisonMemoryReaderTests
             Ptr(0x8000 + 16, 0x8800); Num(0x8000 + 24, 1); Ptr(0x8800 + 24, 1); Ptr(0x8800 + 32, 0x9000);
             Num(0x9000 + 16, 42); Ptr(0x9000 + 24, 0x9800);
             Reader = new(Read, (p, name, ns) => _types.GetValueOrDefault(p) == (name, ns),
-                p => p switch { 0x9800 => "chess_item", 0xB400 => "chess_char", _ => throw new InvalidDataException() });
+                p => p switch { 0x9800 => "chess_item", 0xB400 => "chess_char", 0xF000 => "enemy_initial_1", _ => throw new InvalidDataException() });
+        }
+        public void SetPhase(int state, int subState, int options)
+        {
+            _types[0xE000] = ("AutoChessGameStatus", Chess);
+            _types[0xE200] = ("AutoChessGameStateModel", "");
+            _types[0xE400] = ("AutoChessGameStateMachine", "");
+            _types[0xE600] = ("AutoChessGameState", "");
+            _types[0xE800] = ("AutoChessEffectChooseDataModel", Chess);
+            _types[0xEA00] = ("List`1", Generic);
+            Ptr(0x4000 + 56, 0xE000); Ptr(0xE000 + 16, 0xE200); Ptr(0xE200 + 24, 0xE400);
+            Num(0xE400 + 92, state); Ptr(0xE400 + 96, 0xE600); Num(0xE600 + 20, state); Num(0xE600 + 24, subState);
+            Ptr(0x4800 + 264, 0xE800); Ptr(0xE800 + 24, 0xF000); Ptr(0xE800 + 32, 0xEA00);
+            Num(0xEA00 + 24, options);
         }
         public void AddShopAndCharacter()
         {
@@ -76,6 +89,22 @@ public class GarrisonMemoryReaderTests
             Ptr(0xDA00 + 24, 3); Num(0xDA00 + 40, 111); Ptr(0xDA00 + 48, 0xB400);
             Num(0xDA00 + 64, 222); Ptr(0xDA00 + 72, 0x9800);
         }
+        public void AddBossBoard()
+        {
+            SetPhase(6, 3, 0);
+            AddOverview(); // identifier 111 maps to "chess_char", player index 1 is the teammate.
+            _types[0x1600] = ("AutoChessBattleStatusDataModel", Chess);
+            _types[0x1800] = ("BossBattleData", Chess);
+            _types[0x1A00] = ("List`1", Generic);
+            _types[0x1E00] = ("AutoChessBossDamageDataItemModel", Chess);
+            Ptr(0x4800 + 240, 0x1600); Ptr(0x1600 + 72, 0x1A00);
+            Ptr(0x4800 + 136, 0x1800); Num(0x1800 + 16, 1000000);
+            List(0x1A00, 0x1C00, 0x1E00);
+            Num(0x1E00 + 16, 1); Num(0x1E00 + 20, 111); Num(0x1E00 + 24, 69000);
+            _types[0xF200] = ("PlayerCard", Chess);
+            Ptr(0x6400 + 64, 0xF200); Ptr(0xF200 + 16, 0x9800);
+        }
+
         private void List(int list, int array, long element)
         {
             Ptr(list + 16, array); Num(list + 24, 1); Ptr(array + 24, 1); Ptr(array + 32, element);
@@ -87,6 +116,74 @@ public class GarrisonMemoryReaderTests
             return bytes;
         }
         public GarrisonSnapshot? Capture() => Reader.Read(() => (0x800, 0x1000));
+    }
+
+    [Theory]
+    [InlineData(2, 3, 6, true)]
+    [InlineData(2, 4, 6, true)]
+    [InlineData(2, 2, 6, false)]
+    [InlineData(2, 3, 0, false)]
+    [InlineData(3, 3, 6, false)]
+    [InlineData(4, 3, 6, false)]
+    public void OnlyLiveSpecialDecisionsCanPlayTheLargePickLine(int phase, int subPhase, int options, bool expected)
+    {
+        var memory = new Sample();
+        memory.SetPhase(phase, subPhase, options);
+        memory.Num(0x6800 + 80, 24);
+        var snapshot = memory.Capture()!;
+        var triggers = new BobVoiceTriggers();
+        BobVoiceCue? Observe() => triggers.Observe(new(snapshot.Round, null, null), [], memory:
+            new(BattleFeedState.WaitingForRound, Garrison: snapshot));
+        var cue = Observe();
+        if (expected)
+        {
+            Assert.NotNull(cue);
+            Assert.Equal("RecruitLargeMinion_03", Assert.Single(ASPAssistant.App.Services.BobVoicePlayer.GetClips(cue.Value)).Suffix);
+        }
+        else Assert.Null(cue);
+        Assert.Null(Observe());
+    }
+
+    [Fact]
+    public void BossBoardUsesTargetDamageAndBossHpAndSurvivesTheWorkerPipe()
+    {
+        var memory = new Sample();
+        memory.AddBossBoard();
+        BossDamageBoard? Board() => JsonSerializer.Deserialize<BattleUpdate>(
+            JsonSerializer.Serialize(new BattleUpdate(BattleFeedState.Live, Garrison: memory.Capture())))!.Garrison!.BossDamage;
+        var board = Assert.IsType<BossDamageBoard>(Board());
+        Assert.Equal(1000000, board.MaxHp);
+        Assert.Equal(new BossDamageEntry(1, "chess_item", "chess_char", 69000), Assert.Single(board.Rows));
+        Assert.Equal(6, board.Percent(69000));
+        Assert.Equal(100, board.Percent(2000000));
+        // A missing HP denominator does not destroy the raw damage or fabricate a percentage.
+        memory.Ptr(0x4800 + 136, 0);
+        var noHp = Assert.IsType<BossDamageBoard>(Board());
+        Assert.Null(noHp.Percent(Assert.Single(noHp.Rows).Damage));
+        // A corrupt optional board must not interrupt the normal HUD or the damage feed.
+        memory.Num(0x1E00 + 24, -1);
+        Assert.Null(Board());
+        Assert.Equal(12, memory.Capture()!.Round);
+        memory.Num(0x1E00 + 24, 69000);
+        memory.SetPhase(4, 3, 0);
+        Assert.Null(Board());
+    }
+
+    [Fact]
+    public void PhaseCrossesTheWorkerBoundaryButAnInconsistentPhaseDoesNotEraseTheLocalHud()
+    {
+        var sample = new Sample();
+        sample.SetPhase(2, 3, 6);
+        var json = JsonSerializer.Serialize(new BattleUpdate(BattleFeedState.WaitingForRound, Garrison: sample.Capture()));
+        Assert.Equal(new GarrisonPhase(2, 3, "enemy_initial_1"),
+            JsonSerializer.Deserialize<BattleUpdate>(json)!.Garrison!.Phase);
+        sample.Num(0xE600 + 20, 3);
+        var transitioning = sample.Capture()!;
+        Assert.Equal(12, transitioning.Round);
+        Assert.Null(transitioning.Phase);
+        sample.Num(0xE600 + 20, 2);
+        sample.Ptr(0xE800 + 24, 0);
+        Assert.Null(sample.Capture()!.Phase!.DraftChoiceId);
     }
 
     [Fact]

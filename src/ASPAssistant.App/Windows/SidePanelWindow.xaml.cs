@@ -64,8 +64,6 @@ public partial class SidePanelWindow : Window
         BanVm = banVm;
 
         InitializeComponent();
-        Loaded += async (_, _) => CannotPortraitImage.Source =
-            await IconLoadQueue.Shared.RequestAsync("icons/strategies/band_cannot.png");
         CannotSpeechLayer.SizeChanged += (_, _) => PositionCannotSpeech();
         InitializeFilterLayout();
         _preparationResultTimer.Tick += (_, _) => HidePreparationOverlay();

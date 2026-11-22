@@ -138,6 +138,38 @@ public static class MuMuBattleFeed
 
     internal static BattleUpdate Decode(string line)
     {
+        int separator = line.IndexOf('|');
+        if (separator < 0) return DecodeBattle(line);
+        var update = DecodeBattle(line[..separator]);
+        return update.State is BattleFeedState.Live or BattleFeedState.WaitingForRound && line.Length - separator <= 4096
+            ? update with { Stage = DecodeStage(line[(separator + 1)..]) } : update;
+    }
+
+    private static BattleStage? DecodeStage(string section)
+    {
+        static bool UInt(string s, out int n) => int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out n);
+        static bool Key(string s) => s.Length <= 128 && s.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-');
+        var parts = section.Split(';');
+        var head = parts[0].Split(',');
+        if (head.Length != 5 || !UInt(head[0], out var phase) || phase > 14 ||
+            !UInt(head[1], out var round) || !UInt(head[2], out var player) || player > 31 ||
+            !Key(head[3]) || !UInt(head[4], out var hp)) return null;
+        var stage = new BattleStage(phase, round, player, head[3], null);
+        if (phase != GarrisonPhase.BossBattle || parts.Length > 4) return stage;
+        var rows = new List<BossDamageEntry>();
+        foreach (var part in parts.AsSpan(1))
+        {
+            var cells = part.Split(',');
+            if (cells.Length != 3 || !UInt(cells[0], out var owner) || owner > 31 || cells[1].Length == 0 ||
+                !Key(cells[1]) || !UInt(cells[2], out var amount)) return stage;
+            var chess = UInt(cells[1], out var key) ? $"编号 {key}" : cells[1];
+            rows.Add(new(owner, null, chess, amount));
+        }
+        return stage with { BossDamage = new(hp > 0 ? hp : null, rows.ToArray()) };
+    }
+
+    private static BattleUpdate DecodeBattle(string line)
+    {
         if (!line.StartsWith("frame\t", StringComparison.Ordinal)) return Update(line switch
         {
             "idle" => BattleFeedState.WaitingForRound, "boot" => BattleFeedState.Connecting,

@@ -17,7 +17,13 @@ public sealed record BattleUpdate(BattleFeedState State, BattleFrame? Sample = n
     GarrisonSnapshot? Garrison = null, bool GarrisonInterrupted = false, GameRoomObservation? Room = null)
 {
     public GameTargetKind Source { get; init; } = GameTargetKind.Windows;
+    // MuMu supplies the battle stage without publishing a synthetic inventory/HUD snapshot.
+    public BattleStage? Stage { get; init; }
+    public BattleStage? GetStage() => Garrison is { Phase: { } phase } g
+        ? new(phase.State, g.Round, g.PlayerIndex, g.ActivityId, g.BossDamage) : Stage;
 }
+
+public sealed record BattleStage(int State, int Round, int PlayerIndex, string? ActivityId, BossDamageBoard? BossDamage);
 
 /// <summary>Reads the fixed-step clock and character counters of the verified Windows 2.7.91 build.</summary>
 public sealed class ArknightsBattleReader : IDisposable

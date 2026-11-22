@@ -6,7 +6,7 @@ public enum BobVoiceCue
 {
     Opening, Upgrade, TrackedShopItem, BeforeBattle, BattleVictory, BattleLoss,
     LowHealth, Recruit, Sell, PreparationChatter, ShopFrozen, ShopRefreshed, Promotion,
-    BattleStart, FirstVictory
+    BattleStart, FirstVictory, TripleOpportunity, DraftChoice
 }
 
 public sealed partial class BobVoiceTriggers
@@ -29,6 +29,7 @@ public sealed partial class BobVoiceTriggers
     private bool? _previousHealthWasLow;
     private bool _lowHealthAnnounced;
     private TimeSpan? _nextChatter;
+    private (string? Activity, int Player, int Round, string Choice)? _announcedDraft;
     private double _chatterFrequency = DefaultChatterFrequency;
 
     public double ChatterFrequency
@@ -49,6 +50,18 @@ public sealed partial class BobVoiceTriggers
 
         var snapshot = memory is { Source: GameTargetKind.Windows, GarrisonInterrupted: false,
             Garrison.Round: > 0 } && memory.Garrison.Round == hud.Round ? memory.Garrison : null;
+        if (snapshot?.Phase is { State: 2, SubState: 3 or 4, DraftChoiceId: { Length: > 0 } choice })
+        {
+            // The shop/HUD in the background does not describe the active choice panel.
+            ObserveMemoryShop(null, default);
+            _previousFrame = null;
+            _previousNames.Clear();
+            _nextChatter = null;
+            var key = (snapshot.ActivityId, snapshot.PlayerIndex, snapshot.Round, choice);
+            if (_announcedDraft == key) return null;
+            _announcedDraft = key;
+            return BobVoiceCue.DraftChoice;
+        }
         if (snapshot?.Health is >= 0) voice = voice with { Health = snapshot.Health };
         var memoryCue = ObserveMemoryShop(snapshot, voice);
         var battleStart = voice.Preparation || voice.ShopVisible == true || voice.BattleCue.HasValue
@@ -76,6 +89,11 @@ public sealed partial class BobVoiceTriggers
         }
 
         var actionCue = memoryCue ?? shopCue ?? battleStart;
+        if (_newTriples.Count > 0 && actionCue is not (BobVoiceCue.Promotion or BobVoiceCue.Opening or BobVoiceCue.Upgrade))
+        {
+            _announcedTriples.UnionWith(_newTriples);
+            return BobVoiceCue.TripleOpportunity;
+        }
         if (!voice.Preparation || voice.BattleCue.HasValue)
         {
             _nextChatter = null;
@@ -143,6 +161,10 @@ public sealed partial class BobVoiceTriggers
 
     public void RetryLowHealth() => _lowHealthAnnounced = false;
 
+    public void RetryTripleOpportunity() => _announcedTriples.ExceptWith(_newTriples);
+
+    public void RetryDraftChoice() => _announcedDraft = null;
+
     private TimeSpan ChatterDelay() =>
         TimeSpan.FromSeconds(_random.Next(5, 11));
 
@@ -158,7 +180,11 @@ public sealed partial class BobVoiceTriggers
         _previousHealthWasLow = null;
         _lowHealthAnnounced = false;
         _nextChatter = null;
+        _announcedDraft = null;
         _memoryCandidate = _memoryConfirmed = null;
         _lastMemoryBattle = null;
+        _tripleContext = null;
+        _announcedTriples.Clear();
+        _newTriples.Clear();
     }
 }

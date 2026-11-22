@@ -5,6 +5,22 @@ namespace ASPAssistant.Tests.Services;
 public class MuMuBattleFeedTests
 {
     [Fact]
+    public void BossExtensionUsesTheSameBoardWithoutPretendingToProvideWindowsHud()
+    {
+        var update = MuMuBattleFeed.Decode("frame\t1\t50\t4294967296\t0\tchar_a:300000:0:0:0|6,14,1,act3autochess,1000000;2,chess_char_5_22_a,69000;1,chess_char_6_08_a,22000");
+        Assert.Equal(300000, update.Sample!.Operators["char_a"].Damage);
+        Assert.Null(update.Garrison);
+        var stage = System.Text.Json.JsonSerializer.SerializeToElement(update).GetProperty("Stage");
+        Assert.Equal(6, stage.GetProperty("State").GetInt32());
+        Assert.Equal(14, stage.GetProperty("Round").GetInt32());
+        Assert.Equal(69000, stage.GetProperty("BossDamage").GetProperty("Rows")[0].GetProperty("Damage").GetInt32());
+        Assert.Equal(GameTargetKind.MuMu, update.Source);
+        Assert.Null(MuMuBattleFeed.Decode("idle|4,13,1,act3autochess,0").Sample);
+        // An invalid optional section never discards valid global counters.
+        Assert.Equal(300000, MuMuBattleFeed.Decode("frame\t1\t50\t0\t0\tchar_a:300000:0:0:0|6,14,BAD").Sample!.Operators["char_a"].Damage);
+    }
+
+    [Fact]
     public void SampleUsesExistingPcDamageStatisticsAndGameClock()
     {
         var frame = Assert.IsType<BattleFrame>(MuMuBattleFeed.Decode(

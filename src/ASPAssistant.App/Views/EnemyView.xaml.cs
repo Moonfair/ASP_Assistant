@@ -1,6 +1,8 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
@@ -18,6 +20,7 @@ public partial class EnemyView : UserControl
     ];
     private readonly RoundRoute[] _rounds = [new(14, "最终领袖"), new(15, "隐秘核心（若触发）")];
     private PreparationEnemyInfo? _info;
+    private Window? _routePreview;
 
     public EnemyView()
     {
@@ -65,6 +68,41 @@ public partial class EnemyView : UserControl
 
     private void OnBattlefieldChanged(object sender, SelectionChangedEventArgs e) => RefreshRoutes();
     private void OnBossChanged(object sender, SelectionChangedEventArgs e) => RefreshRoutes();
+
+    private void OnPreviewRoute(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Content: Image { Source: BitmapSource source }, DataContext: RoundRoute round } button)
+            return;
+
+        if (_routePreview == null)
+        {
+            var preview = new Window
+            {
+                Owner = Window.GetWindow(this),
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ShowInTaskbar = false,
+                Width = Math.Min(800, SystemParameters.WorkArea.Width),
+                Height = Math.Min(580, SystemParameters.WorkArea.Height),
+                Background = (Brush)FindResource("PanelBackgroundBrush"),
+                Content = new Image { Stretch = Stretch.Uniform, Margin = new Thickness(8) }
+            };
+            RenderOptions.SetBitmapScalingMode(preview, BitmapScalingMode.HighQuality);
+            preview.PreviewKeyDown += (_, key) =>
+            {
+                if (key.Key != Key.Escape) return;
+                key.Handled = true;
+                preview.Close();
+            };
+            preview.Closed += (_, _) => _routePreview = null;
+            _routePreview = preview;
+        }
+
+        _routePreview.Title = $"{round.Title} · {button.Tag}";
+        ((Image)_routePreview.Content).Source = source;
+        if (_routePreview.WindowState == WindowState.Minimized) _routePreview.WindowState = WindowState.Normal;
+        _routePreview.Show();
+        _routePreview.Activate();
+    }
 
     private void RefreshRoutes()
     {

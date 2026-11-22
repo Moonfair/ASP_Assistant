@@ -35,7 +35,7 @@ public class BrowseFilterInteractionTests
 
     private static void VerifyViews()
     {
-        var app = new Application();
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add(new ResourceDictionary
         {
             Source = new Uri("/ASPAssistant.App;component/Resources/Styles.xaml", UriKind.Relative)
@@ -43,6 +43,7 @@ public class BrowseFilterInteractionTests
         try
         {
             VerifyManualBossSelection();
+            VerifyRouteImagePreview();
             List<Operator> operators = [
                 new() { Name = "高阶", Tier = 3, CoreCovenants = ["甲"], AdditionalCovenants = ["丙"],
                     Normal = new() { Traits = [new() { TraitType = "作战", TraitDescription = "<获得时>攻击+1" }] } },
@@ -308,6 +309,43 @@ public class BrowseFilterInteractionTests
                 .OfType<System.Windows.Media.Imaging.CroppedBitmap>().First();
             return ((System.Windows.Media.Imaging.BitmapImage)image.Source).UriSource.LocalPath;
         }
+    }
+
+    private static void VerifyRouteImagePreview()
+    {
+        var view = new EnemyView();
+        view.UpdateInfo(new("矩兽", [], 2, "标准模拟"));
+        var host = new Window { Content = view, Width = 310, Height = 700, ShowInTaskbar = false };
+        host.Show();
+        try
+        {
+            host.UpdateLayout();
+            var routes = (ItemsControl)view.FindName("Routes");
+            var buttons = VisualChildren<Button>(routes)
+                .Where(button => button.IsVisible && VisualChildren<Image>(button).Any()).ToArray();
+            buttons.Should().HaveCount(2, "each visible route map should open a larger preview");
+
+            Window? first = null;
+            foreach (var button in buttons)
+            {
+                var thumbnail = VisualChildren<Image>(button).Single();
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var preview = host.OwnedWindows.Cast<Window>().Single();
+                if (first != null) preview.Should().BeSameAs(first);
+                first = preview;
+                preview.UpdateLayout();
+                var enlarged = VisualChildren<Image>(preview).Single();
+                enlarged.Source.Should().BeSameAs(thumbnail.Source);
+                enlarged.ActualWidth.Should().BeGreaterThan(thumbnail.ActualWidth);
+            }
+            var key = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(first!),
+                Environment.TickCount, Key.Escape) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+            first!.RaiseEvent(key);
+            host.OwnedWindows.Count.Should().Be(0);
+            buttons[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            host.OwnedWindows.Count.Should().Be(1, "a dismissed preview should reopen");
+        }
+        finally { host.Close(); }
     }
 
     private static void VerifySideFilterLayout()

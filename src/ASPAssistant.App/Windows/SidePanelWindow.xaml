@@ -12,6 +12,9 @@
         Topmost="True"
         Icon="{StaticResource AspaLogo}"
         Background="{StaticResource PanelBackgroundBrush}">
+    <Window.Resources>
+        <BitmapImage x:Key="BigBobPortrait" UriSource="/ASPAssistant.App;component/Resources/BigBobPortrait.png" />
+    </Window.Resources>
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" GlassFrameThickness="0" />
     </WindowChrome.WindowChrome>
@@ -150,12 +153,12 @@
                             Background="#FF182736" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
                             DataContext="{Binding GameStateVm, RelativeSource={RelativeSource AncestorType=Window}}">
                         <DockPanel>
-                            <Border x:Name="CannotPortrait" DockPanel.Dock="Left" Width="30" Height="30"
+                            <Border x:Name="BobPortrait" DockPanel.Dock="Left" Width="30" Height="30"
                                     Margin="0,0,6,0" Padding="1" VerticalAlignment="Center"
                                     Background="#FF10242A" BorderBrush="#FF65C6BE"
-                                    BorderThickness="1" CornerRadius="5" ToolTip="坎诺特">
-                                <Image x:Name="CannotPortraitImage" Stretch="UniformToFill"
-                                       AutomationProperties.Name="坎诺特" />
+                                    BorderThickness="1" CornerRadius="5" ToolTip="大鲍勃">
+                                <Image Source="{StaticResource BigBobPortrait}" Stretch="UniformToFill"
+                                       AutomationProperties.Name="大鲍勃" />
                             </Border>
                             <UniformGrid Rows="1">
                                 <UniformGrid.Resources>
@@ -321,11 +324,11 @@
                                 <TextBlock Text="战备时每5～10秒判定一次，按设置概率播放。0为关闭闲聊，1为每次都播放。"
                                            Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,8" />
                                 <StackPanel Orientation="Horizontal">
-                                    <Border x:Name="CannotPreviewPortrait" Width="30" Height="30"
+                                    <Border x:Name="BobPreviewPortrait" Width="30" Height="30"
                                             Margin="0,0,7,0" Padding="1" Background="#FF10242A"
                                             BorderBrush="#FF65C6BE" BorderThickness="1" CornerRadius="5">
-                                        <Image Source="{Binding Source, ElementName=CannotPortraitImage}"
-                                               Stretch="UniformToFill" AutomationProperties.Name="坎诺特" />
+                                        <Image Source="{StaticResource BigBobPortrait}"
+                                               Stretch="UniformToFill" AutomationProperties.Name="大鲍勃" />
                                     </Border>
                                     <Button x:Name="BobVoicePreviewButton" Content="试听"
                                             Style="{StaticResource TrackingButton}" Padding="8,5" />

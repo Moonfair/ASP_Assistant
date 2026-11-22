@@ -7,6 +7,9 @@ public sealed partial class BobVoiceTriggers
     private GarrisonSnapshot? _memoryCandidate;
     private GarrisonSnapshot? _memoryConfirmed;
     private (GameTargetKind Source, int Round)? _lastMemoryBattle;
+    private (string? Activity, int Player, int Round)? _tripleContext;
+    private readonly HashSet<string> _announcedTriples = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _newTriples = new(StringComparer.Ordinal);
 
     private BobVoiceCue? ObserveBattleStart(BattleUpdate? update, int? round)
     {
@@ -24,7 +27,8 @@ public sealed partial class BobVoiceTriggers
 
     private BobVoiceCue? ObserveMemoryShop(GarrisonSnapshot? snapshot, GarrisonVoiceFrame voice)
     {
-        if (snapshot?.Shop is not { Level: > 0, Coins: >= 0, Offers: not null } ||
+        _newTriples.Clear();
+        if (snapshot?.Shop is not { Level: > 0, Coins: >= 0, Offers: { } currentOffers } ||
             voice.BattleCue.HasValue || !(voice.Preparation || voice.ShopVisible == true))
         {
             _memoryCandidate = _memoryConfirmed = null;
@@ -36,6 +40,8 @@ public sealed partial class BobVoiceTriggers
         if (candidate == null || !SameMemoryState(candidate, snapshot)) return null;
         var previous = _memoryConfirmed;
         _memoryConfirmed = snapshot;
+        if (candidate.Characters != null && snapshot.Characters != null)
+            UpdateTripleOpportunities(snapshot, snapshot.Characters, currentOffers);
         if (previous == null || previous.Round != snapshot.Round ||
             previous.PlayerIndex != snapshot.PlayerIndex || previous.ActivityId != snapshot.ActivityId)
             return null;
@@ -86,6 +92,25 @@ public sealed partial class BobVoiceTriggers
         bool freeRefresh = oldShop.FreeRefreshes > 0 && shop.FreeRefreshes == oldShop.FreeRefreshes - 1 && goldChange == 0;
         return shop.Level == oldShop.Level && replacedOffers && (paidRefresh || freeRefresh)
             ? BobVoiceCue.ShopRefreshed : null;
+    }
+
+    private void UpdateTripleOpportunities(GarrisonSnapshot snapshot, GarrisonCharacter[] owned, GarrisonOffer[] offers)
+    {
+        var context = (snapshot.ActivityId, snapshot.PlayerIndex, snapshot.Round);
+        if (_tripleContext != context)
+        {
+            _tripleContext = context;
+            _announcedTriples.Clear();
+        }
+
+        // The local character inventory already includes the board and bench; positions aren't extra copies.
+        var ids = owned.DistinctBy(c => c.InstanceId).Select(c => c.ChessId)
+            .Concat(offers.DistinctBy(o => o.Slot).Select(o => o.ChessId));
+        _newTriples.UnionWith(ids.Where(id => id.StartsWith("chess_char_", StringComparison.Ordinal)
+                && id.EndsWith("_a", StringComparison.Ordinal))
+            .GroupBy(id => id, StringComparer.Ordinal).Where(group => group.Count() >= 3).Select(group => group.Key));
+        _announcedTriples.IntersectWith(_newTriples);
+        _newTriples.ExceptWith(_announcedTriples);
     }
 
     private static bool SameMemoryState(GarrisonSnapshot left, GarrisonSnapshot right) =>

@@ -19,35 +19,36 @@ public final class BattleProbe {
     private long lastFrame, lastTicks;
     private int round;
 
-    BattleProbe(RandomAccessFile mem) { this.mem = mem; }
+    private final BossBoardReader bosses;
+    BattleProbe(RandomAccessFile mem) { this.mem = mem; bosses = new BossBoardReader(this); }
 
-    private static void check(boolean ok) throws IOException {
+    static void check(boolean ok) throws IOException {
         if (!ok) throw new IOException("inconsistent battle");
     }
-    private byte[] bytes(long p, int n) throws IOException {
+    byte[] bytes(long p, int n) throws IOException {
         check(p >= 0x10000 && p < 0x800000000000L - n && n > 0 && n <= 2048);
         byte[] b = new byte[n];
         mem.seek(p);
         mem.readFully(b);
         return b;
     }
-    private static ByteBuffer le(byte[] b) { return ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN); }
-    private long word(long p) throws IOException { return le(bytes(p,8)).getLong(); }
-    private int integer(long p) throws IOException { return le(bytes(p,4)).getInt(); }
+    static ByteBuffer le(byte[] b) { return ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN); }
+    long word(long p) throws IOException { return le(bytes(p,8)).getLong(); }
+    int integer(long p) throws IOException { return le(bytes(p,4)).getInt(); }
     private static void pointer(long p) throws IOException {
         check(p >= 0x10000 && p < 0x800000000000L && (p & 7) == 0);
     }
-    private void text(long p, String expected) throws IOException {
+    void text(long p, String expected) throws IOException {
         byte[] want = (expected+"\0").getBytes(StandardCharsets.US_ASCII);
         check(Arrays.equals(want, bytes(p,want.length)));
     }
     private void klass(long k, String name, String ns) throws IOException {
         pointer(k); text(word(k+16),name); text(word(k+24),ns);
     }
-    private void object(long p,String name,String ns) throws IOException {
+    void object(long p,String name,String ns) throws IOException {
         pointer(p); klass(word(p),name,ns);
     }
-    private int listCount(byte[] header, int max) throws IOException {
+    int listCount(byte[] header, int max) throws IOException {
         ByteBuffer b=le(header);
         int n=b.getInt(8);
         check(n>=0 && n<=max);
@@ -70,14 +71,15 @@ public final class BattleProbe {
         if(bc==0) return idle();
         pointer(bc); check(word(bc)==k);
         long nativeObj=word(bc+16), logger=word(bc+224);
-        if(nativeObj==0 || logger==0) return idle();
+        if(nativeObj==0) return idle();
+        if(logger==0) return idle()+bosses.suffix(bc);
         object(logger,"BattleLogger","Torappu.Battle");
         check(word(nativeObj+40)==bc && word(logger+24)==bc);
         long stats=word(logger+48);
-        if(stats==0) return idle();
+        if(stats==0) return idle()+bosses.suffix(bc);
         object(stats,"BattleStats","");
         long rows=word(stats+48);
-        if(rows==0) return idle();
+        if(rows==0) return idle()+bosses.suffix(bc);
         object(rows,"ListDict`2","Torappu");
         long level=word(bc+352), clock=word(k+184); pointer(clock);
         byte[] tick=bytes(clock+20,12), head=bytes(rows+16,16);
@@ -112,7 +114,7 @@ public final class BattleProbe {
         long[] identity={bc,nativeObj,logger,stats,level};
         if(!Arrays.equals(previous,identity) || frame<lastFrame || ticks<lastTicks) round++;
         previous=identity; lastFrame=frame; lastTicks=ticks;
-        return "frame\t"+round+"\t"+frame+"\t"+ticks+"\t"+(state==3?1:0)+values;
+        return "frame\t"+round+"\t"+frame+"\t"+ticks+"\t"+(state==3?1:0)+values+bosses.suffix(bc);
     }
 
     private long type(long base) throws IOException {

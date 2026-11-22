@@ -42,7 +42,19 @@ public partial class OverlayWindow : Window
         var exStyle = User32.GetWindowLong(hwnd, User32.GWL_EXSTYLE);
         User32.SetWindowLong(hwnd, User32.GWL_EXSTYLE,
             exStyle | User32.WS_EX_TOOLWINDOW | User32.WS_EX_NOACTIVATE);
+        HwndSource.FromHwnd(hwnd)!.AddHook(OnMouseActivate);
         RefreshMarkerInput();
+    }
+
+    private static nint OnMouseActivate(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
+    {
+        const int wmMouseActivate = 0x0021, maNoActivate = 3;
+        if (msg != wmMouseActivate) return 0;
+
+        // Deliver the first press without taking focus from the game/sidebar:
+        // changing the foreground would cancel marking before BeginInk runs.
+        handled = true;
+        return maNoActivate;
     }
 
     public void SetTarget(GameTarget? target)

@@ -38,6 +38,8 @@ public sealed class BobVoiceCaptionTests
     [InlineData(BobVoiceCue.ShopFrozen, "AfterFreezing_02", "我会暂时把它们保存起来。")]
     [InlineData(BobVoiceCue.Recruit, "RecruitSmallMinion_03", "这个小家伙也可能改写战局。")]
     [InlineData(BobVoiceCue.Promotion, "AfterTriple_03", "绝妙的操作。看看接下来会发生什么。")]
+    [InlineData(BobVoiceCue.TripleOpportunity, "Triple_01", "选那个随从，你就获得了一个三连。")]
+    [InlineData(BobVoiceCue.DraftChoice, "RecruitLargeMinion_03", "座右铭：不选大的怎么能赢？")]
     public void VoiceFilesCarryTheirOwnCaption(BobVoiceCue cue, string suffix, string caption)
     {
         var clip = Assert.Single(BobVoicePlayer.GetClips(cue), clip => clip.Suffix == suffix);
@@ -45,20 +47,27 @@ public sealed class BobVoiceCaptionTests
     }
 
     [Fact]
-    public void EveryCueHasDistinctClipsWithoutHearthstoneTerminology()
+    public void EveryCueHasDistinctClipsAndOnlyTheTripleReminderUsesItsOriginalTerminology()
     {
         var clips = Enum.GetValues<BobVoiceCue>().SelectMany(cue =>
         {
             var pool = BobVoicePlayer.GetClips(cue);
             Assert.NotEmpty(pool);
             Assert.Equal(pool.Count, pool.Select(clip => clip.Suffix).Distinct().Count());
+            if (cue == BobVoiceCue.TripleOpportunity) Assert.Equal("Triple_01", Assert.Single(pool).Suffix);
+            else Assert.DoesNotContain(pool, clip => clip.Suffix == "Triple_01");
             return pool;
         }).ToArray();
 
-        Assert.Equal(47, clips.Select(clip => clip.Suffix).Distinct().Count());
+        Assert.Equal(48, clips.Select(clip => clip.Suffix).Distinct().Count());
         string[] terms = ["随从", "死亡骑士", "酒馆", "三连", "达拉然", "探险者协会", "怪盗军团"];
-        Assert.All(clips, clip => Assert.DoesNotContain(terms, clip.Caption.Contains));
+        Assert.All(clips.Where(clip => clip.Suffix != "Triple_01"),
+            clip => Assert.DoesNotContain(terms, clip.Caption.Contains));
     }
+
+    [Fact]
+    public void NormalRecruitmentCannotPlayTheDraftLine() =>
+        Assert.DoesNotContain(BobVoicePlayer.GetClips(BobVoiceCue.Recruit), clip => clip.Suffix == "RecruitLargeMinion_03");
 
     [Fact]
     public void AppOutputContainsAudioForEveryConfiguredClip()

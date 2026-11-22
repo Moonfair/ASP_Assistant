@@ -1,10 +1,30 @@
 using System.Windows;
+using System.Windows.Interop;
 using ASPAssistant.App.Windows;
+using ASPAssistant.Core.Data;
+using ASPAssistant.Core.Interop;
 
 namespace ASPAssistant.Tests.Views;
 
 public class OverlayMatchStrokeTests
 {
+    [Fact]
+    public void FirstPressOnOverlayIsDeliveredWithoutTakingForegroundFromGameOrSidebar()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var overlay = new OverlayWindow(new SettingsManager(Path.GetTempPath()));
+            try
+            {
+                var hwnd = new WindowInteropHelper(overlay).EnsureHandle();
+                const int wmMouseActivate = 0x0021, htClient = 1, wmLeftButtonDown = 0x0201, maNoActivate = 3;
+                var response = User32.SendMessage(hwnd, wmMouseActivate, hwnd, (wmLeftButtonDown << 16) | htClient);
+                Assert.Equal((nint)maNoActivate, response);
+            }
+            finally { overlay.Close(); }
+        });
+    }
+
     [Fact]
     public void CapturedDragUsesTheViewportAtEachSampleAndClampsOutsidePoints()
     {

@@ -41,7 +41,7 @@ public partial class SidePanelWindow
     private void PositionCannotSpeech()
     {
         if (!CannotSpeech.IsVisible) return;
-        var anchor = SettingsPage.IsVisible ? CannotPreviewPortrait : CannotPortrait;
+        var anchor = SettingsPage.IsVisible ? BobPreviewPortrait : BobPortrait;
         if (!anchor.IsVisible) return;
         var right = anchor.TranslatePoint(new Point(anchor.ActualWidth, 0), CannotSpeechLayer);
         double left = right.X + 5;

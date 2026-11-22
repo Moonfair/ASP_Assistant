@@ -11,11 +11,11 @@ if ((Get-FileHash -LiteralPath $r8).Hash -ne '59753E70A74F918389CC87F1B7D66B5C08
 }
 $classes = New-Item -ItemType Directory -Force (Join-Path $work 'classes')
 $dex = New-Item -ItemType Directory -Force (Join-Path $work 'dex')
-& javac -encoding UTF-8 --release 8 -g:none -d $classes.FullName "$PSScriptRoot/BattleProbe.java" "$PSScriptRoot/BattleProbeTest.java"
+& javac -encoding UTF-8 --release 8 -g:none -d $classes.FullName "$PSScriptRoot/BattleProbe.java" "$PSScriptRoot/BossBoardReader.java" "$PSScriptRoot/BattleProbeTest.java"
 if ($LASTEXITCODE) { throw 'javac failed' }
 & java -cp $classes.FullName aspa.mumu.BattleProbeTest
 if ($LASTEXITCODE) { throw 'BattleProbe fixture failed' }
-& java -cp $r8 com.android.tools.r8.D8 --release --min-api 26 --output $dex.FullName "$($classes.FullName)/aspa/mumu/BattleProbe.class"
+& java -cp $r8 com.android.tools.r8.D8 --release --min-api 26 --output $dex.FullName "$($classes.FullName)/aspa/mumu/BattleProbe.class" "$($classes.FullName)/aspa/mumu/BossBoardReader.class"
 if ($LASTEXITCODE) { throw 'D8 failed' }
 $product = Join-Path $repo 'src/ASPAssistant.Core/Resources/MuMuBattle.dex'
 $candidate = Join-Path $dex.FullName 'classes.dex'

@@ -9,6 +9,84 @@ public sealed class BobVoiceMemoryTests
     private static readonly GarrisonVoiceFrame Shop = new(Preparation: true, ShopVisible: true);
 
     [Fact]
+    public void DraftRetriesDuringTheDecisionButNeverUsesScreenOrStaleMemoryAsAFallback()
+    {
+        var draft = Snapshot() with { Phase = new(2, 3, "enemy_initial_1") };
+        var update = new BattleUpdate(BattleFeedState.WaitingForRound, Garrison: draft);
+        var hud = GarrisonHud.FromMemory(draft);
+        Assert.Null(_triggers.Observe(hud, [], Shop)); // A preparation screen alone is not a decision.
+        Assert.Null(_triggers.Observe(hud, [], Shop, memory: update with { Source = GameTargetKind.MuMu }));
+        Assert.Null(_triggers.Observe(hud, [], Shop, memory: update with { GarrisonInterrupted = true }));
+        Assert.Null(_triggers.Observe(hud with { Round = 5 }, [], Shop, memory: update));
+        Assert.Equal(BobVoiceCue.DraftChoice, _triggers.Observe(hud, [], default, memory: update));
+        _triggers.RetryDraftChoice();
+        Assert.Equal(BobVoiceCue.DraftChoice, _triggers.Observe(hud, [], default, memory: update));
+        Assert.Null(_triggers.Observe(hud, [], Shop, memory: update));
+        _triggers.RetryDraftChoice();
+        Assert.Null(Observe(draft with { Phase = new(3, 3, null) }));
+    }
+
+    [Theory]
+    [InlineData(2, 1)]
+    [InlineData(1, 2)]
+    [InlineData(0, 3)]
+    [InlineData(3, 0)]
+    [InlineData(1, 3)]
+    public void ThreeOrMoreNormalCopiesGiveOneTripleReminder(int owned, int offered)
+    {
+        const string id = "chess_char_1_01_a";
+        var first = Snapshot();
+        var triple = first with {
+            Characters = Enumerable.Range(1, owned).Select(i => new GarrisonCharacter(i, id, [], 1)).ToArray(),
+            Positions = Enumerable.Range(1, owned).Select(i => new GarrisonPosition(i, i == 1 ? 65537 : -i, 0, 0)).ToArray(),
+            Shop = first.Shop! with { Offers = Enumerable.Range(0, offered)
+                .Select(i => new GarrisonOffer(id, i, 2, false)).ToArray() }
+        };
+        Assert.Null(Observe(triple));
+        Assert.Equal(BobVoiceCue.TripleOpportunity, Observe(triple));
+        Assert.Null(Observe(triple));
+    }
+
+    [Fact]
+    public void EliteCopiesOtherNamesEquipmentAndEmptySlotsCannotCompleteATriple()
+    {
+        var first = Snapshot() with { Characters = [new(1, "chess_char_1_01_a", [], 1),
+            new(2, "chess_char_1_01_b", [], 3), new(3, "chess_char_1_02_a", [], 1)] };
+        Confirm(first with { Shop = first.Shop! with { Offers = [new("chess_char_1_01_a", 0, 2, true),
+            new("chess_char_1_01_b", 1, 2, false), new("", 2, 0, false),
+            new("chess_equip_01_a", 3, 1, false), new("chess_equip_01_a", 4, 1, false),
+            new("chess_equip_01_a", 5, 1, false)] } }, null);
+    }
+
+    [Fact]
+    public void TripleReminderWinsOverRefreshAndOnlyRearmsAfterAConfirmedDrop()
+    {
+        const string id = "chess_char_1_01_a";
+        var pair = Snapshot() with { Characters = [new(1, id, [], 1), new(2, id, [], 1)],
+            Shop = Snapshot().Shop! with { Offers = [new("chess_char_1_02_a", 0, 2, false)] } };
+        var triple = pair with { Shop = pair.Shop! with { Coins = 9, Offers = [new(id, 0, 2, true)] } };
+        Confirm(pair, null);
+        Confirm(triple, BobVoiceCue.TripleOpportunity);
+        Assert.Null(Observe(pair)); // One noisy frame does not rearm the same reminder.
+        Assert.Null(Observe(triple));
+        Assert.Null(Observe(triple));
+        Confirm(pair, null);
+        Confirm(triple, BobVoiceCue.TripleOpportunity);
+    }
+
+    [Fact]
+    public void CooldownRetriesOnlyWhileTheTripleStillExists()
+    {
+        const string id = "chess_char_1_01_a";
+        var triple = Snapshot() with { Characters = [new(1, id, [], 1), new(2, id, [], 1)] };
+        Confirm(triple, BobVoiceCue.TripleOpportunity);
+        _triggers.RetryTripleOpportunity();
+        Assert.Equal(BobVoiceCue.TripleOpportunity, Observe(triple));
+        _triggers.RetryTripleOpportunity();
+        Confirm(triple with { Shop = triple.Shop! with { Offers = [] } }, null);
+    }
+
+    [Fact]
     public void FreezeRequiresAConfirmedTransitionAndDoesNotRepeatOnAttachOrThaw()
     {
         var baseline = Snapshot();
@@ -114,7 +192,7 @@ public sealed class BobVoiceMemoryTests
     {
         var first = Snapshot() with { Characters = [
             new(10, "chess_char_1_01_a", [], 1), new(11, "chess_char_1_01_a", [], 1)] };
-        Confirm(first, null);
+        Confirm(first, BobVoiceCue.TripleOpportunity);
         Confirm(first with { Shop = first.Shop! with { Coins = 8, Offers = [] },
             Characters = [new(12, "chess_char_1_01_b", [], 3)] }, BobVoiceCue.Promotion);
     }

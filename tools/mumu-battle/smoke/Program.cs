@@ -25,6 +25,12 @@ try
             Console.WriteLine($"{update.State} round={sample.Round} frame={sample.Frame} gameSeconds={sample.GameSeconds:F2} ended={sample.Ended} chars={stats.Rows.Count} damage={stats.TotalDamage}");
         }
         else Console.WriteLine(update.State);
+        if (update.GetStage() is { State: GarrisonPhase.BossBattle } stage)
+        {
+            var board = stage.BossDamage;
+            var rows = board?.Rows.Select(r => $"p{r.PlayerIndex}/{r.ChessId}={r.Damage} ({board.Percent(r.Damage)?.ToString() ?? "?"}%)");
+            Console.WriteLine($"Boss round={stage.Round} hp={board?.MaxHp?.ToString() ?? "?"} rows=[{string.Join(", ", rows ?? [])}]");
+        }
         return Task.CompletedTask;
     }, stop.Token);
 }

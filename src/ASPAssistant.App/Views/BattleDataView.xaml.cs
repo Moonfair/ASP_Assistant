@@ -14,8 +14,13 @@ public partial class BattleDataView : UserControl
 {
     private readonly BattleStatistics _statistics = new();
     private IReadOnlyDictionary<string, string> _names = new Dictionary<string, string>();
+    private IReadOnlyDictionary<string, Dictionary<string, string>> _chessNames = new Dictionary<string, Dictionary<string, string>>();
+    private int? _bossRound;
+    private readonly Dictionary<string, Dictionary<string, int>> _instancesByName = new(StringComparer.Ordinal);
     private CancellationTokenSource? _session;
     private GameTarget? _target;
+    private string? _displaySourceId;
+    private bool _waitingForCombatPhase;
     private bool _allowWindows, _sourceInitialized, _closed, _permissionDeclined;
     private readonly Func<uint, bool, Func<BattleFeedMessage, Task>, CancellationToken, Task> _connect;
     private readonly Func<GameTarget, Func<BattleUpdate, Task>, CancellationToken, Task> _connectMuMu;
@@ -33,7 +38,14 @@ public partial class BattleDataView : UserControl
         InitializeComponent();
     }
 
-    internal void SetNames(IReadOnlyDictionary<string, string> names) => _names = names;
+    internal void SetNames(IReadOnlyDictionary<string, string> names,
+        IReadOnlyDictionary<string, Dictionary<string, string>>? chessNames = null)
+    {
+        _names = names;
+        if (chessNames != null) _chessNames = chessNames;
+        _instancesByName.Clear();
+        if (_last != null) RefreshRows();
+    }
 
     internal void SetSource(GameTarget? target, bool allowWindows)
     {
@@ -41,6 +53,13 @@ public partial class BattleDataView : UserControl
         if (_closed || (_sourceInitialized && _target == target && _allowWindows == allowWindows)) return;
         bool keepWorker = _session != null && _allowWindows && allowWindows;
         _sourceInitialized = true;
+        // A temporarily missing window is not a switch to a different game.
+        if (target != null && target.Id != _displaySourceId)
+        {
+            ClearDisplayedBattle();
+            _waitingForCombatPhase = false;
+            _displaySourceId = target.Id;
+        }
         (_target, _allowWindows) = (target, allowWindows);
         if (keepWorker)
             Present(new(target == null ? BattleFeedState.WaitingForClient : BattleFeedState.Connecting));
@@ -66,8 +85,6 @@ public partial class BattleDataView : UserControl
         if (_closed) return;
         _session?.Cancel();
         _session = null;
-        _last = null;
-        _statistics.Reset();
         if (!_allowWindows && _target?.Kind != GameTargetKind.MuMu)
         {
             Present(new(BattleFeedState.WindowsOnly));
@@ -118,15 +135,29 @@ public partial class BattleDataView : UserControl
     {
         bool muMu = _target?.Kind == GameTargetKind.MuMu;
         if (muMu) update = update with { Source = GameTargetKind.MuMu };
-        _state = update.State;
         Updated?.Invoke(update);
+        bool wasLive = _state == BattleFeedState.Live;
+        var stage = update.GetStage();
+        _state = ObserveBattlePhase(update, stage);
+        // The server ranking and local damage frames update independently.
+        PresentBossDamage(update, stage);
         ConnectButton.Visibility = _state is BattleFeedState.PermissionRequired or BattleFeedState.ConnectionFailed ||
             (muMu && _state == BattleFeedState.UnsupportedBuild)
             ? Visibility.Visible : Visibility.Collapsed;
         ConnectButton.Content = !muMu && _state == BattleFeedState.PermissionRequired ? "授权读取" : "重新连接";
         if (_state == BattleFeedState.Live && update.Sample is { } frame)
         {
-            if (!frame.Ended && _last is { } old && old.Round == frame.Round && old.Frame == frame.Frame) return;
+            if (_last == null || _last.Round != frame.Round ||
+                frame.Frame < _last.Frame || frame.GameSeconds < _last.GameSeconds)
+                _instancesByName.Clear();
+            else
+            {
+                // The operator table can disappear before the feed reports the end.
+                if (frame.Operators.Count == 0 && _last.Operators.Count > 0)
+                    frame = frame.Ended ? frame with { Operators = _last.Operators } : _last;
+                if (wasLive && !frame.Ended && !_last.Ended && frame.Frame == _last.Frame &&
+                    frame.Operators.Count == _last.Operators.Count) return;
+            }
             _statistics.Update(frame);
             _last = frame;
             var clock = TimeSpan.FromSeconds(frame.GameSeconds);
@@ -134,21 +165,12 @@ public partial class BattleDataView : UserControl
             FeedStatus.Text = frame.Ended ? "本回合已结束" : _statistics.Rows.Count > 0 ? "本回合战斗数据" : "等待干员战斗数据";
             TotalDamage.Text = Number(_statistics.TotalDamage);
             Summary.Visibility = _statistics.Rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            OperatorRows.ItemsSource = _statistics.Rows.Select(DisplayRow).ToArray();
+            RefreshRows();
             return;
         }
-        if (_state == BattleFeedState.WaitingForRound && _last?.Ended == true)
-        {
-            FeedStatus.Text = "上回合数据 · 等待战斗";
-            return;
-        }
-        _last = null;
-        _statistics.Reset();
-        OperatorRows.ItemsSource = null;
-        Summary.Visibility = Visibility.Collapsed;
-        GameClock.Text = "";
         FeedStatus.Text = _state switch
         {
+            BattleFeedState.WaitingForRound when _last != null => "上回合数据 · 等待战斗",
             BattleFeedState.Connecting when muMu => "正在连接选中的 MuMu 实例…",
             BattleFeedState.WaitingForClient when muMu => "等待 MuMu 实例中的明日方舟",
             BattleFeedState.WaitingForRound when muMu => "已连接 MuMu，等待进入战斗。",
@@ -166,14 +188,121 @@ public partial class BattleDataView : UserControl
         };
     }
 
-    private BattleDisplayRow DisplayRow(BattleOperatorRow row)
+    private BattleFeedState ObserveBattlePhase(BattleUpdate update, BattleStage? stage)
     {
-        var name = _names.GetValueOrDefault(row.Id, row.Id);
+        // The same controller can keep publishing Live frames throughout preparation.
+        var phase = stage?.State;
+        bool newFrameOnlyRound = stage == null && update is { State: BattleFeedState.Live, Garrison: null,
+            GarrisonInterrupted: false, Sample: { Ended: false } sample } && _last?.Round != sample.Round;
+        if (phase is 4 or 5 or 6 || newFrameOnlyRound) // Battle, help battle, boss battle, or frame-only feed
+        {
+            if (_waitingForCombatPhase) ClearDisplayedBattle();
+            _waitingForCombatPhase = false;
+        }
+        else if (phase is >= 0 and <= 14 and not 9) // Pause is not a round boundary.
+            _waitingForCombatPhase = true;
+
+        if (_waitingForCombatPhase && update.State == BattleFeedState.Live)
+        {
+            // Accept the final correction for the displayed round, never a preparation frame.
+            if (update.Sample is not { Ended: true, Operators.Count: > 0 } final || _last?.Round != final.Round)
+                return BattleFeedState.WaitingForRound;
+        }
+        return update.State;
+    }
+
+    private void ClearDisplayedBattle()
+    {
+        ClearBossDamage();
+        _last = null;
+        _statistics.Reset();
+        _instancesByName.Clear();
+        OperatorRows.ItemsSource = null;
+        Summary.Visibility = Visibility.Collapsed;
+        TotalDamage.Text = "";
+        GameClock.Text = "";
+    }
+
+    private void PresentBossDamage(BattleUpdate update, BattleStage? stage)
+    {
+        if (stage is not { State: GarrisonPhase.BossBattle })
+        {
+            if (_bossRound.HasValue && (stage?.State is 4 or 5 ||
+                (stage == null && update is { State: BattleFeedState.Live, Garrison: null, GarrisonInterrupted: false, Sample: { Ended: false } frame }
+                    && _last != null && frame.Round != _last.Round)))
+                ClearBossDamage();
+            return; // Settlement, waiting and transient read errors keep the last board.
+        }
+        if (_bossRound != stage.Round)
+        {
+            ClearBossDamage();
+            _bossRound = stage.Round;
+        }
+        BossSummary.Visibility = Visibility.Visible;
+        if (stage.BossDamage is not { Rows.Length: > 0 } board) return;
+        var rows = board.Rows.OrderByDescending(r => r.Damage).Take(3).Select(r =>
+        {
+            var self = r.PlayerIndex == stage.PlayerIndex;
+            var selected = self ? update.Garrison?.SelectedCharacters :
+                update.Garrison?.Teammates?.FirstOrDefault(t => t.PlayerIndex == r.PlayerIndex)?.SelectedCharacters;
+            var name = GarrisonChessLabel.Resolve(r.ChessId, stage.ActivityId, selected, _chessNames, _names);
+            var player = string.IsNullOrWhiteSpace(r.PlayerName) ? (self ? "自己" : $"玩家 {r.PlayerIndex}") : r.PlayerName;
+            var damage = Number(r.Damage);
+            var percent = board.Percent(r.Damage) is { } value ? $"{value}%" : "—";
+            return new BossDisplayRow(name, player, damage, percent,
+                $"{player} · {name}\n对领袖伤害 {damage}　占领袖血量 {percent}");
+        }).ToArray();
+        if (BossRows.ItemsSource is not BossDisplayRow[] previous || !rows.SequenceEqual(previous))
+            BossRows.ItemsSource = rows;
+        BossPending.Visibility = Visibility.Collapsed;
+    }
+
+    private void ClearBossDamage()
+    {
+        _bossRound = null;
+        BossSummary.Visibility = Visibility.Collapsed;
+        BossPending.Visibility = Visibility.Visible;
+        BossRows.ItemsSource = null;
+    }
+
+    private sealed record BossDisplayRow(string Name, string Player, string Damage, string Percent, string Details);
+
+    private string? CatalogName(string id)
+    {
+        if (_names.TryGetValue(id, out var name)) return name;
+        // Keep the full source key for statistics; strip an instance suffix only for catalog lookup.
+        int separator = id.IndexOfAny(['#', '.', '-']);
+        if (separator > 0 && _names.TryGetValue(id[..separator], out name)) return name;
+        int underscore = id.LastIndexOf('_');
+        return underscore > 0 && uint.TryParse(id.AsSpan(underscore + 1), out _) &&
+            _names.TryGetValue(id[..underscore], out name) ? name : null;
+    }
+
+    private void RefreshRows()
+    {
+        var rows = _statistics.Rows.Select(row => (Row: row, Name: CatalogName(row.Id))).ToArray();
+        // Assign once per round in source-key order, not damage-rank order.
+        foreach (var (row, name) in rows.OrderBy(r => r.Row.Id, StringComparer.Ordinal))
+        {
+            if (name == null) continue;
+            if (!_instancesByName.TryGetValue(name, out var ids))
+                _instancesByName.Add(name, ids = new(StringComparer.Ordinal));
+            ids.TryAdd(row.Id, ids.Count + 1);
+        }
+        OperatorRows.ItemsSource = rows.Select(r => DisplayRow(r.Row, r.Name)).ToArray();
+    }
+
+    private BattleDisplayRow DisplayRow(BattleOperatorRow row, string? catalogName)
+    {
+        var name = catalogName ?? row.Id;
+        var instance = catalogName != null && _instancesByName[catalogName] is { Count: > 1 } ids
+            ? $"#{ids[row.Id]}" : "";
         var c = row.Counters;
-        var details = $"{name}\n物理 {Number(c.Physical)}　法术 {Number(c.Arts)}\n真实 {Number(c.TrueDamage)}　元素 {Number(c.Elemental)}";
-        return new(name, Number(c.Damage), row.DamageShare, details);
+        var label = instance.Length > 0 ? $"{name} {instance}" : name;
+        var details = $"{label}\n物理 {Number(c.Physical)}　法术 {Number(c.Arts)}\n真实 {Number(c.TrueDamage)}　元素 {Number(c.Elemental)}";
+        return new(name, instance, catalogName == null ? "" : $"icons/operators/{catalogName}.png", Number(c.Damage), row.DamageShare, details);
     }
 
     private static string Number(double value) => value.ToString("N0", CultureInfo.InvariantCulture);
-    private sealed record BattleDisplayRow(string Name, string Damage, double DamageShare, string Details);
+    private sealed record BattleDisplayRow(string Name, string Instance, string IconPath, string Damage, double DamageShare, string Details);
 }

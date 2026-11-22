@@ -56,6 +56,10 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
             new("AfterTriple_01", "哦吼！你又前进了一大步！", 3284),
             new("AfterTriple_03", "绝妙的操作。看看接下来会发生什么。", 3941)
         ],
+        BobVoiceCue.TripleOpportunity =>
+        [
+            new("Triple_01", "选那个随从，你就获得了一个三连。", 3403)
+        ],
         BobVoiceCue.BeforeBattle =>
         [
             new("Ahead_03", "这局我觉得你能赢。", 1977),
@@ -101,7 +105,10 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
             new("RecruitMediumMinion_02", "优秀的战术。", 1687),
             new("RecruitMediumMinion_03", "我喜欢这个选择。", 2033),
             new("RecruitLargeMinion_02", "你这支队伍越来越强了，朋友！", 2886),
-            new("RecruitLargeMinion_01", "那家伙破坏力惊人！", 2035),
+            new("RecruitLargeMinion_01", "那家伙破坏力惊人！", 2035)
+        ],
+        BobVoiceCue.DraftChoice =>
+        [
             new("RecruitLargeMinion_03", "座右铭：不选大的怎么能赢？", 3352)
         ],
         BobVoiceCue.Sell =>

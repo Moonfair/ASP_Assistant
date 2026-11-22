@@ -737,6 +737,9 @@ def main():
     if not operators or not equipment or not strategies:
         raise ValueError("上游干员、装备或策略数据为空，停止更新以保留已有数据。")
 
+    battle_names = {key: SP_CHAR_REDIRECT.get(key, value["name"])
+                    for key, value in sorted(char_table.items()) if key.startswith("char_")}
+
     # 6. 下载图标
     if not args.skip_icons:
         op_icon_dir = data_dir / "icons" / "operators"
@@ -761,6 +764,12 @@ def main():
             else:
                 dl_fail += 1
         print(f"  干员图标: {dl_new} 新下载, {dl_skip} 已存在, {dl_fail} 失败")
+
+        # 战斗统计也会显示不在本赛季商店和自选目录中的干员。
+        for char_id, name in battle_names.items():
+            path = op_icon_dir / f"{name}.png"
+            if not path.exists():
+                download_image(f"{TORAPPU_ENDPOINT}/assets/char_avatar/{char_id}.png", path)
 
         print("下载装备图标...")
         dl_new, dl_skip, dl_fail = 0, 0, 0
@@ -804,8 +813,6 @@ def main():
             json.dump(avatar_map, f, ensure_ascii=False, indent=2)
         print(f"  映射已保存: {avatar_map_path.name} ({avatar_map_path.stat().st_size / 1024:.1f} KB)")
 
-    battle_names = {key: SP_CHAR_REDIRECT.get(key, value["name"])
-                    for key, value in sorted(char_table.items()) if key.startswith("char_")}
     with open(data_dir / "garrison_chess_names.json", "w", encoding="utf-8") as f:
         json.dump({season_code: garrison_chess_names(season_data, battle_names)}, f, ensure_ascii=False, indent=2)
         f.write("\n")

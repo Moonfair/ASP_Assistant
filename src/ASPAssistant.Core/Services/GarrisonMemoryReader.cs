@@ -9,7 +9,7 @@ public sealed record GarrisonShop(int Level, int Coins, int UpgradeCost, int Ref
 public sealed record GarrisonSnapshot(int Round, int PlayerIndex, int? Health, int? PlayerLevel, int? PlayerCoins,
     GarrisonShop? Shop, GarrisonCharacter[]? Characters, GarrisonItem[]? Equipment, GarrisonItem[]? Magic,
     GarrisonPosition[]? Positions, string? ActivityId = null, Dictionary<string, string>? SelectedCharacters = null,
-    GarrisonTeammate[]? Teammates = null);
+    GarrisonTeammate[]? Teammates = null, GarrisonPhase? Phase = null, BossDamageBoard? BossDamage = null);
 
 // Windows 2.7.91 x64. ArknightsBattleReader validates the three build hashes before this layout is used.
 // Paths come from BattleController.m_singletonHost and AutoChessDataCenter.get_selfPlayerData.
@@ -52,7 +52,10 @@ internal sealed partial class GarrisonMemoryReader(Func<long, int, byte[]> read,
         {
             snapshot = snapshot with { SelectedCharacters = SelectedCharacters(player) };
         }
-        snapshot = snapshot with { Teammates = ReadTeam(center, players, selfIndex) };
+        snapshot = snapshot with { Teammates = ReadTeam(center, players, selfIndex),
+            Phase = TryStable(r => r.ReadPhase(manager, center)) };
+        if (snapshot.Phase?.State == GarrisonPhase.BossBattle)
+            snapshot = snapshot with { BossDamage = TryStable(r => r.ReadBossDamage(manager, center, players)) };
 
         // A purchase can mutate a slot in place without changing the round or list identity.
         if (!IsStable() || findController() != (slot, controller))

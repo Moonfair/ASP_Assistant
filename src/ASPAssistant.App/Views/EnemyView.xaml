@@ -7,6 +7,17 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
+        <Style x:Key="RouteThumbnail" TargetType="Button" BasedOn="{StaticResource TrackingButton}">
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="ToolTip" Value="点击放大路线图" />
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="8">
@@ -39,8 +50,12 @@
                         <DataTemplate>
                             <Border Style="{StaticResource ItemCardBorder}" Padding="8" Margin="0,0,0,8">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="点击图片放大" Margin="6,0,0,0"
+                                                   Style="{StaticResource EnemyLabel}" Visibility="{Binding RouteVisibility}" />
+                                        <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                    </DockPanel>
                                     <TextBlock Text="{Binding Status}" Visibility="{Binding StatusVisibility}"
                                                Style="{StaticResource EnemyLabel}" Margin="0,5,0,0" />
                                     <StackPanel Visibility="{Binding RouteVisibility}">
@@ -48,13 +63,19 @@
                                                   AutomationProperties.Name="{Binding SidePickerName}" Margin="0,6,0,4" />
                                         <StackPanel Visibility="{Binding LeftVisibility}" Margin="0,4,0,0">
                                             <TextBlock Text="{Binding LeftOrder}" Foreground="#FF7CDBE9" FontSize="12" />
-                                            <Image Source="{Binding LeftImage}" Stretch="Uniform" Margin="0,3,0,0"
-                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                            <Button Style="{StaticResource RouteThumbnail}" Click="OnPreviewRoute"
+                                                    Tag="{Binding LeftOrder}" AutomationProperties.Name="放大左侧路线图">
+                                                <Image Source="{Binding LeftImage}" Stretch="Uniform"
+                                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                            </Button>
                                         </StackPanel>
                                         <StackPanel Visibility="{Binding RightVisibility}" Margin="0,6,0,0">
                                             <TextBlock Text="{Binding RightOrder}" Foreground="#FFFFC37A" FontSize="12" />
-                                            <Image Source="{Binding RightImage}" Stretch="Uniform" Margin="0,3,0,0"
-                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                            <Button Style="{StaticResource RouteThumbnail}" Click="OnPreviewRoute"
+                                                    Tag="{Binding RightOrder}" AutomationProperties.Name="放大右侧路线图">
+                                                <Image Source="{Binding RightImage}" Stretch="Uniform"
+                                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                            </Button>
                                         </StackPanel>
                                     </StackPanel>
                                 </StackPanel>

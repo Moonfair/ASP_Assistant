@@ -211,7 +211,8 @@ public partial class App : Application
             User32.GetRootWindow(User32.GetForegroundWindow()) == target.Window);
         _sidePanel.ConfigureMatch(_match, _settingsManager, strategies, covenantCatalog, _overlay);
         var battleNames = await dataStore.LoadBattleOperatorNamesAsync();
-        _sidePanel.BattleData.SetNames(battleNames);
+        var chessNames = await dataStore.LoadChessNamesAsync();
+        _sidePanel.BattleData.SetNames(battleNames, chessNames);
 
         var bobVoice = _bobVoice = new BobVoicePlayer(Path.Combine(dataDir, "voice", "bob"));
         bobVoice.Spoken += _sidePanel.ShowCannotSpeech;
@@ -261,8 +262,12 @@ public partial class App : Application
                 var memory = bobClock.Elapsed - bobMemoryAt <= TimeSpan.FromSeconds(2) ? bobMemory : null;
                 if (bobTriggers.Observe(values, items.Select(item => item.Name), voice, bobClock.Elapsed, memory) is { } cue)
                 {
-                    if (!bobVoice.Play(cue) && cue == BobVoiceCue.LowHealth)
-                        bobTriggers.RetryLowHealth();
+                    if (!bobVoice.Play(cue))
+                    {
+                        if (cue == BobVoiceCue.LowHealth) bobTriggers.RetryLowHealth();
+                        if (cue == BobVoiceCue.TripleOpportunity) bobTriggers.RetryTripleOpportunity();
+                        if (cue == BobVoiceCue.DraftChoice) bobTriggers.RetryDraftChoice();
+                    }
                 }
             });
         }
