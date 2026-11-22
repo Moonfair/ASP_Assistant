@@ -90,6 +90,7 @@
                     <Button x:Name="ConfirmButton" Content="确认匹配" Click="OnConfirm" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
                     <Button x:Name="SendInvitationButton" Content="提交邀请文本" Click="OnSendInvitation" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
                     <Button x:Name="ReadyButton" Content="我已就位" Click="OnReady" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="ForceStartButton" Content="强制开始" Click="OnForceStart" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
                     <Button x:Name="MarkButton" Content="开始标记" Click="OnMark" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
                     <Button x:Name="LeaveButton" Grid.Column="1" Content="退出房间" Click="OnAskLeave" Margin="6,0,0,0" Visibility="Collapsed" />
                 </Grid>

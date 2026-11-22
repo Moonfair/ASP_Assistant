@@ -111,6 +111,7 @@ public partial class MatchView : UserControl
             "confirming" => self?.Confirmed == true ? "你已确认，正在等待其他队员。" : "请在倒计时结束前确认参加。",
             "creating" => captain ? "你是队长。请在游戏中创建房间，并在下方提交邀请文本。" : "队长提交后，这里会显示房间邀请文本。",
             "joining" when !captain && self?.Ready != true => "复制邀请文本并在游戏中加入房间，然后点击“我已就位”。",
+            "joining" when state!.CanForceStart => $"当前 {state.Members.Length}/4 人。可继续邀请队友，或带现有成员强制开始。开局后停止接收新成员。",
             "joining" when state!.Members.Length < 4 => "将房间分享文本发给队友，在「自建队伍」中输入同一段文本即可加入。四人就位后开始。",
             "playing" => "点击“开始标记”或按住 Ctrl 在游戏画面上作画。笔迹保留 10 秒。",
             _ when customForm => "输入游戏房间的分享文本。第一个提交的人成为队长，其余队员使用同一段文本加入。",
@@ -136,6 +137,8 @@ public partial class MatchView : UserControl
         Show(ReadyButton, joining && !captain);
         ReadyButton.Content = self?.Ready == true ? "已就位" : "我已就位";
         ReadyButton.IsEnabled = !_session.Busy && self?.Ready != true;
+        Show(ForceStartButton, joining && captain && state!.CanForceStart);
+        ForceStartButton.IsEnabled = !_session.Busy;
         Show(MarkButton, playing);
         MarkButton.Content = _overlay?.IsMatchMarking == true ? "结束标记" : "开始标记";
         Show(LeaveButton, !form);
@@ -196,7 +199,7 @@ public partial class MatchView : UserControl
         if (state?.Phase == "playing" && allMuted)
             SetText(Description, "已屏蔽所有队友，无法发送笔迹。取消屏蔽一人即可继续。");
         else if (state?.Phase == "playing" && peers.Length == 0)
-            SetText(Description, "其他队友均已离开房间。");
+            SetText(Description, "当前房间只有你一人。");
 
         var rows = state?.Members.Select(member =>
         {
@@ -207,7 +210,7 @@ public partial class MatchView : UserControl
                 "confirming" => member.Confirmed ? "已确认" : "待确认",
                 "creating" => member.Id == state.CaptainId ? "正在创建房间" : "等待队长",
                 "joining" => member.Ready || member.Id == state.CaptainId ? "已就位" : "待加入",
-                "playing" => "已就位",
+                "playing" => "游戏中",
                 _ => "匹配中"
             };
             if (state.Phase != "queued" && !string.IsNullOrWhiteSpace(member.AssignedTactic))
@@ -332,6 +335,11 @@ public partial class MatchView : UserControl
     private async void OnReady(object sender, RoutedEventArgs e)
     {
         if (_session is not null && ReadyButton.IsEnabled) await _session.ReadyAsync();
+    }
+
+    private async void OnForceStart(object sender, RoutedEventArgs e)
+    {
+        if (_session?.State?.CanForceStart == true) await _session.ForceStartAsync();
     }
 
     private void OnMark(object sender, RoutedEventArgs e)

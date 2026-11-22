@@ -137,6 +137,7 @@ public class MatchViewTests
                 session.RefreshAsync().GetAwaiter().GetResult();
                 Assert.Equal("游戏邀请", view.PublishedInvitation.Text);
                 Assert.True(view.ReadyButton.IsEnabled);
+                Assert.Equal(Visibility.Collapsed, view.ForceStartButton.Visibility);
                 Click(view.ReadyButton);
                 Assert.Equal("游戏进行中", view.Heading.Text);
                 Click(view.MuteAllButton);
@@ -163,6 +164,11 @@ public class MatchViewTests
                 Assert.Equal("队伍成员（1/4）", view.RosterTitle.Text);
                 Assert.Equal(Visibility.Visible, view.CopyButton.Visibility);
                 Assert.Equal(Visibility.Collapsed, view.ReadyButton.Visibility);
+                Assert.Equal(Visibility.Visible, view.ForceStartButton.Visibility);
+                Click(view.ForceStartButton);
+                Assert.Equal("游戏进行中", view.Heading.Text);
+                Assert.Contains("只有你一人", view.Description.Text);
+                Assert.Equal(Visibility.Collapsed, view.ForceStartButton.Visibility);
             }
             finally
             {
@@ -193,6 +199,7 @@ public class MatchViewTests
                 case "confirm": _confirmed = true; break;
                 case "join-room": _manual = true; Phase = "joining"; break;
                 case "ready": Phase = "playing"; break;
+                case "force-start" when _manual && Phase == "joining": Phase = "playing"; break;
                 case "mute": _muted = !_muted; break;
                 case "leave": LeaveRequests++; Phase = "ended"; break;
             }
@@ -202,7 +209,7 @@ public class MatchViewTests
             var snapshot = new MatchSnapshot
             {
                 Phase = Phase, SelfId = "p0", CaptainId = _manual ? "p0" : "p1", RoomId = "room", Deadline = DeadlineElapsed ? now - 1 : now + 20000,
-                ServerNow = now, Invitation = Phase == "joining" ? "游戏邀请" : null, Members = members,
+                ServerNow = now, Invitation = Phase == "joining" ? "游戏邀请" : null, Members = members, CanForceStart = _manual && Phase == "joining",
                 Muted = _muted ? ["p1", "p2", "p3"] : []
             };
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

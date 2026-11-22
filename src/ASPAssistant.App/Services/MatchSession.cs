@@ -56,6 +56,7 @@ internal sealed class MatchSession : IDisposable
     internal Task ConfirmAsync() => ActAsync("confirm", new { });
     internal Task InviteAsync(string invitation) => ActAsync("invite", new { invitation });
     internal Task ReadyAsync() => ActAsync("ready", new { });
+    internal Task ForceStartAsync() => ActAsync("force-start", new { });
     internal Task LeaveAsync() => ActAsync("leave", new { });
     internal Task MuteAsync(string[] muted) => ActAsync("mute", new { muted });
 

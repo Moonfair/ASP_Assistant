@@ -23,6 +23,7 @@ internal sealed record MatchSnapshot
     public long ServerNow { get; init; }
     public long? Deadline { get; init; }
     public string? CaptainId { get; init; }
+    public bool CanForceStart { get; init; }
     public string? Invitation { get; init; }
     public string? Message { get; init; }
     public MatchMember[] Members { get; init; } = [];
