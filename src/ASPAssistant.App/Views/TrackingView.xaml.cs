@@ -12,6 +12,10 @@ public partial class TrackingView : UserControl
         InitializeComponent();
     }
 
+    public event Action<TrackingType>? BrowseRequested;
+    private void OnBrowseOperators(object sender, RoutedEventArgs e) => BrowseRequested?.Invoke(TrackingType.Operator);
+    private void OnBrowseEquipment(object sender, RoutedEventArgs e) => BrowseRequested?.Invoke(TrackingType.Equipment);
+
     private void OnCovenantSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         TrackCombinationButton.IsEnabled = GetSelectedCovenant(CoreCovenantPicker) is not null ||

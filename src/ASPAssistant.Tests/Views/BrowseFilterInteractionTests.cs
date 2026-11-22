@@ -16,7 +16,7 @@ using FluentAssertions;
 namespace ASPAssistant.Tests.Views;
 
 [Collection("WPF views")]
-public class BrowseFilterInteractionTests
+public partial class BrowseFilterInteractionTests
 {
     [Fact]
     public void BrowseViews_MultiselectChipsAndAllStayInSyncWithResults()
@@ -40,8 +40,14 @@ public class BrowseFilterInteractionTests
         {
             Source = new Uri("/ASPAssistant.App;component/Resources/Styles.xaml", UriKind.Relative)
         });
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("/ASPAssistant.App;component/Resources/Logo.xaml", UriKind.Relative)
+        });
         try
         {
+            VerifySecondarySidebarPages();
+            VerifySidebarWorkflow();
             VerifyManualBossSelection();
             VerifyRouteImagePreview();
             List<Operator> operators = [
@@ -287,6 +293,18 @@ public class BrowseFilterInteractionTests
         battlefield.SelectedIndex = 0;
         LayoutView(view);
         RouteFile().Should().EndWith("11-patrol.jpg");
+        var rounds = (ListBox)view.FindName("RoundPicker");
+        var firstSide = VisualChildren<ComboBox>(routes).Single();
+        firstSide.SelectedIndex = 2;
+        rounds.SelectedIndex = 1;
+        LayoutView(view);
+        routes.Items.Count.Should().Be(1, "only the requested round should consume scroll space");
+        var secondSide = VisualChildren<ComboBox>(routes).Single();
+        secondSide.SelectedIndex.Should().Be(0, "each round keeps its own standing side");
+        secondSide.SelectedIndex = 1;
+        rounds.SelectedIndex = 0;
+        LayoutView(view);
+        VisualChildren<ComboBox>(routes).Single().SelectedIndex.Should().Be(2);
 
         view.UpdateInfo(new("矩兽", [], 2, "标准模拟"));
         LayoutView(view);
@@ -295,11 +313,14 @@ public class BrowseFilterInteractionTests
         boss.SelectedValue = "假想敌：鳍";
         LayoutView(view);
         RouteFile().Should().EndWith("02-patrol.jpg");
+        rounds.SelectedIndex = 1;
+        LayoutView(view);
         VisualChildren<TextBlock>(routes).Select(text => text.Text)
             .Should().Contain("当前难度没有隐秘核心回合");
 
         view.UpdateInfo(null);
         LayoutView(view);
+        rounds.SelectedIndex.Should().Be(0, "a new game starts on the regular boss round");
         boss.SelectedIndex.Should().Be(0, "a new game must clear the manual boss");
         battlefield.SelectedIndex.Should().Be(0);
         VisualChildren<Image>(routes).Should().OnlyContain(image => image.Source == null);
@@ -369,10 +390,6 @@ public class BrowseFilterInteractionTests
 
     private static void VerifySideFilterLayout()
     {
-        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary
-        {
-            Source = new Uri("/ASPAssistant.App;component/Resources/Logo.xaml", UriKind.Relative)
-        });
         var vm = new OperatorBrowseViewModel();
         vm.LoadOperators([
             new() { Name = "甲", Tier = 1, CoreCovenants = ["炎"] },
@@ -819,7 +836,8 @@ public class BrowseFilterInteractionTests
         vm.LoadOperators(store.LoadOperatorsAsync().GetAwaiter().GetResult());
         var gearVm = new EquipmentBrowseViewModel();
         gearVm.LoadEquipment(store.LoadEquipmentAsync().GetAwaiter().GetResult().Item1);
-        var window = new ASPAssistant.App.Windows.SidePanelWindow(vm, gearVm, new(), new(), new())
+        var tracking = new TrackingViewModel(vm.FilteredOperators, gearVm.FilteredEquipment);
+        var window = new ASPAssistant.App.Windows.SidePanelWindow(vm, gearVm, tracking, new(), new())
             { Left = 900, Top = 20, Height = 820 };
         LayoutFilterWindow(window);
         var view = (OperatorBrowseView)window.FindName("OperatorView");
@@ -837,6 +855,21 @@ public class BrowseFilterInteractionTests
         ((TabControl)window.FindName("MainTabs")).SelectedIndex = 1;
         ((System.Windows.Controls.Primitives.ToggleButton)((EquipmentBrowseView)window.FindName("EquipmentView")).FindName("FilterToggle")).IsChecked = true;
         Render("equipment-sidebar.png");
+        var tabs = (TabControl)window.FindName("MainTabs");
+        tabs.SelectedIndex = 2;
+        window.Width = 280;
+        window.Height = 600;
+        Render("tracking-empty-280.png");
+        foreach (var op in vm.FilteredOperators.Take(2)) tracking.AddTracking(op.Name, TrackingType.Operator);
+        foreach (var gear in gearVm.FilteredEquipment.Take(2)) tracking.AddTracking(gear.Name, TrackingType.Equipment);
+        Render("tracking-list-280.png");
+        tabs.SelectedIndex = 1;
+        window.UseSideFilters = false;
+        ((System.Windows.Controls.Primitives.ToggleButton)((EquipmentBrowseView)window.FindName("EquipmentView")).FindName("FilterToggle")).IsChecked = false;
+        gearVm.SearchText = "未匹配的名称";
+        Render("search-empty-280.png");
+        window.Width = 310;
+        window.Height = 820;
         ((Button)window.FindName("SettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Render("settings-page.png");
         void Render(string name)

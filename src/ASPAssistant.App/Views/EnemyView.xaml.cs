@@ -25,7 +25,7 @@ public partial class EnemyView : UserControl
     public EnemyView()
     {
         InitializeComponent();
-        Routes.ItemsSource = _rounds;
+        ShowSelectedRound();
         UpdateInfo(null);
     }
 
@@ -33,9 +33,9 @@ public partial class EnemyView : UserControl
     {
         var previous = _info;
         _info = info;
-        EmptyMessage.Visibility = info == null ? Visibility.Visible : Visibility.Collapsed;
         if (info == null)
         {
+            RoundPicker.SelectedIndex = 0;
             foreach (var round in _rounds) round.Side = 0;
             BossPicker.SelectedIndex = 0;
             BattlefieldPicker.SelectedIndex = 0;
@@ -64,6 +64,15 @@ public partial class EnemyView : UserControl
         BattlefieldPicker.ItemsSource = new BattlefieldChoice[] { new(null, label) }
             .Concat(BossRoutes.Battlefields.Select(number => new BattlefieldChoice(number, $"#{number:D2}")));
         BattlefieldPicker.SelectedIndex = selection;
+    }
+
+    private void OnRoundChanged(object sender, SelectionChangedEventArgs e) => ShowSelectedRound();
+
+    private void ShowSelectedRound()
+    {
+        // SelectedIndex can be set while the XAML namescope is still being constructed.
+        if (Routes is not null && RoundPicker.SelectedIndex is 0 or 1)
+            Routes.ItemsSource = new[] { _rounds[RoundPicker.SelectedIndex] };
     }
 
     private void OnBattlefieldChanged(object sender, SelectionChangedEventArgs e) => RefreshRoutes();
@@ -97,7 +106,7 @@ public partial class EnemyView : UserControl
             _routePreview = preview;
         }
 
-        _routePreview.Title = $"{round.Title} · {button.Tag}";
+        _routePreview.Title = $"{round.PreviewTitle} · {button.Tag}";
         ((Image)_routePreview.Content).Source = source;
         if (_routePreview.WindowState == WindowState.Minimized) _routePreview.WindowState = WindowState.Normal;
         _routePreview.Show();
@@ -108,6 +117,7 @@ public partial class EnemyView : UserControl
     {
         string? boss = (BossPicker.SelectedItem as BossChoice)?.Name ?? _info?.Boss;
         int? battlefield = (BattlefieldPicker.SelectedItem as BattlefieldChoice)?.Number ?? _info?.Battlefield;
+        EmptyMessage.Visibility = _info == null && (boss == null || battlefield == null) ? Visibility.Visible : Visibility.Collapsed;
         foreach (var round in _rounds) round.Update(boss, _info?.Mode, battlefield);
     }
 
@@ -121,7 +131,8 @@ public partial class EnemyView : UserControl
         private string? _imageFile;
         private string _status = "";
 
-        public string Title => $"第 {round} 回合 · {name}";
+        public string Title => name;
+        public string PreviewTitle => $"第 {round} 回合 · {name}";
         public string SidePickerName => $"第 {round} 回合站位";
         public IReadOnlyList<string> SideChoices { get; } = ["站位待确认 · 看两侧", "我在左侧", "我在右侧"];
         public int Side

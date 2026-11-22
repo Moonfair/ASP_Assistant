@@ -33,6 +33,42 @@ public class MatchViewTests
     [Theory]
     [InlineData(280)]
     [InlineData(400)]
+    public void OfferKeepsItsPageTitleAndCopyActionInViewWhilePreferencesScroll(int width)
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            using var sidebar = new Sidebar();
+            var view = sidebar.View;
+            view.Width = width;
+            view.Height = 390;
+            sidebar.Observe(Idle);
+            var title = Assert.IsType<TextBlock>(view.FindName("PageHeading"));
+            Assert.NotEmpty(title.Text);
+            Assert.Contains("策略", view.Description.Text);
+            view.StrategyPicker.SelectedIndex = 0;
+            Click(view.SearchButton);
+            sidebar.Server.Snapshot = Offer("房主甲", "邀请 A");
+            sidebar.Sync();
+
+            view.StrategySection.IsExpanded = view.CovenantSection.IsExpanded = true;
+            LineupPerformanceTests.Layout(view);
+            var beforeScroll = view.CopyButton.TranslatePoint(new Point(), view);
+            Assert.True(beforeScroll.Y >= view.PageScroll.TranslatePoint(new Point(), view).Y + view.PageScroll.ActualHeight);
+            view.PageScroll.ScrollToEnd();
+            LineupPerformanceTests.Layout(view);
+            Assert.True(view.PageScroll.VerticalOffset > 0);
+            Assert.Equal(beforeScroll, view.CopyButton.TranslatePoint(new Point(), view));
+            Assert.True(beforeScroll.Y + view.CopyButton.ActualHeight <= view.ActualHeight);
+            Assert.True(beforeScroll.X >= 0);
+            Assert.True(view.CancelSearchButton.TranslatePoint(new Point(view.CancelSearchButton.ActualWidth, 0), view).X <= width);
+            Assert.NotEqual(title.Text, view.Heading.Text);
+            Assert.True(view.CopyButton.IsEnabled);
+        });
+    }
+
+    [Theory]
+    [InlineData(280)]
+    [InlineData(400)]
     public void PreferenceCardsScrollIndependentlyAtSidebarWidths(int width)
     {
         LineupPerformanceTests.RunSta(() =>

@@ -103,6 +103,13 @@ public partial class LineupView : UserControl
 
     private void OnNew(object sender, RoutedEventArgs e) => NewRequested?.Invoke();
     private void OnHistory(object sender, RoutedEventArgs e) => HistoryRequested?.Invoke();
+    private void OnOpenLibraryTools(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { ContextMenu: { } menu } button) return;
+        menu.PlacementTarget = button;
+        menu.IsOpen = true;
+    }
+
     private void OnEdit(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is Lineup lineup) EditRequested?.Invoke(lineup);

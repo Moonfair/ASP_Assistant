@@ -54,16 +54,7 @@
         </Style>
     </UserControl.Resources>
     <DockPanel>
-        <!-- Search box -->
-        <Border DockPanel.Dock="Top" Margin="8,8,8,4"
-                Background="#FF1E1E38" BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1" CornerRadius="6">
-            <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
-                     BorderThickness="0" Padding="8,5"
-                     CaretBrush="{StaticResource AccentBrush}" />
-        </Border>
-
+        <controls:CatalogSearchBox DockPanel.Dock="Top" Margin="8,8,8,4" Hint="搜索干员名称" />
         <!-- Filter panel: two-row Grid — header row (toggle + tags) above content row (lists).
              No overlay: tags fill the DockPanel remainder, toggle is always protected on the left. -->
         <Grid x:Name="TopFilterHost" DockPanel.Dock="Top" Margin="8,0,8,4">
@@ -391,32 +382,48 @@
             </ScrollViewer>
         </Grid>
 
-        <!-- Operator list (virtualized: ScrollViewer lives inside the template so WPF can recycle cards) -->
-        <ItemsControl x:Name="OperatorListControl" ItemsSource="{Binding FilteredOperators}"
-                      VirtualizingPanel.IsVirtualizing="True"
-                      VirtualizingPanel.VirtualizationMode="Recycling"
-                      VirtualizingPanel.ScrollUnit="Pixel">
-            <ItemsControl.Template>
-                <ControlTemplate TargetType="ItemsControl">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  CanContentScroll="True"
-                                  Focusable="False">
-                        <ItemsPresenter Margin="8,0,8,8" />
-                    </ScrollViewer>
-                </ControlTemplate>
-            </ItemsControl.Template>
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <controls:OperatorCard TrackingToggled="OnOperatorTrackingToggled"
-                                          CovenantAvailability="{Binding DataContext.CovenantAvailability, RelativeSource={RelativeSource AncestorType=views:OperatorBrowseView}}"
-                                          controls:OperatorCard.BanToggled="OnOperatorBanToggled" />
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <Grid>
+            <!-- Operator list (virtualized: ScrollViewer lives inside the template so WPF can recycle cards) -->
+            <ItemsControl x:Name="OperatorListControl" ItemsSource="{Binding FilteredOperators}"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          VirtualizingPanel.ScrollUnit="Pixel">
+                <ItemsControl.Template>
+                    <ControlTemplate TargetType="ItemsControl">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      CanContentScroll="True"
+                                      Focusable="False">
+                            <ItemsPresenter Margin="8,0,8,8" />
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <controls:OperatorCard TrackingToggled="OnOperatorTrackingToggled"
+                                              CovenantAvailability="{Binding DataContext.CovenantAvailability, RelativeSource={RelativeSource AncestorType=views:OperatorBrowseView}}"
+                                              controls:OperatorCard.BanToggled="OnOperatorBanToggled" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel x:Name="NoResults" Margin="12,22" VerticalAlignment="Top" IsHitTestVisible="False">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasItems, ElementName=OperatorListControl}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <TextBlock Text="没有匹配的干员" HorizontalAlignment="Center" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                <TextBlock Text="试试其他名称，或减少筛选条件。" HorizontalAlignment="Center" Margin="0,5,0,0" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+            </StackPanel>
+        </Grid>
     </DockPanel>
 </UserControl>

@@ -158,6 +158,8 @@ public partial class BattleDataView : UserControl
         _state = ObserveBattlePhase(update, stage);
         // The server ranking and local damage frames update independently.
         PresentBossDamage(update, stage);
+        FeedStatus.FontWeight = _state is BattleFeedState.PermissionRequired or BattleFeedState.ConnectionFailed
+            or BattleFeedState.UnsupportedBuild or BattleFeedState.WindowsOnly ? FontWeights.SemiBold : FontWeights.Normal;
         ConnectButton.Visibility = _state is BattleFeedState.PermissionRequired or BattleFeedState.ConnectionFailed ||
             (muMu && _state == BattleFeedState.UnsupportedBuild)
             ? Visibility.Visible : Visibility.Collapsed;
@@ -204,6 +206,10 @@ public partial class BattleDataView : UserControl
             BattleFeedState.ConnectionFailed => "战斗数据连接已中断。",
             _ => "等待官方 PC 客户端"
         };
+        if ((_last != null || BossRows.Items.Count > 0) && _state is (BattleFeedState.Connecting or
+            BattleFeedState.WaitingForClient or BattleFeedState.PermissionRequired or BattleFeedState.UnsupportedBuild or
+            BattleFeedState.ReadInterrupted or BattleFeedState.ConnectionFailed or BattleFeedState.WindowsOnly))
+            FeedStatus.Text += " 当前显示最近一次读数。";
     }
 
     private BattleFeedState ObserveBattlePhase(BattleUpdate update, BattleStage? stage)
@@ -237,7 +243,7 @@ public partial class BattleDataView : UserControl
         _instancesByName.Clear();
         OperatorRows.ItemsSource = null;
         Summary.Visibility = Visibility.Collapsed;
-        TotalDamage.Text = "";
+        TotalDamage.Text = "—";
         GameClock.Text = "";
     }
 

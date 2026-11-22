@@ -47,6 +47,7 @@ public partial class MatchView : UserControl
             foreach (var name in saved.Covenants.Distinct().Where(availableCovenants.Contains).Take(4))
                 CovenantPicker.SelectedItems.Add(name);
             TacticPicker.SelectedItem = saved.Tactic;
+            StrategySection.IsExpanded = StrategyPicker.SelectedItems.Count == 0;
         }
         finally { _changingPreferences = false; }
         ApplyPreferences(save: false);
@@ -76,6 +77,7 @@ public partial class MatchView : UserControl
             _notice = null;
             if (_context.Room != context.Room || room == null) CloseLeavePrompt();
             _context = context;
+            PageScroll.ScrollToTop();
         }
 
         if (game != null && _draftOwner != (game.SelfUid, game.RoomId))
@@ -108,7 +110,8 @@ public partial class MatchView : UserControl
             "matching" => "游戏内匹配中",
             "playing" => "游戏进行中",
             "ended" => "本次匹配已结束",
-            _ => "组队匹配"
+            _ when game == null || !hasAccount => "等待读取游戏",
+            _ => "准备匹配"
         };
         var number = room?.RoomId ?? currentOffer?.GameRoomId;
         var identity = string.IsNullOrWhiteSpace(game?.Nickname) ? null : $"游戏昵称  {game.Nickname}";
@@ -116,14 +119,21 @@ public partial class MatchView : UserControl
         SetText(GameIdentity, string.Join("  ·  ", new[] { identity, roomNumber }.OfType<string>()));
         string? instruction = phase switch
         {
+            _ when session.MemoryStatus == "等待游戏房间数据。" => "打开官方 Windows 客户端后，将自动读取游戏房间。",
             _ when !string.IsNullOrWhiteSpace(session.MemoryStatus) => session.MemoryStatus,
             "idle" when !hasAccount => "正在读取游戏账号…",
-            "searching" => "正在寻找有空位的房间。",
-            "offer" when currentOffer == null => null,
+            "idle" when StrategyPicker.SelectedItems.Count == 0 => "先选至少一项擅长的策略，再开始匹配。",
+            "idle" => "偏好已就绪。开始匹配后，将寻找有空位的房间。",
+            "searching" => "正在寻找有空位的房间，可随时取消。",
+            "offer" when currentOffer == null => "核实成功后即可复制邀请，也可以取消匹配。",
             "offer" => "复制邀请文本，在游戏中加入这个房间。",
             _ when room != null && mirror == null => "正在同步游戏房间…",
             "lobby" when recruiting => "其他玩家可以在匹配中看到这个房间。",
+            "lobby" when openLobby && host && StrategyPicker.SelectedItems.Count == 0 => "招募需要游戏邀请文本和至少一项擅长的策略。",
             "lobby" when openLobby && host => "粘贴游戏房间的邀请文本，即可搜寻队友。",
+            "lobby" when room?.Members.Length >= 4 => "房间已满，请在游戏内准备开始。",
+            "lobby" when !host => "已加入游戏房间，等待房主开始。",
+            "matching" => "请在游戏内等待匹配结果。",
             "playing" when allMuted => "已屏蔽所有队友。取消屏蔽一人即可发送笔迹。",
             "playing" when room?.Members.Length == 1 => "当前房间只有你一人。",
             "playing" when peers.Length == 0 && roster != null => "队友开启插件后即可互相标记。",
@@ -145,7 +155,9 @@ public partial class MatchView : UserControl
         PasteButton.IsEnabled = available && !_clipboardBusy;
         UpdateRecruitButton();
         var invitation = currentOffer?.Invitation ?? (recruiting && session.IsSynchronized ? mirror?.Invitation : null);
-        Show(SharedInvitation, !string.IsNullOrWhiteSpace(invitation));
+        var hasInvitation = !string.IsNullOrWhiteSpace(invitation);
+        Show(SharedInvitation, hasInvitation);
+        Show(CopyButton, hasInvitation);
         if (PublishedInvitation.Text != (invitation ?? "")) PublishedInvitation.Text = invitation ?? "";
         CopyButton.IsEnabled = available && !_clipboardBusy && session.IsSynchronized && !string.IsNullOrWhiteSpace(invitation);
 
@@ -159,13 +171,17 @@ public partial class MatchView : UserControl
         ApproveLeaveButton.IsEnabled = available;
 
         UpdateRoster(roster, room, playing);
-        Show(RosterHeading, room != null || currentOffer != null);
+        var showRoster = room != null || currentOffer != null;
+        Show(RosterHeading, showRoster);
+        Show(Roster, showRoster);
         RosterTitle.Text = $"房间成员（{_rows.Length}/4）";
         Show(MuteAllButton, playing);
         MuteAllButton.Content = allMuted ? "取消全部屏蔽" : "屏蔽所有人";
         MuteAllButton.IsEnabled = available && session.IsSynchronized && peers.Length > 0;
         Roster.IsEnabled = !session.Busy;
-        SetText(Feedback, session.Error ?? (session.Busy ? "正在提交…" : _notice ?? state?.Message));
+        SetText(Feedback, session.Error is { Length: > 0 } error
+            ? $"匹配服务提示：{error}"
+            : session.Busy ? "正在提交…" : _notice ?? state?.Message);
     }
 
     private static void Show(UIElement element, bool visible) =>
@@ -218,7 +234,7 @@ public partial class MatchView : UserControl
         var strategies = StrategyPicker.SelectedItems.Cast<Strategy>().Select(item => item.Name).ToArray();
         var covenants = CovenantPicker.SelectedItems.Cast<string>().ToArray();
         var tactic = TacticPicker.SelectedItem as string ?? "随便";
-        StrategySummary.Text = strategies.Length == 0 ? "请选择策略" : string.Join("、", strategies);
+        StrategySummary.Text = strategies.Length == 0 ? "尚未选择策略" : string.Join("、", strategies);
         CovenantSummary.Text = covenants.Length == 0 ? "随便" : string.Join("、", covenants);
         AnyCovenant.IsEnabled = covenants.Length > 0;
         _session?.SetPreferences(strategies, covenants, tactic);
@@ -228,7 +244,7 @@ public partial class MatchView : UserControl
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 AppLogger.Error("Match", "Could not save match preferences", ex);
-                _notice = "匹配偏好未能保存到本地。";
+                _notice = "本次偏好仍有效，但未能保存。请检查设置目录的写入权限。";
             }
         }
         Refresh();
@@ -327,15 +343,15 @@ public partial class MatchView : UserControl
         {
             var text = await LineupClipboard.ReadAsync(window, InvitationDraft.MaxLength);
             if (_session == null || _draftOwner != owner || InviteEditor.Visibility != Visibility.Visible || InvitationDraft.Text != originalDraft) return;
-            if (text.Length > InvitationDraft.MaxLength) _notice = "邀请文本超过 1024 个字符。";
-            else if (string.IsNullOrWhiteSpace(text)) _notice = "剪贴板中没有邀请文本。";
+            if (text.Length > InvitationDraft.MaxLength) _notice = "邀请文本超过 1024 个字符，请只粘贴游戏分享的邀请内容。";
+            else if (string.IsNullOrWhiteSpace(text)) _notice = "剪贴板中没有邀请文本，请先在游戏房间内复制邀请。";
             else
             {
                 InvitationDraft.Text = text;
                 _notice = "已粘贴邀请文本。";
             }
         }
-        catch (ExternalException) { _notice = "读取剪贴板失败，请重试。"; }
+        catch (ExternalException) { _notice = "读取剪贴板失败，可直接在邀请框内输入。"; }
         finally { _clipboardBusy = false; Refresh(); }
     }
 
@@ -351,7 +367,7 @@ public partial class MatchView : UserControl
             await LineupClipboard.CopyAsync(window, invitation);
             if (context == _context) _notice = "已复制房间邀请文本。";
         }
-        catch (ExternalException) { _notice = "复制失败，请重试。"; }
+        catch (ExternalException) { _notice = "复制失败，可在邀请框内选中文本后按 Ctrl+C。"; }
         finally { _clipboardBusy = false; Refresh(); }
     }
 

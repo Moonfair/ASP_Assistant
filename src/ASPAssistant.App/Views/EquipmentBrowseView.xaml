@@ -9,10 +9,7 @@
         <converters:NullToStringConverter x:Key="NullToAll" />
     </UserControl.Resources>
     <DockPanel>
-        <TextBox DockPanel.Dock="Top" Margin="8"
-                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                 Background="#FF2A2A40" Foreground="{StaticResource TextPrimaryBrush}"
-                 BorderBrush="{StaticResource BorderBrush}" Padding="6,4" />
+        <controls:CatalogSearchBox DockPanel.Dock="Top" Margin="8,8,8,4" Hint="搜索装备名称" />
         <StackPanel x:Name="TopFilterHost" DockPanel.Dock="Top" Margin="8,0,8,4">
             <ToggleButton x:Name="FilterToggle"
                           Foreground="{StaticResource TextSecondaryBrush}"
@@ -75,14 +72,30 @@
                 </Expander>
             </StackPanel>
         </StackPanel>
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl x:Name="EquipmentListControl" ItemsSource="{Binding FilteredEquipment}" Margin="8">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <controls:EquipmentCard TrackingToggled="OnEquipmentTrackingToggled" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+        <Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="EquipmentListControl" ItemsSource="{Binding FilteredEquipment}" Margin="8,0,8,8">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <controls:EquipmentCard TrackingToggled="OnEquipmentTrackingToggled" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <StackPanel x:Name="NoResults" Margin="12,22" VerticalAlignment="Top" IsHitTestVisible="False">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasItems, ElementName=EquipmentListControl}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <TextBlock Text="没有匹配的装备" HorizontalAlignment="Center" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                <TextBlock Text="试试其他名称，或减少筛选条件。" HorizontalAlignment="Center" Margin="0,5,0,0" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+            </StackPanel>
+        </Grid>
     </DockPanel>
 </UserControl>

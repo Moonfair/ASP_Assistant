@@ -14,6 +14,24 @@
         Background="{StaticResource PanelBackgroundBrush}">
     <Window.Resources>
         <BitmapImage x:Key="BigBobPortrait" UriSource="/ASPAssistant.App;component/Resources/BigBobPortrait.png" />
+        <Style x:Key="PanelPage" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="0,4" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
+        <!-- Stable header positions: switching tabs must not move the selected row. -->
+        <ControlTemplate x:Key="PanelNavigation" TargetType="TabControl">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Background="#FF151B2B" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                    <UniformGrid x:Name="HeaderPanel" IsItemsHost="True" Columns="4"
+                                 KeyboardNavigation.DirectionalNavigation="Cycle" />
+                </Border>
+                <Border Background="{StaticResource PanelBackgroundBrush}">
+                    <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" />
+                </Border>
+            </DockPanel>
+        </ControlTemplate>
     </Window.Resources>
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" GlassFrameThickness="0" />
@@ -47,9 +65,9 @@
                         <Button x:Name="SettingsButton" Content="⚙" FontFamily="Segoe UI Symbol"
                                 Click="OnOpenSettings" ToolTip="设置" AutomationProperties.Name="设置"
                                 Style="{StaticResource TitleBarButton}" />
-                        <Button Content="─" Click="OnMinimize"
+                        <Button Content="─" Click="OnMinimize" ToolTip="最小化" AutomationProperties.Name="最小化"
                                 Style="{StaticResource TitleBarButton}" />
-                        <Button Content="✕" Click="OnClose"
+                        <Button Content="✕" Click="OnClose" ToolTip="关闭" AutomationProperties.Name="关闭"
                                 Style="{StaticResource CloseButton}" />
                     </StackPanel>
                 </Grid>
@@ -160,42 +178,28 @@
                                 <Image Source="{StaticResource BigBobPortrait}" Stretch="UniformToFill"
                                        AutomationProperties.Name="大鲍勃" />
                             </Border>
-                            <UniformGrid Rows="1">
+                            <UniformGrid Rows="1" MinHeight="32">
                                 <UniformGrid.Resources>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="TextAlignment" Value="Center" />
-                                        <Setter Property="VerticalAlignment" Value="Center" />
                                         <Setter Property="FontSize" Value="11" />
                                         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
                                     </Style>
-                                    <Style x:Key="MatchStatusValue" TargetType="Run">
+                                    <Style x:Key="HudValue" TargetType="Run">
+                                        <Setter Property="FontSize" Value="14" />
                                         <Setter Property="FontWeight" Value="SemiBold" />
                                         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
                                     </Style>
                                 </UniformGrid.Resources>
-                                <TextBlock>
-                                    <Run Text="回合 " /><Run Style="{StaticResource MatchStatusValue}"
-                                         Text="{Binding Hud.Round, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                </TextBlock>
-                                <StackPanel>
-                                    <TextBlock>
-                                        <Run Text="升级费用 " /><Run Style="{StaticResource MatchStatusValue}"
-                                             Text="{Binding Hud.UpgradeCost, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                    </TextBlock>
-                                    <TextBlock>
-                                        <Run Text="商店等级 " /><Run Style="{StaticResource MatchStatusValue}"
-                                             Text="{Binding Hud.ShopLevel, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                    </TextBlock>
+                                <StackPanel VerticalAlignment="Center" Margin="4,0">
+                                    <TextBlock><Run Text="回合 " /><Run Style="{StaticResource HudValue}" Text="{Binding Hud.Round, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
                                 </StackPanel>
-                                <StackPanel>
-                                    <TextBlock>
-                                        <Run Text="金币 " /><Run Style="{StaticResource MatchStatusValue}"
-                                             Text="{Binding Hud.Gold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                    </TextBlock>
-                                    <TextBlock>
-                                        <Run Text="下回合金币 " /><Run Style="{StaticResource MatchStatusValue}"
-                                             Text="{Binding Hud.NextRoundGold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                    </TextBlock>
+                                <StackPanel VerticalAlignment="Center" Margin="4,0">
+                                    <TextBlock><Run Text="商店等级 " /><Run Style="{StaticResource HudValue}" Text="{Binding Hud.ShopLevel, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
+                                    <TextBlock Margin="0,1,0,0" FontSize="10"><Run Text="升级费用 " /><Run Text="{Binding Hud.UpgradeCost, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
+                                </StackPanel>
+                                <StackPanel VerticalAlignment="Center" Margin="4,0">
+                                    <TextBlock><Run Text="金币 " /><Run Style="{StaticResource HudValue}" Text="{Binding Hud.Gold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
+                                    <TextBlock Margin="0,1,0,0" FontSize="10"><Run Text="下回合 " /><Run Text="{Binding Hud.NextRoundGold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
                                 </StackPanel>
                             </UniformGrid>
                         </DockPanel>
@@ -206,11 +210,12 @@
                         <TextBlock Text="DPS 统计已关闭，可在设置中解锁。" VerticalAlignment="Center" TextWrapping="Wrap"
                                    FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                     </DockPanel>
-                    <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}">
-                        <TabItem Header="干员">
+                    <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}" Template="{StaticResource PanelNavigation}"
+                                ItemContainerStyle="{StaticResource PanelPage}">
+                        <TabItem x:Name="OperatorTab" Header="干员">
                             <views:OperatorBrowseView x:Name="OperatorView" />
                         </TabItem>
-                        <TabItem Header="装备">
+                        <TabItem x:Name="EquipmentTab" Header="装备">
                             <views:EquipmentBrowseView x:Name="EquipmentView" />
                         </TabItem>
                         <TabItem Header="追踪">
@@ -222,10 +227,10 @@
                         <TabItem x:Name="LineupTab" Header="阵容">
                             <views:LineupView x:Name="LineupView" />
                         </TabItem>
-                        <TabItem x:Name="MatchTab" Header="匹配" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem x:Name="MatchTab" Header="匹配">
                             <views:MatchView x:Name="MatchView" />
                         </TabItem>
-                        <TabItem x:Name="BattleDataTab" Header="数据" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem x:Name="BattleDataTab" Header="数据" Visibility="Collapsed">
                             <views:BattleDataView x:Name="BattleData" />
                         </TabItem>
                     </TabControl>
