@@ -291,3 +291,46 @@ test('分享文本彼此隔离，退出或掉线释放手动房间，重试旧�
   assert.notEqual(reopened.roomId, b.roomId);
   assert.equal(reopened.members.length, 1);
 });
+
+test('自建队伍的队长能带现有成员强制开始，开局后保持成员和笔迹同步', async t => {
+  for (const size of [1, 2, 3, 4]) {
+    const { ok, request, tokens } = setup(t);
+    const body = { ...profile('队员'), invitation: '强制开始测试' };
+    const host = await ok(tokens[0], 'join-room', body);
+    assert.equal(host.canForceStart, true);
+    for (const token of tokens.slice(1, size)) {
+      const guest = await ok(token, 'join-room', body);
+      assert.equal(guest.canForceStart, false);
+      assert.equal((await request(token, 'force-start')).status, 403);
+    }
+    const starting = await ok(tokens[0], 'force-start');
+    assert.equal(starting.phase, 'playing');
+    assert.equal(starting.canForceStart, false);
+    assert.equal(starting.roomId, host.roomId);
+    assert.equal(starting.members.length, size);
+    const defense = starting.members.filter(m => m.assignedTactic === '兜底').length;
+    const attack = starting.members.filter(m => m.assignedTactic === '攻坚').length;
+    assert.equal(defense + attack, size);
+    assert.ok(Math.abs(defense - attack) <= 1);
+    assert.deepEqual((await ok(tokens[0], 'force-start')).members, starting.members);
+    assert.equal((await request(ticket(), 'join-room', body)).status, 409);
+    if (size > 1) {
+      assert.equal((await ok(tokens[1], 'state')).phase, 'playing');
+      assert.equal((await ok(tokens[1], 'ready')).phase, 'playing');
+      const stroke = { id: randomUUID(), points: [{ x: .2, y: .8 }] };
+      await ok(tokens[0], 'stroke', stroke);
+      assert.equal((await ok(tokens[1], 'state')).strokes[0].id, stroke.id);
+    }
+    for (const token of tokens.slice(0, size)) await ok(token, 'leave');
+    assert.notEqual((await ok(ticket(), 'join-room', body)).roomId, host.roomId);
+  }
+});
+
+test('匹配队伍只有提交邀请后的队长可以强制开始', async t => {
+  const { ok, request, creating } = setup(t);
+  const { captain, others } = await creating();
+  assert.equal((await request(captain, 'force-start')).status, 409);
+  assert.equal((await ok(captain, 'invite', { invitation: '房间' })).canForceStart, true);
+  assert.equal((await request(others[0], 'force-start')).status, 403);
+  assert.equal((await ok(captain, 'force-start')).phase, 'playing');
+});
