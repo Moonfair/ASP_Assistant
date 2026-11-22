@@ -21,7 +21,7 @@ public partial class App
         var preference = _settingsManager!.LoadGameTarget();
         _gameTarget.Select(preference, preference.Id == GameTarget.WindowsId ? GameTargetSelection.FindWindowsClient() : null);
         _sidePanel!.SelectGameSourceRequested += SelectGameSource;
-        UpdateGameSourceStatus();
+        UpdateGameSourceStatus(detectingAutomatic: preference.Id == GameTarget.AutomaticId);
 
         _gameSourceTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         _gameSourceTimer.Tick += async (_, _) => await RefreshGameSourceAsync();
@@ -41,7 +41,7 @@ public partial class App
             AppLogger.Error("Settings", "Could not save game source", ex);
             MessageBox.Show(_sidePanel!, "本次已切换，保存游戏来源失败。", "游戏来源", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        UpdateGameSourceStatus();
+        UpdateGameSourceStatus(detectingAutomatic: dialog.Preference.Id == GameTarget.AutomaticId && dialog.Target == null);
         _ = RefreshGameSourceAsync();
     }
 
@@ -91,7 +91,7 @@ public partial class App
         finally { _refreshingGameTarget = false; }
     }
 
-    private void UpdateGameSourceStatus()
+    private void UpdateGameSourceStatus(bool detectingAutomatic = false)
     {
         var target = _gameTarget.Current;
         var sourceName = target?.Kind switch
@@ -111,10 +111,14 @@ public partial class App
         if (_gameTarget.Preference.Id == GameTarget.AutomaticId && target != null)
             sourceName = $"自动检测 · {sourceName}";
         _sidePanel?.SetGameSourceStatus(target == null ? $"{sourceName} · 等待窗口" : sourceName);
+        if (!detectingAutomatic)
+            _sidePanel?.BattleData.SetSource(target,
+                _gameTarget.Preference.Id is GameTarget.AutomaticId or GameTarget.WindowsId);
     }
 
     private void StopGameSource()
     {
+        _sidePanel?.BattleData.Stop();
         _gameSourceTimer?.Stop();
         _gameSourceShutdown.Cancel();
     }

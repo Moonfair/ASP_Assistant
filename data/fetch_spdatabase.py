@@ -451,6 +451,21 @@ def process_covenants(season_data: dict, bond_info_dict: dict) -> dict:
         catalog["modePools"] = mode_pools
     return catalog
 
+def garrison_chess_names(season_data: dict, operator_names: dict) -> dict:
+    names = {}
+    for chess_id, entry in season_data["charShopChessDatas"].items():
+        name = operator_names.get(entry.get("charId"))
+        if name:
+            names[chess_id] = name
+            if golden := entry.get("goldenChessId"):
+                names[golden] = f"{name}（精锐）"
+    for chess_id, item in season_data["trapChessDataDict"].items():
+        effect = season_data["effectInfoDataDict"].get(item.get("effectId"), {})
+        if name := effect.get("effectName"):
+            names[chess_id] = name
+    return dict(sorted(names.items()))
+
+
 def process_equipment(season_data: dict) -> list[dict]:
     """处理装备数据，返回匹配 C# 模型的列表"""
     trap_chess_dict = season_data["trapChessDataDict"]
@@ -788,6 +803,15 @@ def main():
         with open(avatar_map_path, "w", encoding="utf-8") as f:
             json.dump(avatar_map, f, ensure_ascii=False, indent=2)
         print(f"  映射已保存: {avatar_map_path.name} ({avatar_map_path.stat().st_size / 1024:.1f} KB)")
+
+    battle_names = {key: SP_CHAR_REDIRECT.get(key, value["name"])
+                    for key, value in sorted(char_table.items()) if key.startswith("char_")}
+    with open(data_dir / "garrison_chess_names.json", "w", encoding="utf-8") as f:
+        json.dump({season_code: garrison_chess_names(season_data, battle_names)}, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    with open(data_dir / "battle_operator_names.json", "w", encoding="utf-8") as f:
+        json.dump(battle_names, f, ensure_ascii=False, indent=2)
+        f.write("\n")
 
     # 清理临时字段
     for op in [*operators, *self_selected]:

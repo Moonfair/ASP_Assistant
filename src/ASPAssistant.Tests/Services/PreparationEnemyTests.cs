@@ -1,5 +1,6 @@
 using System.Drawing;
 using ASPAssistant.Core.Data;
+using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 using FluentAssertions;
 
@@ -7,6 +8,28 @@ namespace ASPAssistant.Tests.Services;
 
 public class PreparationEnemyTests
 {
+    [Fact]
+    public async Task NotifiesTheNextGameEvenWhenThePreviousEnemiesWereNeverRecognized()
+    {
+        var ocr = new EnemyPanelOcr { Title = "确定自选编队", PanelVisible = false };
+        var recognizer = new PreparationEnemyRecognizer(ocr, Path.Combine(AppContext.BaseDirectory, "data", "enemy-maps"));
+        var scanner = new PreparationScanner(ocr, [], enemyRecognizer: recognizer);
+        var changes = new List<PreparationEnemyInfo?>();
+        scanner.EnemyInfoChanged += changes.Add;
+        var png = PreparationScannerTests.Frame("preparation-reported-incomplete.png");
+
+        await scanner.ProcessAsync(png);
+        scanner.EnemyInfo.Should().BeNull();
+        changes.Should().BeEmpty();
+
+        ocr.Title = "确认本局信息";
+        await scanner.ProcessAsync(png);
+        changes.Should().ContainSingle().Which.Should().BeNull("the view must clear its manual selections for the new game");
+
+        await scanner.ProcessAsync(png);
+        changes.Should().ContainSingle("remaining on the same preparation page must preserve manual selections");
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

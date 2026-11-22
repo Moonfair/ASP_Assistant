@@ -11,6 +11,17 @@ public sealed class GarrisonHudRecognizerTests : IDisposable
     private readonly MaaOcrEngine _ocr = new(Path.Combine(AppContext.BaseDirectory, "data"));
 
     [Fact]
+    public async Task WindowsShopContextKeepsUpgradeCostWithoutReadingTheThreeMemoryValues()
+    {
+        var recognizer = new GarrisonHudRecognizer(_ocr);
+        var png = PreparationScannerTests.Frame("shop-default-live.png");
+        var scan = await recognizer.ScanAsync(png, false, readNumbers: false);
+        Assert.True(scan.ShopVisible);
+        Assert.Equal(new GarrisonHud(null, null, null, 1), scan.Hud);
+        Assert.Equal(new GarrisonHud(1, 1, 6, 1), (await recognizer.ScanAsync(png, false, readNumbers: true)).Hud);
+    }
+
+    [Fact]
     public async Task ReadsTheLiveDefaultThemeIncludingItsCyanRomanLevel()
     {
         var png = PreparationScannerTests.Frame("shop-default-live.png");

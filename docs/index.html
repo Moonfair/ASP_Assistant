@@ -377,8 +377,8 @@
       <div class="step-num">1</div>
       <div class="step-line"></div>
       <div class="step-body">
-        <h3>下载并解压</h3>
-        <p>下载最新版 <code>ASPAssistant-vX.X.X-win-x64.zip</code> 并解压。运行一次 <code>ASPAssistant.App.exe</code> 后，即可从卫戍阵容库点击「去使用」导入阵容。</p>
+        <h3 id="install-title">运行安装向导</h3>
+        <p id="install-instructions">下载并双击 Windows x64 安装包，按向导完成安装。旧 ZIP 版用户先退出助手，再运行安装包，已有阵容和设置会自动沿用。</p>
       </div>
     </div>
 
@@ -387,7 +387,7 @@
       <div class="step-line"></div>
       <div class="step-body">
         <h3>启动游戏后运行工具</h3>
-        <p>先启动明日方舟客户端，进入卫戍协议，然后运行 <code>ASPAssistant.App.exe</code>。侧边面板会自动吸附到游戏窗口。</p>
+        <p>启动明日方舟客户端并进入卫戍协议，再打开 ASP Assistant。侧边面板会自动吸附到游戏窗口。</p>
       </div>
     </div>
 
@@ -408,7 +408,7 @@
   <div class="center">
     <div class="section-label">立即下载</div>
     <h2 class="section-title">获取最新版本</h2>
-    <p class="section-sub">自包含发布包，无需安装 .NET 运行时，解压即用</p>
+    <p id="download-summary" class="section-sub">安装包自带 .NET 运行时。新版可直接覆盖安装，卸载入口在 Windows 设置的应用列表中。</p>
   </div>
   <div class="download-card">
     <div class="download-info">
@@ -426,7 +426,7 @@
       <a class="btn btn-primary" id="dl-btn"
          href="https://github.com/Moonfair/ASP_Assistant/releases/latest"
          target="_blank" rel="noopener">
-        ⬇ 下载 .zip
+        ⬇ 获取最新版
       </a>
       <a href="https://github.com/Moonfair/ASP_Assistant/releases" target="_blank" rel="noopener"
          style="font-size:.8rem;color:var(--muted);text-decoration:none">
@@ -481,14 +481,19 @@
       const ghRes = await fetch('https://api.github.com/repos/Moonfair/ASP_Assistant/releases/latest');
       if (ghRes.ok) {
         const gh = await ghRes.json();
-        if (!tag) tag = gh.tag_name ?? '';
-        const asset = (gh.assets ?? []).find(a => a.name.endsWith('.zip'));
+        const assets = gh.assets ?? [];
+        const base = `ASPAssistant-${gh.tag_name}-win-x64`;
+        const setup = assets.find(a => a.name === base + '-setup.exe');
+        const asset = setup ?? assets.find(a => a.name === base + '.zip');
         if (asset) {
-          document.getElementById('dl-size').textContent =
-            (asset.size / 1024 / 1024).toFixed(1) + ' MB';
-          if (!dlUrl) {
+          if (!dlUrl || (setup && fileName !== setup.name)) {
+            tag      = gh.tag_name;
             dlUrl    = asset.browser_download_url;
             fileName = asset.name;
+          }
+          if (fileName === asset.name) {
+            document.getElementById('dl-size').textContent =
+              (asset.size / 1024 / 1024).toFixed(1) + ' MB';
           }
         }
       }
@@ -501,6 +506,12 @@
       document.getElementById('hero-ver').textContent = '查看 GitHub';
     }
     if (dlUrl) {
+      if (fileName.endsWith('.zip')) {
+        document.getElementById('download-summary').textContent = '此版本为自包含 ZIP 包，内置 .NET 运行时。';
+        document.getElementById('install-title').textContent = '下载并解压';
+        document.getElementById('install-instructions').textContent =
+          '此版本为 ZIP 包。完整解压后运行 win-x64 文件夹下的 ASPAssistant.App.exe。';
+      }
       document.getElementById('dl-btn').href  = dlUrl;
       document.getElementById('hero-dl').href = dlUrl;
       document.getElementById('dl-btn').textContent = `⬇ 下载 ${fileName}`;

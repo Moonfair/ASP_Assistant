@@ -1,0 +1,207 @@
+<UserControl x:Class="ASPAssistant.App.Views.MatchView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ASPAssistant.App.Controls"
+             Background="{DynamicResource PanelBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Resources/LineupStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="FieldLabel" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                <Setter Property="Margin" Value="0,10,0,4" />
+            </Style>
+            <Style x:Key="PrimaryAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Tag" Value="tracked" />
+            </Style>
+            <Style x:Key="PreferenceCard" TargetType="ListBoxItem" BasedOn="{StaticResource FilterChipItem}">
+                <Setter Property="Padding" Value="6,5" />
+                <Setter Property="Margin" Value="2" />
+                <Setter Property="MinHeight" Value="58" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                <Style.Triggers>
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding SelectedItems.Count, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="4" />
+                            <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="False" />
+                        </MultiDataTrigger.Conditions>
+                        <Setter Property="IsEnabled" Value="False" />
+                        <Setter Property="Opacity" Value="0.45" />
+                    </MultiDataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="PreferencePanel" TargetType="ListBox">
+                <Setter Property="SelectionMode" Value="Multiple" />
+                <Setter Property="ItemContainerStyle" Value="{StaticResource PreferenceCard}" />
+                <Setter Property="MaxHeight" Value="204" />
+                <Setter Property="ItemsPanel">
+                    <Setter.Value>
+                        <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBox">
+                            <Border Padding="3" CornerRadius="6" BorderThickness="1" BorderBrush="{StaticResource BorderBrush}"
+                                    Background="{StaticResource PanelBackgroundBrush}">
+                                <ScrollViewer x:Name="PART_ScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                              CanContentScroll="False" PanningMode="VerticalOnly" Focusable="False"
+                                              PreviewMouseWheel="OnPreferenceWheel">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="PreferenceName" TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="6,0,0,0" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
+            </Style>
+            <Style x:Key="MemberDetail" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style x:Key="MemberLabel" TargetType="TextBlock" BasedOn="{StaticResource MemberDetail}">
+                <Setter Property="Margin" Value="0,0,8,0" />
+                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <DockPanel x:Name="Page" Margin="12" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                <TextBlock x:Name="Heading" Text="组队匹配" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock x:Name="GameIdentity" Visibility="Collapsed" Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,3,0,0" FontSize="12" TextWrapping="Wrap" />
+                <TextBlock x:Name="Description" Visibility="Collapsed" Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,4,0,0" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom">
+                <TextBlock x:Name="Feedback" Visibility="Collapsed" Margin="0,5" TextWrapping="Wrap"
+                           Foreground="{StaticResource AccentBrush}" AutomationProperties.LiveSetting="Polite" />
+                <Grid Margin="0,5,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="SearchButton" Content="开始匹配" Click="OnSearch" IsEnabled="False" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="NextButton" Content="再看看" Click="OnNext" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="RecruitButton" Content="搜寻队友" Click="OnRecruit" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="StopRecruitButton" Content="停止招募" Click="OnStopRecruit" Visibility="Collapsed" />
+                    <Button x:Name="MarkButton" Content="开始标记" Click="OnMark" Visibility="Collapsed" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="CancelSearchButton" Grid.Column="1" Content="取消匹配" Click="OnCancelSearch" Margin="6,0,0,0" Visibility="Collapsed" />
+                    <Button x:Name="LeaveButton" Grid.Column="1" Content="退出房间" Click="OnAskLeave" Margin="6,0,0,0" Visibility="Collapsed" />
+                </Grid>
+            </StackPanel>
+
+            <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <StackPanel x:Name="Preferences">
+                        <Expander x:Name="StrategySection" Style="{StaticResource FilterSectionExpander}" IsExpanded="False"
+                                  Header="擅长的策略（必选 1–4 项）" Margin="0,8,0,0">
+                            <ListBox x:Name="StrategyPicker" Style="{StaticResource PreferencePanel}" AutomationProperties.Name="擅长的策略" TextSearch.TextPath="Name"
+                                     SelectionChanged="OnPreferenceChanged">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel ToolTip="{Binding Description}">
+                                            <Image DockPanel.Dock="Left" Width="38" Height="38" Stretch="Uniform" controls:DeferredIcon.Path="{Binding IconPath}" />
+                                            <TextBlock Text="{Binding Name}" Style="{StaticResource PreferenceName}" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Expander>
+                        <TextBlock x:Name="StrategySummary" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" />
+                        <Expander x:Name="CovenantSection" Style="{StaticResource FilterSectionExpander}" IsExpanded="False"
+                                  Header="意向的盟约（最多 4 项）" Margin="0,8,0,0">
+                            <StackPanel>
+                                <Button x:Name="AnyCovenant" Content="随便" Click="OnAnyCovenant" HorizontalAlignment="Left" Padding="8,3" Margin="0,0,0,4" />
+                                <ListBox x:Name="CovenantPicker" Style="{StaticResource PreferencePanel}" AutomationProperties.Name="意向的盟约"
+                                         SelectionChanged="OnPreferenceChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <controls:CovenantIcon DockPanel.Dock="Left" Covenant="{Binding}" Width="38" Height="38"
+                                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
+                                                <TextBlock Text="{Binding}" Style="{StaticResource PreferenceName}" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Expander>
+                        <TextBlock x:Name="CovenantSummary" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" TextWrapping="Wrap" />
+                        <TextBlock Text="意向的战术策略" Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="TacticPicker" IsEditable="True" IsReadOnly="True" AutomationProperties.Name="意向的战术策略"
+                                  SelectionChanged="OnTacticChanged" />
+                    </StackPanel>
+                    <StackPanel x:Name="InviteEditor" Visibility="Collapsed">
+                        <TextBlock Text="房间邀请文本" Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="InvitationDraft" MinHeight="62" MaxHeight="110" AcceptsReturn="True" MaxLength="1024"
+                                 VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" TextChanged="OnDraftChanged" AutomationProperties.Name="房间邀请文本" />
+                        <Button x:Name="PasteButton" Content="一键粘贴" Click="OnPaste" HorizontalAlignment="Right" Margin="0,4,0,6" />
+                    </StackPanel>
+                    <StackPanel x:Name="SharedInvitation" Visibility="Collapsed">
+                        <TextBlock Text="房间邀请文本" Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="PublishedInvitation" IsReadOnly="True" MaxHeight="100" VerticalScrollBarVisibility="Auto"
+                                 TextWrapping="Wrap" AutomationProperties.Name="已发布的房间邀请文本" />
+                        <Button x:Name="CopyButton" Content="一键复制" Click="OnCopy" HorizontalAlignment="Right" Margin="0,4,0,6" />
+                    </StackPanel>
+                    <DockPanel x:Name="RosterHeading" Visibility="Collapsed" Margin="0,12,0,4">
+                        <Button x:Name="MuteAllButton" DockPanel.Dock="Right" Content="屏蔽所有人" Click="OnMuteAll" Padding="7,3" Visibility="Collapsed" />
+                        <TextBlock x:Name="RosterTitle" Text="队伍成员" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ItemsControl x:Name="Roster">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource ItemCardBorder}" Padding="8,5">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="{Binding MuteLabel}" Tag="{Binding Id}" Click="OnMuteMember"
+                                                    AutomationProperties.Name="{Binding MuteDescription}" Padding="6,2"
+                                                    Visibility="{Binding MuteVisibility}" />
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="{Binding Color}" FontWeight="Bold" TextWrapping="Wrap" />
+                                        </DockPanel>
+                                        <Grid Margin="0,4,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                            <TextBlock Text="策略" Style="{StaticResource MemberLabel}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Strategy}" Style="{StaticResource MemberDetail}" />
+                                            <TextBlock Grid.Row="1" Text="盟约" Style="{StaticResource MemberLabel}" />
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Covenant}" Style="{StaticResource MemberDetail}" />
+                                            <TextBlock Grid.Row="2" Text="战术" Style="{StaticResource MemberLabel}" />
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Tactic}" Style="{StaticResource MemberDetail}" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button x:Name="ForceStartButton" Content="强制开始" Click="OnForceStart" Visibility="Collapsed"
+                            ToolTip="测试用。让当前房间进入插件标记模式。" HorizontalAlignment="Left" Margin="0,6,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+
+        <Border x:Name="LeavePrompt" Visibility="Collapsed" Background="#DF121222" Padding="12"
+                KeyboardNavigation.TabNavigation="Cycle">
+            <Border VerticalAlignment="Center" Style="{StaticResource ItemCardBorder}" Padding="14">
+                <StackPanel>
+                    <TextBlock Text="确定退出插件房间吗？" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <UniformGrid Columns="2" Margin="0,14,0,0">
+                        <Button x:Name="StayButton" Content="留下" Click="OnStay" Margin="0,0,4,0" />
+                        <Button x:Name="ApproveLeaveButton" Content="确认退出" Click="OnLeave" Margin="4,0,0,0" />
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

@@ -4,6 +4,8 @@ using ASPAssistant.Core.Services;
 
 namespace ASPAssistant.Core.Data;
 
+public sealed record MatchPreferences(string[] Strategies, string[] Covenants, string Tactic);
+
 public class SettingsManager
 {
     private readonly string _settingsDir;
@@ -86,6 +88,24 @@ public class SettingsManager
         }
         return fallback;
     }
+
+    public MatchPreferences LoadMatchPreferences()
+    {
+        try
+        {
+            var path = Path.Combine(_settingsDir, "match-preferences.json");
+            if (File.Exists(path) && JsonSerializer.Deserialize<MatchPreferences>(File.ReadAllText(path), JsonOptions)
+                is { Strategies: not null, Covenants: not null, Tactic: "随便" or "兜底" or "攻坚" } preferences)
+                return preferences;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("Settings", "Could not read match preferences", ex);
+        }
+        return new([], [], "随便");
+    }
+
+    public void SaveMatchPreferences(MatchPreferences preferences) => SavePreference("match-preferences", preferences);
 
     public MarkerOffset LoadMarkerOffset()
     {

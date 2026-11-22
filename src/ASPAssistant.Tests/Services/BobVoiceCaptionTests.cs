@@ -35,6 +35,9 @@ public sealed class BobVoiceCaptionTests
     [InlineData(BobVoiceCue.BattleLoss, "CombatLoss_01", "没关系，人生难免不如意。")]
     [InlineData(BobVoiceCue.PreparationChatter, "Idle_02", "花钱要慎重。但……你也得花呀！")]
     [InlineData(BobVoiceCue.PreparationChatter, "Idle_03", "看你打牌是种享受。")]
+    [InlineData(BobVoiceCue.ShopFrozen, "AfterFreezing_02", "我会暂时把它们保存起来。")]
+    [InlineData(BobVoiceCue.Recruit, "RecruitSmallMinion_03", "这个小家伙也可能改写战局。")]
+    [InlineData(BobVoiceCue.Promotion, "AfterTriple_03", "绝妙的操作。看看接下来会发生什么。")]
     public void VoiceFilesCarryTheirOwnCaption(BobVoiceCue cue, string suffix, string caption)
     {
         var clip = Assert.Single(BobVoicePlayer.GetClips(cue), clip => clip.Suffix == suffix);
@@ -48,11 +51,11 @@ public sealed class BobVoiceCaptionTests
         {
             var pool = BobVoicePlayer.GetClips(cue);
             Assert.NotEmpty(pool);
+            Assert.Equal(pool.Count, pool.Select(clip => clip.Suffix).Distinct().Count());
             return pool;
         }).ToArray();
 
-        Assert.Equal(36, clips.Length);
-        Assert.Equal(clips.Length, clips.Select(clip => clip.Suffix).Distinct().Count());
+        Assert.Equal(47, clips.Select(clip => clip.Suffix).Distinct().Count());
         string[] terms = ["随从", "死亡骑士", "酒馆", "三连", "达拉然", "探险者协会", "怪盗军团"];
         Assert.All(clips, clip => Assert.DoesNotContain(terms, clip.Caption.Contains));
     }
@@ -67,6 +70,9 @@ public sealed class BobVoiceCaptionTests
         {
             var file = Path.Combine(voiceDirectory, $"VO_DALA_BOSS_99h_Male_Human_{clip.Suffix}.wav");
             Assert.True(File.Exists(file), $"Missing packaged audio: {file}");
+            using var audio = new System.Media.SoundPlayer(file);
+            audio.Load();
+            Assert.True(audio.IsLoadCompleted);
         });
 
         using var player = new BobVoicePlayer(voiceDirectory);

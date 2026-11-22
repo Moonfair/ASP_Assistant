@@ -481,9 +481,10 @@ public sealed class PreparationScanner(
         lock (_stateLock)
         {
             if (generation != _generation) return;
-            if (info == _enemyInfo || (info != null && _enemyInfo != null &&
+            // Null marks a new game or target, even when OCR never supplied enemy information.
+            if (info != null && _enemyInfo != null &&
                 info.Boss == _enemyInfo.Boss && info.Battlefield == _enemyInfo.Battlefield &&
-                info.Mode == _enemyInfo.Mode && info.EnemyTypes.SequenceEqual(_enemyInfo.EnemyTypes))) return;
+                info.Mode == _enemyInfo.Mode && info.EnemyTypes.SequenceEqual(_enemyInfo.EnemyTypes)) return;
             _enemyInfo = info;
         }
         EnemyInfoChanged?.Invoke(info);

@@ -86,6 +86,19 @@ public class EmulatorDiscoveryTests
         target.Serial.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData(false, -2147467259, 0)]
+    [InlineData(false, 0, 0)]
+    [InlineData(true, 0, 1)]
+    public void MuMuWaitsForAndroidEvenWhenTheHostWindowAndAdbPortExist(bool booted, int launchError, int count)
+    {
+        string info = System.Text.Json.JsonSerializer.Serialize(new {
+            index = 0, is_process_started = true, is_android_started = booted, launch_err_code = launchError,
+            main_wnd = "12E72556", render_wnd = "0F4A1FE6", adb_host_ip = "127.0.0.1", adb_port = 16384
+        });
+        Assert.Equal(count, EmulatorDiscovery.ParseMuMu(info, @"C:\MuMu", null).Count);
+    }
+
     [Fact]
     public void LdPlayerUsesTheInstanceIndexAndSkipsStoppedRows()
     {

@@ -7,6 +7,7 @@ using ASPAssistant.App.Windows;
 using ASPAssistant.Core;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.GameModes.GarrisonProtocol;
+using ASPAssistant.Core.Interop;
 using ASPAssistant.Core.Models;
 using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
@@ -15,6 +16,8 @@ namespace ASPAssistant.App;
 
 public partial class App : Application
 {
+    // The installer and uninstaller prompt for a clean exit while this handle exists.
+    private readonly Mutex _installerMutex = new(false, "ASPAssistant.App.InUse");
     private WindowTrackerService? _windowTracker;
     private OcrScannerService? _ocrScanner;
     private SidePanelWindow? _sidePanel;
@@ -22,6 +25,7 @@ public partial class App : Application
     private SettingsManager? _settingsManager;
     private LineupActivation? _activation;
     private LineupSiteClient? _lineupSite;
+    private MatchSession? _match;
     private BobVoicePlayer? _bobVoice;
     private readonly TaskCompletionSource<SidePanelWindow> _readyForActivation = new();
     private Task _trackingSave = Task.CompletedTask;
@@ -46,6 +50,11 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
+            if (e.Args.FirstOrDefault() == BattleDataSession.WorkerSwitch)
+            {
+                Shutdown(await Task.Run(() => BattleDataSession.RunWorkerAsync(e.Args)));
+                return;
+            }
             var hash = LineupProtocol.ParseImport(e.Args);
             if (e.Args.FirstOrDefault() == "--lineup-uri" && hash is null)
             {
@@ -151,7 +160,6 @@ public partial class App : Application
         var lineupVm = new LineupLibraryViewModel(new LineupStore(settingsDir));
         await lineupVm.LoadAsync();
         _lineupSite = new LineupSiteClient(settingsDir);
-        await _lineupSite.RestoreSessionAsync();
 
         // GameState
         var gameState = new Core.GameState.GameState();
@@ -182,6 +190,12 @@ public partial class App : Application
             try { _settingsManager.SaveSidePanelOpacity(opacity); }
             catch (Exception ex) { AppLogger.Error("Settings", "Could not save side panel opacity", ex); }
         });
+        _sidePanel.BattleData.Updated += update => gameStateVm.UpdateMemoryHud(update.Garrison);
+        _gameTarget.Changed += () => gameStateVm.SetHudSource(_gameTarget.Current?.Kind);
+        _sidePanel.GarrisonDebug.IsVisibleChanged += (_, _) =>
+            _ocrScanner.CompareWindowsHud = _sidePanel.GarrisonDebug.IsVisible;
+        ConfigureGameSource();
+        await _lineupSite.RestoreSessionAsync();
         _sidePanel.UseSideFilters = _settingsManager.LoadSideFilterLayout();
         _sidePanel.FilterLayoutChanged += side =>
         {
@@ -194,7 +208,13 @@ public partial class App : Application
         _sidePanel.ConfigureCatalogDetails(catalogDetails, () => dataStore.LoadSelfSelectedSkillsAsync(catalogDetails.Season));
         _overlay = new OverlayWindow(_settingsManager);
         _sidePanel.ConfigureMarkerCalibration(_overlay);
-        ConfigureGameSource();
+        _match = new MatchSession(_lineupSite);
+        _overlay.ConfigureMatch(_match, () => _sidePanel.IsActive || _gameTarget.Current is { } target &&
+            User32.GetRootWindow(User32.GetForegroundWindow()) == target.Window);
+        _sidePanel.ConfigureMatch(_match, _settingsManager, strategies, covenantCatalog, _overlay);
+        var battleNames = await dataStore.LoadBattleOperatorNamesAsync();
+        _sidePanel.BattleData.SetNames(battleNames);
+        _sidePanel.GarrisonDebug.SetNames(await dataStore.LoadChessNamesAsync(), battleNames);
 
         var bobVoice = _bobVoice = new BobVoicePlayer(Path.Combine(dataDir, "voice", "bob"));
         bobVoice.Spoken += _sidePanel.ShowCannotSpeech;
@@ -210,12 +230,21 @@ public partial class App : Application
         });
         bool bobEnabled = _settingsManager.LoadBobVoice();
         var bobClock = Stopwatch.StartNew();
+        BattleUpdate? bobMemory = null;
+        TimeSpan bobMemoryAt = default;
+        _sidePanel.BattleData.Updated += update =>
+        {
+            if (_gameTarget.Current?.Kind != update.Source) return;
+            bobMemory = update;
+            bobMemoryAt = bobClock.Elapsed;
+        };
         _ocrScanner.EnableVoiceRecognition = bobVoice.Available && bobEnabled;
         _sidePanel.ConfigureBobVoice(bobVoice.Available, bobEnabled, enabled =>
         {
             bobEnabled = enabled;
             _ocrScanner.EnableVoiceRecognition = enabled;
             bobTriggers.Reset();
+            bobMemory = null;
             if (!enabled)
             {
                 bobVoice.Stop();
@@ -229,8 +258,11 @@ public partial class App : Application
             _ocrScanner.VoiceScanCompleted += (target, hud, items, preparation, voice) => Dispatcher.Invoke(() =>
             {
                 if (!bobEnabled || target == null || !ReferenceEquals(target, _gameTarget.Current)) return;
-                if (preparation) bobTriggers.Reset();
-                else if (bobTriggers.Observe(hud, items.Select(item => item.Name), voice, bobClock.Elapsed) is { } cue)
+                if (preparation) { bobTriggers.Reset(); bobMemory = null; return; }
+                var values = hud.HasValue && target.Kind == GameTargetKind.Windows ? gameStateVm.Hud : hud.GetValueOrDefault();
+                if (target.Kind == GameTargetKind.Windows && !values.Round.HasValue) voice = default;
+                var memory = bobClock.Elapsed - bobMemoryAt <= TimeSpan.FromSeconds(2) ? bobMemory : null;
+                if (bobTriggers.Observe(values, items.Select(item => item.Name), voice, bobClock.Elapsed, memory) is { } cue)
                 {
                     if (!bobVoice.Play(cue) && cue == BobVoiceCue.LowHealth)
                         bobTriggers.RetryLowHealth();
@@ -242,6 +274,7 @@ public partial class App : Application
         {
             hasCurrentGameState = false;
             bobTriggers.Reset();
+            bobMemory = null;
             bobVoice.Stop();
             _sidePanel.HideCannotSpeech();
             _sidePanel.ClearGamePosition();
@@ -265,8 +298,9 @@ public partial class App : Application
                 _overlay.SetTarget(target);
                 var viewport = captureService.GetViewport(target);
                 var calibratingFromPanel = _overlay.IsCalibratingMarkers && _sidePanel.IsActive;
+                var playingFromPanel = _match.State?.Phase == "playing" && _sidePanel.IsActive;
                 if (viewport == null || (target.Kind != GameTargetKind.Windows &&
-                        !_windowTracker.IsGameFocused && !calibratingFromPanel))
+                        !_windowTracker.IsGameFocused && !calibratingFromPanel && !playingFromPanel))
                     _overlay.Hide();
                 else
                     _overlay.UpdatePosition(viewport.Value);
@@ -375,12 +409,14 @@ public partial class App : Application
         AppLogger.Info("App", "Shutting down");
         _readyForActivation.TrySetCanceled();
         _activation?.Dispose();
+        _match?.CloseForAppExit();
         _lineupSite?.Dispose();
         StopGameSource();
         _ocrScanner?.Dispose();
         _bobVoice?.Dispose();
         _windowTracker?.Dispose();
         _trackingSave.GetAwaiter().GetResult();
+        _installerMutex.Dispose();
         base.OnExit(e);
     }
 }

@@ -213,6 +213,15 @@
                         <TabItem x:Name="LineupTab" Header="阵容">
                             <views:LineupView x:Name="LineupView" />
                         </TabItem>
+                        <TabItem x:Name="MatchTab" Header="匹配" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                            <views:MatchView x:Name="MatchView" />
+                        </TabItem>
+                        <TabItem Header="数据" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                            <views:BattleDataView x:Name="BattleData" />
+                        </TabItem>
+                        <TabItem Header="Debug" FontSize="11" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                            <views:GarrisonDebugView x:Name="GarrisonDebug" />
+                        </TabItem>
                     </TabControl>
                 </DockPanel>
                 <Border x:Name="PreparationOverlay" Background="#FF172C3A"

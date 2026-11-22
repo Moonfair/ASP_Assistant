@@ -15,13 +15,11 @@
         },
         {
             "label": "publish",
-            "command": "dotnet",
+            "command": "pwsh",
             "type": "process",
             "args": [
-                "publish",
-                "${workspaceFolder}/ASPAssistant.sln",
-                "/property:GenerateFullPaths=true",
-                "/consoleloggerparameters:NoSummary;ForceNoAlign"
+                "-NoProfile", "-File", "${workspaceFolder}/scripts/publish.ps1",
+                "-Version", "${input:releaseVersion}"
             ],
             "problemMatcher": "$msCompile"
         },
@@ -36,6 +34,13 @@
                 "${workspaceFolder}/ASPAssistant.sln"
             ],
             "problemMatcher": "$msCompile"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "releaseVersion",
+            "type": "promptString",
+            "description": "安装包版本号（例如 1.2.3）"
         }
     ]
 }

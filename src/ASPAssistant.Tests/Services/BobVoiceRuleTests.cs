@@ -6,7 +6,7 @@ namespace ASPAssistant.Tests.Services;
 public sealed class BobVoiceRuleTests
 {
     [Fact]
-    public void CombatCuesDeduplicateAndFirstVictoryOnlyPlaysOncePerMatch()
+    public void CombatCuesDeduplicateAndLaterVictoriesUseTheirOwnPool()
     {
         var triggers = new BobVoiceTriggers();
         var round = new GarrisonHud(5, null, null);
@@ -15,11 +15,12 @@ public sealed class BobVoiceRuleTests
         Assert.Equal(BobVoiceCue.BattleLoss, Battle(BobVoiceCue.BattleLoss));
         Assert.Null(Battle(BobVoiceCue.BattleLoss));
         round = new GarrisonHud(6, null, null);
-        Assert.Equal(BobVoiceCue.BattleVictory, Battle(BobVoiceCue.BattleVictory));
-        round = new GarrisonHud(7, null, null);
+        Assert.Equal(BobVoiceCue.FirstVictory, Battle(BobVoiceCue.BattleVictory));
         Assert.Null(Battle(BobVoiceCue.BattleVictory));
-        triggers.Reset();
+        round = new GarrisonHud(7, null, null);
         Assert.Equal(BobVoiceCue.BattleVictory, Battle(BobVoiceCue.BattleVictory));
+        triggers.Reset();
+        Assert.Equal(BobVoiceCue.FirstVictory, Battle(BobVoiceCue.BattleVictory));
 
         BobVoiceCue? Battle(BobVoiceCue cue) => triggers.Observe(round, [], new(BattleCue: cue));
     }

@@ -13,30 +13,24 @@ $exitCode = 1
 $manifest = $null
 try {
     $manifest = Get-Content -LiteralPath (Join-Path $jobDirectory 'update.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-    $source = $manifest.SourceDirectory
-    $destination = $manifest.AppDirectory
-    $exePath = Join-Path $destination 'ASPAssistant.App.exe'
-    if (-not (Test-Path -LiteralPath (Join-Path $source 'ASPAssistant.App.exe') -PathType Leaf)) {
-        throw '更新包缺少程序文件。'
-    }
-
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     while (Get-Process -Id $manifest.ProcessId -ErrorAction SilentlyContinue) {
         if ([DateTime]::UtcNow -ge $deadline) { throw '原程序尚未退出，更新已取消。' }
         Start-Sleep -Milliseconds 500
     }
 
-    # Enumerate literal entries, so brackets/dollars/quotes in every path stay data.
-    Get-ChildItem -LiteralPath $source -Force | ForEach-Object {
-        Copy-Item -LiteralPath $_.FullName -Destination $destination -Recurse -Force -ErrorAction Stop
+    $start = New-Object System.Diagnostics.ProcessStartInfo
+    $start.FileName = Join-Path $jobDirectory 'setup.exe'
+    $start.WorkingDirectory = $jobDirectory
+    $start.UseShellExecute = $false
+    $wizard = [System.Diagnostics.Process]::Start($start)
+    try {
+        $wizard.WaitForExit()
+        # Inno Setup returns 2 or 5 when the user cancels the wizard.
+        if ($wizard.ExitCode -notin @(0, 2, 5)) { throw "安装向导退出，错误码 $($wizard.ExitCode)。" }
+    } finally {
+        $wizard.Dispose()
     }
-    # Start-Process resolves PowerShell provider paths; ProcessStartInfo keeps these literal too.
-    $restart = New-Object System.Diagnostics.ProcessStartInfo
-    $restart.FileName = $exePath
-    $restart.WorkingDirectory = $destination
-    $restart.UseShellExecute = $false
-    $restart.CreateNoWindow = $true
-    [System.Diagnostics.Process]::Start($restart).Dispose()
     $exitCode = 0
 } catch {
     $failure = $_.Exception.ToString()

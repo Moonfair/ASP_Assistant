@@ -10,14 +10,15 @@
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="8">
-            <TextBlock x:Name="EmptyMessage" Text="等待 BP 的「确认本局信息」界面" Margin="4,8"
+            <TextBlock x:Name="EmptyMessage" Text="等待 BP 的「确认本局信息」界面，也可手动选择领袖和战场" Margin="4,8"
                        Style="{StaticResource EnemyLabel}" />
-            <StackPanel x:Name="Details" Visibility="Collapsed">
+            <StackPanel x:Name="Details">
                 <Border Style="{StaticResource ItemCardBorder}" Padding="10">
                     <StackPanel>
                         <TextBlock Text="敌方领袖" Style="{StaticResource EnemyLabel}" />
-                        <TextBlock x:Name="BossName" Margin="0,2,0,10" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                        <ComboBox x:Name="BossPicker" Margin="0,4,0,10" DisplayMemberPath="Label"
+                                  AutomationProperties.Name="敌方领袖" MaxDropDownHeight="264"
+                                  SelectionChanged="OnBossChanged" />
                         <TextBlock Text="特训敌人" Style="{StaticResource EnemyLabel}" />
                         <TextBlock x:Name="EnemyTypes" Margin="0,2,0,0" TextWrapping="Wrap"
                                    Foreground="{StaticResource TextPrimaryBrush}" />

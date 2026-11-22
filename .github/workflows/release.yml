@@ -23,7 +23,7 @@ jobs:
       - name: Extract version from tag
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
+          $version = $env:GITHUB_REF_NAME.Substring(1)
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
       - name: Run tests
@@ -32,22 +32,33 @@ jobs:
       - name: Run data script tests
         run: python -B -m unittest discover -s tests
 
-      - name: Publish self-contained with native prerequisites
+      - name: Prepare Inno Setup compiler
         shell: pwsh
-        run: ./scripts/publish.ps1 -Version '${{ env.VERSION }}' -OutputDirectory publish/win-x64
-
-      - name: Zip release assets
-        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $version = "${{ github.ref_name }}"
-          Compress-Archive `
-            -Path publish/win-x64 `
-            -DestinationPath "publish/ASPAssistant-${version}-win-x64.zip"
+          gh release download is-6_7_3 -R jrsoftware/issrc -p innosetup-6.7.3.exe -D $env:RUNNER_TEMP
+          $download = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          if ((Get-FileHash -LiteralPath $download).Hash -ne '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732') {
+            throw 'Inno Setup compiler download failed verification.'
+          }
+          $dir = Join-Path $env:RUNNER_TEMP 'inno'
+          $p = Start-Process -Wait -PassThru -WindowStyle Hidden -FilePath $download -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /PORTABLE=1 /DIR=`"$dir`""
+          if ($p.ExitCode -ne 0) { throw "Inno Setup installation failed ($($p.ExitCode))." }
+
+      - name: Build Windows setup wizard
+        shell: pwsh
+        run: ./scripts/publish.ps1 -Version $env:VERSION -IsccPath "$env:RUNNER_TEMP/inno/ISCC.exe"
+
+      - name: Verify install, overwrite and uninstall
+        shell: pwsh
+        run: ./scripts/test-installer.ps1 -Installer "publish/ASPAssistant-$env:GITHUB_REF_NAME-win-x64-setup.exe"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
+          files: publish/ASPAssistant-${{ github.ref_name }}-win-x64-setup.exe
+          fail_on_unmatched_files: true
           body_path: RELEASE_NOTES.md
           generate_release_notes: true
 
@@ -62,15 +73,15 @@ jobs:
       - name: Upload to Aliyun OSS
         run: >
           ossutil cp
-          publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
-          oss://${{ secrets.OSS_BUCKET }}/releases/ASPAssistant-${{ github.ref_name }}-win-x64.zip
+          publish/ASPAssistant-${{ github.ref_name }}-win-x64-setup.exe
+          oss://${{ secrets.OSS_BUCKET }}/releases/ASPAssistant-${{ github.ref_name }}-win-x64-setup.exe
           --force
 
       - name: Update Pages OSS release info
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $ossUrl = "https://${{ secrets.OSS_BUCKET }}.${{ secrets.OSS_ENDPOINT }}/releases/ASPAssistant-${tag}-win-x64.zip"
+          $tag = $env:GITHUB_REF_NAME
+          $ossUrl = "https://${{ secrets.OSS_BUCKET }}.${{ secrets.OSS_ENDPOINT }}/releases/ASPAssistant-${tag}-win-x64-setup.exe"
           $json = [ordered]@{ version = $tag; url = $ossUrl } | ConvertTo-Json -Compress
           git fetch origin main
           git checkout main
