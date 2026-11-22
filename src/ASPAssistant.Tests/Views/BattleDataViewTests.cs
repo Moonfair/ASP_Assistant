@@ -12,6 +12,59 @@ namespace ASPAssistant.Tests.Views;
 public class BattleDataViewTests
 {
     [Fact]
+    public void LastRoundStatusRemainsVisibleWhileScrolledThroughRetainedDamageRows()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var view = new BattleDataView { Width = 280, Height = 220 };
+            var counters = Enumerable.Range(1, 36).ToDictionary(i => $"operator_{i}", i => new OperatorCounters(i, 0, 0, 0));
+            var frame = new BattleFrame(1, 320, 12, false, counters);
+            view.Present(new(BattleFeedState.Live, frame));
+            LineupPerformanceTests.Layout(view);
+            var scroll = (ScrollViewer)view.FindName("RowsScroll");
+            scroll.ScrollToBottom();
+            LineupPerformanceTests.Layout(view);
+            Assert.True(scroll.VerticalOffset > view.Height);
+
+            view.Present(new(BattleFeedState.Live, frame with { Ended = true }));
+            view.Present(new(BattleFeedState.WaitingForRound));
+            LineupPerformanceTests.Layout(view);
+            Assert.True(scroll.VerticalOffset > view.Height);
+            Assert.Equal(36, ((ItemsControl)view.FindName("OperatorRows")).Items.Count);
+            var status = (TextBlock)view.FindName("FeedStatus");
+            Assert.Equal("上回合数据 · 等待战斗", status.Text);
+            Assert.True(status.ActualHeight > 0);
+            Assert.InRange(status.TranslatePoint(new Point(0, 0), view).Y, 0, view.ActualHeight - status.ActualHeight);
+        });
+    }
+
+    [Fact]
+    public void OverviewDistinguishesNoSampleFromMeasuredZeroAndClearsStaleMetricsAfterFailure()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var view = new BattleDataView { Width = 280, Height = 340 };
+            var total = (TextBlock)view.FindName("TotalDamage");
+            var clock = (TextBlock)view.FindName("GameClock");
+            view.Present(new(BattleFeedState.WaitingForRound));
+            Assert.Equal("—", total.Text);
+            Assert.Equal("—", clock.Text);
+
+            view.Present(new(BattleFeedState.Live, new(1, 1, 0, false,
+                new() { ["char_demo"] = new(0, 0, 0, 0) })));
+            Assert.Equal("0", total.Text);
+            Assert.Equal("0:00.0", clock.Text);
+            Assert.Single(((ItemsControl)view.FindName("OperatorRows")).Items.Cast<object>());
+
+            view.Present(new(BattleFeedState.ConnectionFailed));
+            Assert.Equal("—", total.Text);
+            Assert.Equal("—", clock.Text);
+            Assert.Empty(((ItemsControl)view.FindName("OperatorRows")).Items);
+            Assert.Equal(Visibility.Visible, ((Button)view.FindName("ConnectButton")).Visibility);
+        });
+    }
+
+    [Fact]
     public void StartsWhileHiddenAndReusesTheAuthorizedConnectionWhenTheGameAppears()
     {
         LineupPerformanceTests.RunSta(() =>

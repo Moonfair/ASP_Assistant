@@ -11,6 +11,33 @@ namespace ASPAssistant.Tests.Views;
 public class GarrisonDebugViewTests
 {
     [Fact]
+    public void LongDiagnosticsStayFoldedUntilOpenedAndKeepTheReadersChoiceAcrossUpdates()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var view = new GarrisonDebugView { Width = 280, Height = 340 };
+            LineupPerformanceTests.Layout(view);
+            Expander? Section(string name)
+            {
+                DependencyObject? node = (DependencyObject)view.FindName(name);
+                while (node != null && node is not Expander)
+                    node = LogicalTreeHelper.GetParent(node);
+                return node as Expander;
+            }
+            Assert.Null(Section("RoundValue"));
+            foreach (var name in new[] { "Teammates", "Characters", "Equipment", "Magic", "Shop", "Positions", "Clock" })
+                Assert.False(Assert.IsType<Expander>(Section(name)).IsExpanded);
+
+            var inventory = Section("Characters")!;
+            inventory.IsExpanded = true;
+            view.Present(new(BattleFeedState.WaitingForRound));
+            Assert.True(inventory.IsExpanded);
+            Assert.False(Section("Teammates")!.IsExpanded);
+            Assert.Equal("尚未读取", ((TextBlock)view.FindName("Characters")).Text);
+        });
+    }
+
+    [Fact]
     public void TeammatePanelShowsRawGoldAndKeepsCachedGearSeparateFromDeployment()
     {
         LineupPerformanceTests.RunSta(() =>

@@ -16,10 +16,10 @@
             <converters:LineupActiveCovenantsConverter x:Key="LineupActiveCovenants" />
             <converters:LineupMoveEnabledConverter x:Key="LineupMoveEnabled" />
             <converters:LineupTrackingConverter x:Key="LineupTracking" />
+            <BooleanToVisibilityConverter x:Key="ShowWhenChecked" />
             <Style x:Key="LineupCardAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                <Setter Property="MinHeight" Value="27" />
-                <Setter Property="Padding" Value="5,3" />
-                <Setter Property="Margin" Value="0,0,0,5" />
+                <Setter Property="MinHeight" Value="28" />
+                <Setter Property="Padding" Value="3,3" />
                 <Setter Property="FontSize" Value="12" />
             </Style>
             <Style x:Key="LineupCardActionIcon" TargetType="Path">
@@ -44,6 +44,7 @@
             <Style x:Key="CategorySegment" TargetType="ListBoxItem">
                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
                 <Setter Property="Padding" Value="3,7" />
+                <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Margin" Value="1" />
                 <Setter Property="Template">
@@ -68,24 +69,30 @@
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
-    <DockPanel Margin="10">
+    <DockPanel Margin="8">
         <StackPanel DockPanel.Dock="Top">
-            <UniformGrid Columns="2" Margin="0,0,0,6">
-                <Button x:Name="NewButton" Content="＋ 新建阵容" Click="OnNew" Margin="0,0,4,0"
-                        MinHeight="34" Background="#FF23465D" BorderBrush="#FF3784A7" Foreground="#FFBBEBFF" FontWeight="SemiBold" />
-                <Button x:Name="ImportClipboardButton" Content="从剪切板导入" Click="OnImportClipboard" Margin="4,0,0,0" MinHeight="34"
-                        ToolTip="支持阵容分享文本和卫戍阵容库短链接" />
+            <DockPanel Margin="0,0,0,8">
+                <Button x:Name="LibraryToolsButton" DockPanel.Dock="Right" Click="OnOpenLibraryTools"
+                        Content="更多 ›" MinHeight="26" Padding="7,2" Foreground="{StaticResource TextSecondaryBrush}"
+                        ToolTip="历史战绩、打开作业站" AutomationProperties.Name="更多阵容工具">
+                    <Button.ContextMenu>
+                        <ContextMenu Placement="Bottom" Style="{StaticResource PanelPagesMenu}">
+                            <MenuItem x:Name="HistoryButton" Header="历史战绩" Click="OnHistory" />
+                            <MenuItem x:Name="OpenLineupHubButton" Header="打开作业站" Click="OnOpenLineupHub"
+                                      ToolTip="在浏览器中打开卫戍阵容库" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                <TextBlock x:Name="PageHeading" Text="阵容" VerticalAlignment="Center" Style="{StaticResource SidebarPageTitle}" />
+            </DockPanel>
+            <UniformGrid Columns="2" Margin="0,0,0,8">
+                <Button x:Name="NewButton" Content="＋ 新建阵容" Click="OnNew" Margin="0,0,3,0" FontSize="13"
+                        AutomationProperties.Name="新建阵容" MinHeight="32" Padding="6,3"
+                        Background="#FF23465D" BorderBrush="#FF3784A7" Foreground="#FFBBEBFF" FontWeight="SemiBold" />
+                <Button x:Name="ImportClipboardButton" Content="剪贴板导入" Click="OnImportClipboard" Margin="3,0,0,0"
+                        FontSize="13" MinHeight="32" Padding="6,3" ToolTip="从剪贴板导入阵容分享文本或卫戍阵容库短链接" />
             </UniformGrid>
-            <UniformGrid Columns="2" Margin="0,0,0,10">
-                <Button x:Name="HistoryButton" Content="历史战绩" Click="OnHistory" MinHeight="30" Margin="0,0,4,0" />
-                <Button x:Name="OpenLineupHubButton" Content="打开作业站 ↗" Click="OnOpenLineupHub"
-                    AutomationProperties.Name="打开作业站" ToolTip="在浏览器中打开卫戍阵容库"
-                    MinHeight="30" Margin="4,0,0,0" Padding="8,4" Foreground="{StaticResource AccentBrush}" />
-            </UniformGrid>
-            <Button x:Name="UploadedLineupButton" Content="查看已上传阵容" Click="OnOpenUploadedLineup"
-                    HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,0,0,10" />
-            <Border Background="#FF14162B" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                    CornerRadius="7" Padding="2" Margin="0,0,0,10">
+            <Border Style="{StaticResource SidebarSurface}" Padding="2" Margin="0,0,0,8">
                 <ListBox x:Name="CategoryTabs" SelectedIndex="0" SelectionChanged="OnCategoryChanged"
                          ItemContainerStyle="{StaticResource CategorySegment}" AutomationProperties.Name="阵容分类">
                     <ListBox.Template>
@@ -99,50 +106,64 @@
                     <ListBoxItem Content="导入阵容" />
                 </ListBox>
             </Border>
-            <TextBlock Text="{Binding Status}" Foreground="#FFFFCA80" TextWrapping="Wrap" Margin="0,0,0,8">
+            <TextBlock Text="{Binding Status}" AutomationProperties.LiveSetting="Polite"
+                       Foreground="#FFFFCA80" TextWrapping="Wrap" Margin="0,0,0,8">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding Status}" Value="">
                                 <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
+                            <DataTrigger Binding="{Binding Status}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
+            <Button x:Name="UploadedLineupButton" Content="查看已上传阵容" Click="OnOpenUploadedLineup"
+                    HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,0,0,8" />
+            <DockPanel Margin="0,0,0,6">
+                <TextBlock DockPanel.Dock="Right" Text="{Binding Items.Count, ElementName=LineupCards, StringFormat={}{0} 套}"
+                           VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
+                <TextBlock Text="阵容列表" Style="{StaticResource SidebarSectionLabel}" VerticalAlignment="Center" />
+            </DockPanel>
         </StackPanel>
         <Grid>
-            <TextBlock Text="此分类暂无阵容。" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="8">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Visibility" Value="Collapsed" /><Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-                        <Style.Triggers><DataTrigger Binding="{Binding HasItems, ElementName=LineupCards}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <!-- Use the alternation index as the visible card index without wrapping. -->
                 <ItemsControl x:Name="LineupCards" ItemsSource="{Binding Source={StaticResource FilteredLineups}}"
                               AlternationCount="2147483647">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Style="{StaticResource ItemCardBorder}" Margin="0,0,6,10">
+                            <Border Style="{StaticResource SidebarSurface}" Padding="10" Margin="0,0,0,8">
                                 <Border.ContextMenu>
-                                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                    <ContextMenu Style="{StaticResource PanelPagesMenu}"
+                                                 DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                                         <MenuItem Header="编辑阵容" Click="OnEdit" />
                                         <MenuItem Header="删除阵容" Click="OnDelete" />
                                     </ContextMenu>
                                 </Border.ContextMenu>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="70" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                    <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{StaticResource TextPrimaryBrush}" />
-                                    <TextBlock Text="{Binding Author, StringFormat=作者：{0}}" Foreground="{StaticResource AccentBrush}" Margin="0,5,0,0" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding Members.Count, StringFormat=干员：{0}}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0" />
-                                    <TextBlock Text="{Binding CovenantTagSummary}" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" />
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <DockPanel Margin="0,3,0,2">
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Members.Count, StringFormat={}{0} 名干员}" Margin="6,0,0,0"
+                                                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
+                                        <TextBlock Text="{Binding Author, StringFormat=作者：{0}}" ToolTip="{Binding Author}" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding CovenantTagSummary}" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding CovenantTagSummary}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <ContentControl x:Name="ActiveCovenantList" Focusable="False" IsTabStop="False">
                                         <ContentControl.Content>
                                             <MultiBinding Converter="{StaticResource LineupActiveCovenants}">
@@ -169,6 +190,7 @@
                                                         <Image x:Name="Portrait" Stretch="Uniform" Loaded="OnPortraitLoaded"
                                                                DataContextChanged="OnPortraitMemberChanged" />
                                                         <TextBlock x:Name="PortraitFallback" Text="{Binding OperatorName}" Visibility="Collapsed"
+                                                                   Foreground="{StaticResource TextPrimaryBrush}"
                                                                    TextAlignment="Center" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                                                    VerticalAlignment="Center" FontSize="10" Margin="2" />
                                                         <Border x:Name="PortraitBanOverlay" CornerRadius="4" Background="#55000000"
@@ -222,6 +244,7 @@
                                                             <Image x:Name="StrategyPortrait" Stretch="Uniform"
                                                                    controls:DeferredIcon.Path="{Binding IconPath}" />
                                                             <TextBlock x:Name="StrategyFallback" Text="{Binding Text}" Visibility="Collapsed"
+                                                                       Foreground="{StaticResource TextPrimaryBrush}"
                                                                        TextAlignment="Center" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                                                        VerticalAlignment="Center" FontSize="9" Margin="1" />
                                                         </Grid>
@@ -235,15 +258,16 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                     </StackPanel>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Top">
-                                        <Button Click="OnPreview" Style="{StaticResource LineupCardAction}" AutomationProperties.Name="预览">
+                                    <UniformGrid Columns="3">
+                                        <Button Click="OnPreview" Style="{StaticResource LineupCardAction}" Margin="0,0,3,0"
+                                                AutomationProperties.Name="预览">
                                             <StackPanel Orientation="Horizontal">
                                                 <Path Style="{StaticResource LineupCardActionIcon}" Data="{StaticResource LineupPreviewIcon}" />
                                                 <TextBlock Text="预览" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                             </StackPanel>
                                         </Button>
-                                        <Button Click="OnTrackLineup" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}">
+                                        <Button Click="OnTrackLineup" Margin="1,0,2,0"
+                                                AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}}">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource LineupCardAction}">
                                                     <Setter Property="Content" Value="追踪" />
@@ -273,14 +297,35 @@
                                                 </DataTemplate>
                                             </Button.ContentTemplate>
                                         </Button>
-                                        <Button Click="OnSharePublicLink" Style="{StaticResource LineupCardAction}" AutomationProperties.Name="分享"
-                                                ToolTip="复制阵容短链接，持链接者可在 90 天内查看或导入">
+                                        <ToggleButton x:Name="ManageLineup" AutomationProperties.Name="管理阵容"
+                                                      ToolTip="分享、上传、编辑、删除和排序" Margin="2,0,0,0" MinHeight="28"
+                                                      FontSize="12" Padding="3,3" Style="{StaticResource VariantToggleButton}">
                                             <StackPanel Orientation="Horizontal">
-                                                <Path Style="{StaticResource LineupCardActionIcon}" Data="{StaticResource LineupShareIcon}" />
-                                                <TextBlock Text="分享" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                                <TextBlock Text="管理" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" />
+                                                <Path Width="8" Height="5" Stretch="Fill" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                                      StrokeThickness="1.3" Data="M 1,1 L 5,5 9,1" RenderTransformOrigin=".5,.5">
+                                                    <Path.Style>
+                                                        <Style TargetType="Path">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsChecked, ElementName=ManageLineup}" Value="True">
+                                                                    <Setter Property="RenderTransform"><Setter.Value><RotateTransform Angle="180" /></Setter.Value></Setter>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Path.Style>
+                                                </Path>
                                             </StackPanel>
-                                        </Button>
-                                        <Button Click="OnUpload" AutomationProperties.Name="上传" ToolTipService.ShowOnDisabled="True">
+                                        </ToggleButton>
+                                    </UniformGrid>
+                                    <StackPanel x:Name="ManagementActions" Margin="0,6,0,0"
+                                                Visibility="{Binding IsChecked, ElementName=ManageLineup, Converter={StaticResource ShowWhenChecked}}">
+                                      <UniformGrid Columns="4">
+                                        <Button Content="分享" Click="OnSharePublicLink" Style="{StaticResource LineupCardAction}"
+                                                AutomationProperties.Name="分享" Margin="0,0,3,0"
+                                                ToolTip="复制阵容短链接，持链接者可在 90 天内查看或导入" />
+                                        <Button Content="上传" Click="OnUpload" AutomationProperties.Name="上传" Margin="1,0,2,0"
+                                                ToolTipService.ShowOnDisabled="True">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource LineupCardAction}">
                                                     <Setter Property="ToolTip" Value="上传到卫戍阵容库" />
@@ -292,24 +337,57 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Button.Style>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path Style="{StaticResource LineupCardActionIcon}" Data="{StaticResource LineupUploadIcon}" />
-                                                <TextBlock Text="上传" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                            </StackPanel>
                                         </Button>
+                                        <Button Content="编辑" Click="OnEdit" Style="{StaticResource LineupCardAction}"
+                                                AutomationProperties.Name="编辑" Margin="2,0,1,0" />
+                                        <Button Content="删除" Click="OnDelete" Style="{StaticResource LineupCardAction}"
+                                                AutomationProperties.Name="删除" Margin="3,0,0,0" />
+                                      </UniformGrid>
+                                      <UniformGrid Columns="3" Margin="0,4,0,0">
                                         <Button Content="上移" AutomationProperties.Name="上移" Tag="{x:Static viewModels:LineupMove.Up}"
-                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" />
+                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" Margin="0,0,3,0" />
                                         <Button Content="下移" AutomationProperties.Name="下移" Tag="{x:Static viewModels:LineupMove.Down}"
-                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" />
+                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" Margin="1,0,2,0" />
                                         <Button Content="置顶" AutomationProperties.Name="置顶" Tag="{x:Static viewModels:LineupMove.Top}"
-                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" Margin="0" />
+                                                Click="OnMoveLineup" Style="{StaticResource LineupMoveAction}" Margin="2,0,0,0" />
+                                      </UniformGrid>
                                     </StackPanel>
-                                </Grid>
+                                </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+            <Border Padding="14,18" VerticalAlignment="Top">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource SidebarSurface}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasItems, ElementName=LineupCards}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="此分类暂无阵容" FontSize="14" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,5,0,0" TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Setter Property="Text" Value="新建一套阵容，或从剪贴板导入分享内容。" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedIndex, ElementName=CategoryTabs}" Value="1">
+                                        <Setter Property="Text" Value="点击「新建阵容」开始编排自己的队伍。" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding SelectedIndex, ElementName=CategoryTabs}" Value="2">
+                                        <Setter Property="Text" Value="复制分享文本或短链接，再点击「剪贴板导入」。" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
         </Grid>
     </DockPanel>
 </UserControl>

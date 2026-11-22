@@ -7,66 +7,93 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="../Resources/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <Style x:Key="Caption" TargetType="TextBlock">
+            <Style x:Key="MetricCaption" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="11" />
                 <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
             </Style>
+            <Style x:Key="DamageValue" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="TextAlignment" Value="Right" />
+                <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+                <Setter Property="Margin" Value="8,0,0,0" />
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
-    <Grid Margin="10,12,10,6">
+    <Grid Margin="8">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <DockPanel>
-            <TextBlock x:Name="GameClock" DockPanel.Dock="Right" Margin="8,0,0,0"
-                       Foreground="{StaticResource TextSecondaryBrush}" ToolTip="回合内游戏时间"
-                       Typography.NumeralAlignment="Tabular" VerticalAlignment="Center" />
+        <TextBlock x:Name="PageHeading" Text="战斗数据" Style="{StaticResource SidebarPageTitle}" Margin="0,0,0,3" />
+        <StackPanel Grid.Row="1" Margin="0,0,0,8">
             <TextBlock x:Name="FeedStatus" Text="等待官方 PC 客户端" TextWrapping="Wrap"
-                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
-        </DockPanel>
-        <Button x:Name="ConnectButton" Grid.Row="1" Visibility="Collapsed" HorizontalAlignment="Left"
-                Style="{StaticResource TrackingButton}" Margin="0,10,0,0" Padding="9,5" Click="OnConnect" />
-        <StackPanel x:Name="Summary" Grid.Row="2" Margin="0,12,0,0" Visibility="Collapsed">
-            <TextBlock Text="干员总伤害" Style="{StaticResource Caption}" />
-            <TextBlock x:Name="TotalDamage" FontSize="25" FontWeight="SemiBold" Margin="0,0,0,9"
-                       Foreground="{StaticResource TextPrimaryBrush}" Typography.NumeralAlignment="Tabular" />
-            <Grid Margin="0,0,0,5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" /><ColumnDefinition Width="70" /><ColumnDefinition Width="76" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="干员" Style="{StaticResource Caption}" />
-                <TextBlock Grid.Column="1" Text="累计伤害" Style="{StaticResource Caption}" TextAlignment="Right" />
-                <TextBlock Grid.Column="2" Text="伤害占比" Style="{StaticResource Caption}" TextAlignment="Right"
-                           ToolTip="该干员累计伤害占本回合干员总伤害的百分比" />
-            </Grid>
+                       Foreground="{StaticResource TextPrimaryBrush}" AutomationProperties.LiveSetting="Polite" />
+            <Button x:Name="ConnectButton" Visibility="Collapsed" HorizontalAlignment="Left"
+                    Style="{StaticResource TrackingButton}" Margin="0,6,0,0" Padding="9,5" Click="OnConnect" />
         </StackPanel>
-        <ScrollViewer x:Name="RowsScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl x:Name="OperatorRows">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,7"
-                                ToolTip="{Binding Details}" AutomationProperties.Name="{Binding Details}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" /><ColumnDefinition Width="70" /><ColumnDefinition Width="76" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center" Margin="0,0,6,0">
-                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextPrimaryBrush}" />
-                                    <ProgressBar Value="{Binding DamageShare, Mode=OneWay}" Maximum="1" Height="2" Margin="0,4,0,0"
-                                                 BorderThickness="0" Foreground="{StaticResource AccentBrush}" Background="{StaticResource CardBackgroundBrush}" />
-                                </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding Damage}" TextAlignment="Right" VerticalAlignment="Center"
-                                           Typography.NumeralAlignment="Tabular" Foreground="{StaticResource TextPrimaryBrush}" />
-                                <TextBlock Grid.Column="2" Text="{Binding DamageShare, StringFormat={}{0:0.00%}}" TextAlignment="Right" VerticalAlignment="Center"
-                                           Typography.NumeralAlignment="Tabular" Foreground="{StaticResource AccentBrush}" />
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+        <ScrollViewer x:Name="RowsScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Grid.IsSharedSizeScope="True">
+                <Border Style="{StaticResource SidebarSurface}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="干员总伤害" Style="{StaticResource MetricCaption}" />
+                            <TextBlock x:Name="TotalDamage" Text="—" FontSize="23" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                       Typography.NumeralAlignment="Tabular" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                            <TextBlock Text="回合用时" TextAlignment="Right" Style="{StaticResource MetricCaption}" />
+                            <TextBlock x:Name="GameClock" Text="—" ToolTip="回合内游戏时间" Margin="0,4,0,0"
+                                       Style="{StaticResource DamageValue}" FontSize="16" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <StackPanel x:Name="Summary" Visibility="Collapsed" Margin="0,12,0,0">
+                    <TextBlock Text="伤害明细" Style="{StaticResource SidebarSectionLabel}" Margin="0,0,0,5" />
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="Amount" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="Share" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="干员" Style="{StaticResource MetricCaption}" />
+                        <TextBlock Grid.Column="1" Text="累计伤害" Margin="8,0,0,0" Style="{StaticResource MetricCaption}" TextAlignment="Right" />
+                        <TextBlock Grid.Column="2" Text="伤害占比" Margin="8,0,0,0" Style="{StaticResource MetricCaption}" TextAlignment="Right"
+                                   ToolTip="该干员累计伤害占本回合干员总伤害的百分比" />
+                    </Grid>
+                    <ItemsControl x:Name="OperatorRows" HorizontalContentAlignment="Stretch">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,7"
+                                        ToolTip="{Binding Details}" AutomationProperties.Name="{Binding Details}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="Amount" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="Share" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextPrimaryBrush}" />
+                                            <ProgressBar Value="{Binding DamageShare, Mode=OneWay}" Maximum="1" Height="2" Margin="0,4,0,0"
+                                                         BorderThickness="0" Foreground="{StaticResource AccentBrush}" Background="{StaticResource CardBackgroundBrush}" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding Damage}" Style="{StaticResource DamageValue}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding DamageShare, StringFormat={}{0:0.00%}}" Style="{StaticResource DamageValue}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>

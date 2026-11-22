@@ -45,6 +45,7 @@ public partial class BrowseFilterInteractionTests
         });
         try
         {
+            VerifySecondarySidebarPages();
             VerifySidebarWorkflow();
             VerifyManualBossSelection();
             List<Operator> operators = [
@@ -218,6 +219,18 @@ public partial class BrowseFilterInteractionTests
         battlefield.SelectedIndex = 0;
         LayoutView(view);
         RouteFile().Should().EndWith("11-patrol.jpg");
+        var rounds = (ListBox)view.FindName("RoundPicker");
+        var firstSide = VisualChildren<ComboBox>(routes).Single();
+        firstSide.SelectedIndex = 2;
+        rounds.SelectedIndex = 1;
+        LayoutView(view);
+        routes.Items.Count.Should().Be(1, "only the requested round should consume scroll space");
+        var secondSide = VisualChildren<ComboBox>(routes).Single();
+        secondSide.SelectedIndex.Should().Be(0, "each round keeps its own standing side");
+        secondSide.SelectedIndex = 1;
+        rounds.SelectedIndex = 0;
+        LayoutView(view);
+        VisualChildren<ComboBox>(routes).Single().SelectedIndex.Should().Be(2);
 
         view.UpdateInfo(new("矩兽", [], 2, "标准模拟"));
         LayoutView(view);
@@ -226,11 +239,14 @@ public partial class BrowseFilterInteractionTests
         boss.SelectedValue = "假想敌：鳍";
         LayoutView(view);
         RouteFile().Should().EndWith("02-patrol.jpg");
+        rounds.SelectedIndex = 1;
+        LayoutView(view);
         VisualChildren<TextBlock>(routes).Select(text => text.Text)
             .Should().Contain("当前难度没有隐秘核心回合");
 
         view.UpdateInfo(null);
         LayoutView(view);
+        rounds.SelectedIndex.Should().Be(0, "a new game starts on the regular boss round");
         boss.SelectedIndex.Should().Be(0, "a new game must clear the manual boss");
         battlefield.SelectedIndex.Should().Be(0);
         VisualChildren<Image>(routes).Should().OnlyContain(image => image.Source == null);

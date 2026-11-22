@@ -120,6 +120,8 @@ public partial class BattleDataView : UserControl
         if (muMu) update = update with { Source = GameTargetKind.MuMu };
         _state = update.State;
         Updated?.Invoke(update);
+        FeedStatus.FontWeight = _state is BattleFeedState.PermissionRequired or BattleFeedState.ConnectionFailed
+            or BattleFeedState.UnsupportedBuild or BattleFeedState.WindowsOnly ? FontWeights.SemiBold : FontWeights.Normal;
         ConnectButton.Visibility = _state is BattleFeedState.PermissionRequired or BattleFeedState.ConnectionFailed ||
             (muMu && _state == BattleFeedState.UnsupportedBuild)
             ? Visibility.Visible : Visibility.Collapsed;
@@ -132,7 +134,7 @@ public partial class BattleDataView : UserControl
             var clock = TimeSpan.FromSeconds(frame.GameSeconds);
             GameClock.Text = $"{(int)clock.TotalMinutes}:{clock.Seconds:D2}.{clock.Milliseconds / 100}";
             FeedStatus.Text = frame.Ended ? "本回合已结束" : _statistics.Rows.Count > 0 ? "本回合战斗数据" : "等待干员战斗数据";
-            TotalDamage.Text = Number(_statistics.TotalDamage);
+            TotalDamage.Text = _statistics.Rows.Count == 0 ? "—" : Number(_statistics.TotalDamage);
             Summary.Visibility = _statistics.Rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             OperatorRows.ItemsSource = _statistics.Rows.Select(DisplayRow).ToArray();
             return;
@@ -146,7 +148,8 @@ public partial class BattleDataView : UserControl
         _statistics.Reset();
         OperatorRows.ItemsSource = null;
         Summary.Visibility = Visibility.Collapsed;
-        GameClock.Text = "";
+        TotalDamage.Text = "—";
+        GameClock.Text = "—";
         FeedStatus.Text = _state switch
         {
             BattleFeedState.Connecting when muMu => "正在连接选中的 MuMu 实例…",

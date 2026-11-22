@@ -415,14 +415,19 @@ public class LineupInteractionTests
                 BanOverlays().Should().Equal(Visibility.Visible, Visibility.Collapsed, Visibility.Collapsed);
                 Descendants<Border>(cards).First(border => border.Name == "PortraitTile")
                     .ToolTip.Should().Be("能天使 · 本局禁用");
-                Descendants<TextBlock>(cards).Single(text => text.Text == "旧干员").Visibility.Should().Be(Visibility.Visible);
+                var missingPortrait = Descendants<TextBlock>(cards).Single(text => text.Text == "旧干员");
+                missingPortrait.Visibility.Should().Be(Visibility.Visible);
+                var readableColor = ((SolidColorBrush)view.FindResource("TextPrimaryBrush")).Color;
+                ((SolidColorBrush)missingPortrait.Foreground).Color.Should().Be(readableColor);
                 var strategyStrip = Descendants<ItemsControl>(cards).Single(control => control.Name == "StrategyStrip");
                 ((Lineup)strategyStrip.DataContext).AvailableStrategies.Should().HaveCount(6);
                 strategyStrip.Items.Count.Should().Be(6);
                 var strategyPortraits = Descendants<Image>(cards).Where(image => image.Name == "StrategyPortrait").ToArray();
                 strategyPortraits.Select(DeferredIcon.GetPath).Should().Equal(strategyPath, "", "", "", "", "");
                 IconLoadingTests.PumpUntil(() => strategyPortraits[0].Source is BitmapSource);
-                Descendants<TextBlock>(cards).Should().Contain(text => text.Text == "+1" && text.Visibility == Visibility.Visible);
+                var overflowCount = Descendants<TextBlock>(cards).Single(text => text.Text == "+1");
+                overflowCount.Visibility.Should().Be(Visibility.Visible);
+                ((SolidColorBrush)overflowCount.Foreground).Color.Should().Be(readableColor);
                 RenderPreview(view, "lineup-ban-states.png", 278, 400);
 
                 bans.SetBans(["地灵"]);
@@ -593,9 +598,15 @@ public class LineupInteractionTests
                 var tabs = (ListBox)view.FindName("CategoryTabs");
                 var cards = (ItemsControl)view.FindName("LineupCards");
                 string[] VisibleNames() => cards.Items.Cast<Lineup>().Select(lineup => lineup.Name).ToArray();
-                Button Action(string lineup, string action) => Descendants<Button>(cards).Single(button =>
-                    button.DataContext is Lineup item && item.Name == lineup &&
-                    System.Windows.Automation.AutomationProperties.GetName(button) == action);
+                Button Action(string lineup, string action)
+                {
+                    var disclosure = Descendants<ToggleButton>(cards).Single(toggle => toggle.Name == "ManageLineup" &&
+                        toggle.DataContext is Lineup item && item.Name == lineup);
+                    disclosure.IsChecked = true;
+                    Layout(view, 278, 500);
+                    return Descendants<Button>(cards).Single(button => button.DataContext is Lineup item &&
+                        item.Name == lineup && System.Windows.Automation.AutomationProperties.GetName(button) == action);
+                }
                 void Move(string lineup, string action, params string[] expected)
                 {
                     var button = Action(lineup, action);
@@ -623,6 +634,44 @@ public class LineupInteractionTests
                 store.LoadAsync().GetAwaiter().GetResult().Select(lineup => lineup.Name).Should().Equal(VisibleNames());
             }
             finally { directory.Delete(recursive: true); }
+        });
+    }
+
+    [Theory]
+    [InlineData(280)]
+    [InlineData(400)]
+    public void LineupLibrary_GivesTitlesTheCardWidthAndRevealsSecondaryActionsOnDemand(int width)
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            var lineup = new Lineup { Name = "后半段也应当可读的超长阵容名称", Author = "博士", IsImported = true };
+            var view = new LineupView { DataContext = new { Lineups = new[] { lineup }, Status = "" } };
+            Layout(view, width, 500);
+            var cards = (ItemsControl)view.FindName("LineupCards");
+            var title = Descendants<TextBlock>(cards).Single(text => text.Text == lineup.Name);
+            title.ActualWidth.Should().BeGreaterThan(cards.ActualWidth * .8, "the actions must not reserve a side column");
+            title.TextWrapping.Should().Be(TextWrapping.Wrap);
+
+            var management = Descendants<Panel>(cards).Single(panel => panel.Name == "ManagementActions");
+            management.Visibility.Should().Be(Visibility.Collapsed);
+            var toggle = Descendants<ToggleButton>(cards).Single(button => button.Name == "ManageLineup");
+            toggle.IsChecked = true;
+            Layout(view, width, 500);
+            management.Visibility.Should().Be(Visibility.Visible);
+            var secondary = Descendants<Button>(management).ToDictionary(System.Windows.Automation.AutomationProperties.GetName);
+            secondary.Keys.Should().BeEquivalentTo(["分享", "上传", "编辑", "删除", "上移", "下移", "置顶"]);
+            secondary["上传"].IsEnabled.Should().BeFalse("an imported lineup is not the user's own upload");
+            Lineup? edited = null;
+            view.EditRequested += item => edited = item;
+            secondary["编辑"].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            edited.Should().BeSameAs(lineup);
+
+            var more = (Button)view.FindName("LibraryToolsButton");
+            more.ContextMenu.Items.OfType<MenuItem>().Select(item => item.Header).Should().Equal("历史战绩", "打开作业站");
+            var openedHistory = false;
+            view.HistoryRequested += () => openedHistory = true;
+            ((MenuItem)more.ContextMenu.Items[0]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            openedHistory.Should().BeTrue();
         });
     }
 
@@ -958,14 +1007,23 @@ public class LineupInteractionTests
                 view.UpdateLayout();
                 Lineup? trackRequested = null;
                 view.TrackRequested += lineup => trackRequested = lineup;
+                var manage = Descendants<ToggleButton>(cards).Single(toggle => toggle.Name == "ManageLineup" &&
+                    toggle.DataContext is Lineup lineup && lineup.Id == saved.Id);
+                manage.IsChecked.Should().BeFalse();
+                manage.IsChecked = true;
+                Layout(view, 278, 500);
                 var actions = Descendants<Button>(cards).Where(button => button.DataContext is Lineup lineup && lineup.Id == saved.Id).ToArray();
                 actions.Select(System.Windows.Automation.AutomationProperties.GetName)
-                    .Should().Equal("预览", "追踪", "分享", "上传", "上移", "下移", "置顶");
+                    .Should().Equal("预览", "追踪", "分享", "上传", "编辑", "删除", "上移", "下移", "置顶");
                 var actionBounds = actions.Select(button => button.TransformToAncestor(cards).TransformBounds(new Rect(button.RenderSize))).ToArray();
-                actionBounds.Select(bounds => bounds.Left).Distinct().Should().ContainSingle();
-                actionBounds.Select(bounds => bounds.Top).Should().BeInAscendingOrder();
+                actionBounds.Should().OnlyContain(bounds => bounds.Left >= 0 && bounds.Right <= cards.ActualWidth && bounds.Height >= 26);
+                actionBounds[0].Right.Should().BeLessThanOrEqualTo(actionBounds[1].Left);
+                actionBounds[0].Top.Should().Be(actionBounds[1].Top);
+                actionBounds[2].Top.Should().BeGreaterThanOrEqualTo(actionBounds[1].Bottom);
                 actions[1].RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 trackRequested.Should().BeEquivalentTo(saved);
+                manage.IsChecked = false;
+                Layout(view, 278, 500);
                 RenderPreview(view, "lineup-library.png", 278, 500);
                 var fired = false;
                 view.NewRequested += () => fired = true;
