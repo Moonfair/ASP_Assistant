@@ -1,4 +1,3 @@
-using System.Windows;
 using ASPAssistant.App.Services;
 using ASPAssistant.Core.Data;
 using ASPAssistant.Core.Models;
@@ -21,38 +20,17 @@ public partial class SidePanelWindow
             }
             if (closed) return;
             MatchView.Refresh();
-            var confirming = MatchView.ShowConfirmationTakeover;
-            if (confirming == (MatchTakeover.Visibility == Visibility.Visible)) return;
-
-            if (confirming)
-            {
-                MatchTabHost.Content = null;
-                StandardSurface.Visibility = Visibility.Collapsed;
-                MatchTakeover.Content = MatchView;
-                MatchTakeover.Visibility = Visibility.Visible;
-                BringForward();
-                MatchView.FocusConfirmation();
-            }
-            else
-            {
-                MatchTakeover.Content = null;
-                MatchTakeover.Visibility = Visibility.Collapsed;
-                MatchTabHost.Content = MatchView;
-                MainTabs.SelectedItem = MatchTab;
-                if (SettingsPage.Visibility == Visibility.Visible) SetSettingsVisible(false);
-                StandardSurface.Visibility = Visibility.Visible;
-            }
         }
 
+        BattleData.Updated += session.Observe;
         session.Changed += Refresh;
         overlay.MatchMarkingChanged += Refresh;
-        MatchView.ConfirmationExpired += Refresh;
         Closed += (_, _) =>
         {
             closed = true;
+            BattleData.Updated -= session.Observe;
             session.Changed -= Refresh;
             overlay.MatchMarkingChanged -= Refresh;
-            MatchView.ConfirmationExpired -= Refresh;
             MatchView.Finish();
         };
         Refresh();

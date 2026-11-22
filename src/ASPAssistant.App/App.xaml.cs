@@ -48,6 +48,11 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
+            if (e.Args.FirstOrDefault() == BattleDataSession.WorkerSwitch)
+            {
+                Shutdown(await Task.Run(() => BattleDataSession.RunWorkerAsync(e.Args)));
+                return;
+            }
             var hash = LineupProtocol.ParseImport(e.Args);
             if (e.Args.FirstOrDefault() == "--lineup-uri" && hash is null)
             {
@@ -195,6 +200,8 @@ public partial class App : Application
         _overlay.ConfigureMatch(_match, () => _sidePanel.IsActive || _gameTarget.Current is { } target &&
             User32.GetRootWindow(User32.GetForegroundWindow()) == target.Window);
         _sidePanel.ConfigureMatch(_match, _settingsManager, strategies, covenantCatalog, _overlay);
+        var battleNames = await dataStore.LoadBattleOperatorNamesAsync();
+        _sidePanel.BattleData.SetNames(battleNames);
         ConfigureGameSource();
 
         var bobVoice = _bobVoice = new BobVoicePlayer(Path.Combine(dataDir, "voice", "bob"));

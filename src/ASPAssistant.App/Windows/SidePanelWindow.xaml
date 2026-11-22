@@ -15,8 +15,7 @@
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" GlassFrameThickness="0" />
     </WindowChrome.WindowChrome>
     <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-        <Grid>
-        <DockPanel x:Name="StandardSurface">
+        <DockPanel>
             <!-- Custom title bar -->
             <Border DockPanel.Dock="Top" Background="#FF12122A" MouseLeftButtonDown="OnTitleBarDrag">
                 <Grid>
@@ -214,9 +213,10 @@
                             <views:LineupView x:Name="LineupView" />
                         </TabItem>
                         <TabItem x:Name="MatchTab" Header="匹配" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                            <ContentControl x:Name="MatchTabHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                                <views:MatchView x:Name="MatchView" />
-                            </ContentControl>
+                            <views:MatchView x:Name="MatchView" />
+                        </TabItem>
+                        <TabItem Header="数据" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                            <views:BattleDataView x:Name="BattleData" />
                         </TabItem>
                     </TabControl>
                 </DockPanel>
@@ -366,8 +366,5 @@
                 </Grid>
             </Grid>
         </DockPanel>
-        <ContentControl x:Name="MatchTakeover" Visibility="Collapsed" Background="{StaticResource PanelBackgroundBrush}"
-                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-        </Grid>
     </Border>
 </Window>

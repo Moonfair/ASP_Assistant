@@ -60,7 +60,8 @@ public partial class OverlayWindow
 
     private void OnMatchChanged()
     {
-        var room = _match?.State is { Phase: "playing" } state ? state.RoomId : null;
+        var room = _match?.State is { Phase: "playing", GameRoomId: { } gameRoom } state &&
+            gameRoom == _match.Observation?.RoomId ? state.RoomId : null;
         if (_inkRoom != room)
         {
             _inkRoom = room;
@@ -84,14 +85,14 @@ public partial class OverlayWindow
         _bounds is { Width: > 0, Height: > 0 } && _canUseMarking?.Invoke() == true;
 
     private bool MatchInputAvailable() =>
-        MatchForeground() && !IsCalibratingMarkers && _banInstructionLayer == null;
+        MatchForeground() && _match?.IsRoomReadPending == false && !IsCalibratingMarkers && _banInstructionLayer == null;
 
     private void RefreshMatchInput()
     {
         if (_inkLayer is not { } layer || _match == null) return;
         bool foreground = MatchForeground();
         layer.Visibility = foreground ? Visibility.Visible : Visibility.Collapsed;
-        bool eligible = foreground && !IsCalibratingMarkers && _banInstructionLayer == null;
+        bool eligible = foreground && !_match.IsRoomReadPending && !IsCalibratingMarkers && _banInstructionLayer == null;
         if (eligible)
         {
             bool ctrlDown = User32.IsControlPressed();

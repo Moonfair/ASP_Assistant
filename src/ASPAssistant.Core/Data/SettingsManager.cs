@@ -4,6 +4,8 @@ using ASPAssistant.Core.Services;
 
 namespace ASPAssistant.Core.Data;
 
+public sealed record MatchPreferences(string[] Strategies, string[] Covenants, string Tactic);
+
 public class SettingsManager
 {
     private readonly string _settingsDir;
@@ -54,21 +56,23 @@ public class SettingsManager
 
     public void SaveBobVoice(bool enabled) => SavePreference("bob-voice", enabled);
 
-    public string LoadMatchNickname()
+    public MatchPreferences LoadMatchPreferences()
     {
         try
         {
-            var path = Path.Combine(_settingsDir, "match-nickname.json");
-            return File.Exists(path) ? JsonSerializer.Deserialize<string>(File.ReadAllText(path)) ?? "" : "";
+            var path = Path.Combine(_settingsDir, "match-preferences.json");
+            if (File.Exists(path) && JsonSerializer.Deserialize<MatchPreferences>(File.ReadAllText(path), JsonOptions)
+                is { Strategies: not null, Covenants: not null, Tactic: "随便" or "兜底" or "攻坚" } preferences)
+                return preferences;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            AppLogger.Error("Settings", "Could not read match nickname", ex);
-            return "";
+            AppLogger.Error("Settings", "Could not read match preferences", ex);
         }
+        return new([], [], "随便");
     }
 
-    public void SaveMatchNickname(string nickname) => SavePreference("match-nickname", nickname.Trim());
+    public void SaveMatchPreferences(MatchPreferences preferences) => SavePreference("match-preferences", preferences);
 
     public MarkerOffset LoadMarkerOffset()
     {
