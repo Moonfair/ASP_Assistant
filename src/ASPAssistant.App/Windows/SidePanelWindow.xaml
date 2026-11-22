@@ -13,54 +13,17 @@
         Background="{StaticResource PanelBackgroundBrush}">
     <Window.Resources>
         <Style x:Key="PanelPage" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="0,4" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
         </Style>
-        <!-- Only the main panel uses overflow; detail and editor tabs retain their own layouts. -->
+        <!-- Stable header positions: switching tabs must not move the selected row. -->
         <ControlTemplate x:Key="PanelNavigation" TargetType="TabControl">
             <DockPanel>
                 <Border DockPanel.Dock="Top" Background="#FF151B2B" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
-                    <Grid KeyboardNavigation.TabNavigation="Continue">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="3*" /><ColumnDefinition /></Grid.ColumnDefinitions>
-                        <UniformGrid x:Name="HeaderPanel" IsItemsHost="True" Rows="1"
-                                     KeyboardNavigation.DirectionalNavigation="Cycle" />
-                        <Button x:Name="MorePagesButton" Grid.Column="1" Click="OnMorePages" Padding="4,6"
-                                ToolTip="更多页面" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}, StringFormat='更多页面：{0}'}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource TitleBarButton}">
-                                    <Setter Property="Content" Value="更多" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedItem.Visibility, RelativeSource={RelativeSource AncestorType=TabControl}}" Value="Collapsed">
-                                            <Setter Property="Content" Value="{Binding SelectedItem.Header, RelativeSource={RelativeSource AncestorType=TabControl}}" />
-                                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                            <Button.ContentTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding}" VerticalAlignment="Center" />
-                                        <Path Data="M 0,0 L 3,3 L 6,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                              StrokeThickness="1.4" VerticalAlignment="Center" Margin="5,2,0,0" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </Button.ContentTemplate>
-                        </Button>
-                        <Border x:Name="MoreSelectedLine" Grid.Column="1" Height="2" VerticalAlignment="Bottom"
-                                Background="{StaticResource AccentBrush}" IsHitTestVisible="False">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedItem.Visibility, RelativeSource={RelativeSource AncestorType=TabControl}}" Value="Collapsed">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                        </Border>
-                    </Grid>
+                    <UniformGrid x:Name="HeaderPanel" IsItemsHost="True" Columns="4"
+                                 KeyboardNavigation.DirectionalNavigation="Cycle" />
                 </Border>
                 <Border Background="{StaticResource PanelBackgroundBrush}">
                     <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" />
@@ -251,19 +214,19 @@
                         <TabItem Header="追踪">
                             <views:TrackingView x:Name="TrackingView" />
                         </TabItem>
-                        <TabItem Visibility="Collapsed" Header="敌人">
+                        <TabItem Header="敌人">
                             <views:EnemyView x:Name="EnemyView" />
                         </TabItem>
-                        <TabItem x:Name="LineupTab" Visibility="Collapsed" Header="阵容">
+                        <TabItem x:Name="LineupTab" Header="阵容">
                             <views:LineupView x:Name="LineupView" />
                         </TabItem>
-                        <TabItem x:Name="MatchTab" Visibility="Collapsed" Header="匹配" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem x:Name="MatchTab" Header="匹配">
                             <views:MatchView x:Name="MatchView" />
                         </TabItem>
-                        <TabItem Visibility="Collapsed" Header="数据" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem Header="数据">
                             <views:BattleDataView x:Name="BattleData" />
                         </TabItem>
-                        <TabItem Visibility="Collapsed" Header="调试" FontSize="11" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem Header="调试">
                             <views:GarrisonDebugView x:Name="GarrisonDebug" />
                         </TabItem>
                     </TabControl>

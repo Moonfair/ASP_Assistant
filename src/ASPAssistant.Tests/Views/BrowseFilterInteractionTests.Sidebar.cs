@@ -27,8 +27,22 @@ public partial class BrowseFilterInteractionTests
             window.Width = width;
             LayoutFilterWindow(window);
             var visible = tabs.Items.Cast<TabItem>().Where(t => t.Visibility == Visibility.Visible).ToList();
-            visible.Select(t => t.Header).Should().Equal("干员", "装备", "追踪");
-            visible.Should().OnlyContain(t => t.ActualWidth >= 56);
+            visible.Select(t => t.Header).Should().Equal("干员", "装备", "追踪", "敌人", "阵容", "匹配", "数据", "调试");
+            var first = visible[0];
+            var origin = first.TranslatePoint(new Point(), tabs);
+            first.ActualWidth.Should().BeGreaterThanOrEqualTo(56);
+            first.ActualHeight.Should().BeGreaterThanOrEqualTo(26);
+            for (int i = 0; i < visible.Count; ++i)
+            {
+                var tab = visible[i];
+                tab.IsEnabled.Should().BeTrue();
+                tab.FontSize.Should().Be(first.FontSize);
+                tab.ActualWidth.Should().BeApproximately(first.ActualWidth, 1);
+                tab.ActualHeight.Should().BeApproximately(first.ActualHeight, 1);
+                var pos = tab.TranslatePoint(new Point(), tabs);
+                pos.X.Should().BeApproximately(origin.X + i % 4 * first.ActualWidth, 1);
+                pos.Y.Should().BeApproximately(origin.Y + i / 4 * first.ActualHeight, 1);
+            }
             window.GameStateVm.Hud = new(14, 5, 123, 16);
             LayoutFilterWindow(window);
             var metrics = VisualChildren<TextBlock>((FrameworkElement)window.FindName("MatchStatusBar")).ToArray();
@@ -37,25 +51,17 @@ public partial class BrowseFilterInteractionTests
             metrics.Should().OnlyContain(t => t.DesiredSize.Width <= t.ActualWidth + 1);
         }
 
-        var more = (Button)tabs.Template.FindName("MorePagesButton", tabs);
-        Click(more);
-        var menu = more.ContextMenu!;
-        menu.Items.OfType<MenuItem>().Select(i => i.Header).Should().Equal("敌人", "阵容", "匹配", "数据", "调试");
-        foreach (var item in menu.Items.OfType<MenuItem>())
+        foreach (var tab in tabs.Items.Cast<TabItem>())
         {
-            item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            tab.IsSelected = true;
             LayoutFilterWindow(window);
-            var page = (TabItem)tabs.SelectedItem;
-            page.Header.Should().Be(item.Header);
-            item.IsChecked.Should().BeTrue();
-            var body = (UserControl)page.Content;
-            VisualChildren<UserControl>(tabs).Should().Contain(body);
-            body.ActualWidth.Should().BeGreaterThan(200);
+            tabs.SelectedItem.Should().BeSameAs(tab);
+            tabs.SelectedContent.Should().BeSameAs(tab.Content);
+            VisualChildren<UserControl>(tabs).Should().Contain((UserControl)tab.Content);
         }
-        menu.IsOpen = false;
         tabs.SelectedItem = window.FindName("LineupTab"); // via lineup import/shortcut
         LayoutFilterWindow(window);
-        more.Content.ToString().Should().Contain("阵容");
+        tabs.Items.Cast<TabItem>().Single(t => t.IsSelected).Header.Should().Be("阵容");
 
         var list = (TrackingView)window.FindName("TrackingView");
         tabs.SelectedIndex = 2;
