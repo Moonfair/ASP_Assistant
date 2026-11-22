@@ -2,7 +2,7 @@ const MATCH_ANY = '随便';
 const MATCH_DEFENSE = '兜底';
 const MATCH_ATTACK = '攻坚';
 const MATCH_COLORS = ['#56B4E9', '#E69F00', '#CC79A7', '#48C790'];
-const MATCH_ACTIONS = new Set(['join', 'join-room', 'state', 'confirm', 'invite', 'ready', 'leave', 'mute', 'stroke']);
+const MATCH_ACTIONS = new Set(['join', 'join-room', 'state', 'confirm', 'invite', 'ready', 'force-start', 'leave', 'mute', 'stroke']);
 const MATCH_TEAM_SIZE = 4;
 const MATCH_PREFERENCE_LIMIT = 4;
 const MATCH_QUEUE_LIMIT = 64;
@@ -307,10 +307,17 @@ export class DesktopMatchService {
         return;
       }
       case 'ready':
-        if (member.ready) return;
+        if (member.ready || room?.phase === 'playing') return;
         if (room?.phase !== 'joining') throw new HttpError(409, '请等待队长创建房间。');
         member.ready = true;
         if (room.players.length === MATCH_TEAM_SIZE && room.players.every(p => p.member.ready)) room.phase = 'playing';
+        return;
+      case 'force-start':
+        if (room?.captainId !== member.id) throw new HttpError(403, '只有队长可以强制开始。');
+        if (room.phase === 'playing') return;
+        if (room.phase !== 'joining') throw new HttpError(409, '请先创建房间并提交邀请。');
+        assignMatchTactics(room.players);
+        room.phase = 'playing';
         return;
       case 'mute': {
         if (room?.phase !== 'playing') throw new HttpError(409, '进入游戏后才可屏蔽画笔。');
@@ -335,6 +342,7 @@ export class DesktopMatchService {
     const strokes = (room?.strokes ?? []).filter(s => !player.muted.has(s.playerId))
       .map(s => known?.has(s.id) ? { ...s, points: [] } : s);
     return { phase: room?.phase ?? 'queued', selfId: player.member.id, roomId: room?.id,
+      canForceStart: room?.phase === 'joining' && room.captainId === player.member.id,
       serverNow: now, deadline: room?.deadline, captainId: room?.captainId, invitation: room?.invitation,
       members: room ? room.players.map(p => p.member) : [player.member], muted: [...player.muted], strokes };
   }
