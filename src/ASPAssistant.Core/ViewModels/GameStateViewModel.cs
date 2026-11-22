@@ -15,11 +15,11 @@ public partial class GameStateViewModel : ObservableObject
     private GarrisonHud _screenHud;
     private bool _usesWindowsMemory;
 
-    public void SetHudSource(GameTargetKind? kind)
+    public void SetHudSource(GameTargetKind? kind, bool memoryReadingAllowed, bool targetChanged = true)
     {
-        _usesWindowsMemory = kind == GameTargetKind.Windows;
-        Hud = default;
-        ScreenHud = default;
+        _usesWindowsMemory = memoryReadingAllowed && kind == GameTargetKind.Windows;
+        if (targetChanged) ScreenHud = default;
+        Hud = _usesWindowsMemory ? default : ScreenHud;
     }
 
     public void UpdateMemoryHud(GarrisonSnapshot? snapshot)

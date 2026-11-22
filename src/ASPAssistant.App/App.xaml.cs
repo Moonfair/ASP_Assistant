@@ -29,6 +29,8 @@ public partial class App : Application
     private BobVoicePlayer? _bobVoice;
     private readonly TaskCompletionSource<SidePanelWindow> _readyForActivation = new();
     private Task _trackingSave = Task.CompletedTask;
+    private static string SettingsDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ASPAssistant");
 
     public App()
     {
@@ -52,7 +54,8 @@ public partial class App : Application
         {
             if (e.Args.FirstOrDefault() == BattleDataSession.WorkerSwitch)
             {
-                Shutdown(await Task.Run(() => BattleDataSession.RunWorkerAsync(e.Args)));
+                Shutdown(new SettingsManager(SettingsDirectory).LoadMemoryReadingConsent() == true
+                    ? await Task.Run(() => BattleDataSession.RunWorkerAsync(e.Args)) : 1);
                 return;
             }
             var hash = LineupProtocol.ParseImport(e.Args);
@@ -71,7 +74,7 @@ public partial class App : Application
             }
 
             _ = ListenForActivationAsync();
-            await StartupAsync();
+            if (!await StartupAsync()) { Shutdown(); return; }
             if (hash is not null) await ActivateLineupAsync(hash);
         }
         catch (Exception ex)
@@ -100,14 +103,12 @@ public partial class App : Application
         else await panel.ImportWebsiteLineupAsync(hash);
     }
 
-    private async Task StartupAsync()
+    private async Task<bool> StartupAsync()
     {
         // Paths
         var appDir = AppContext.BaseDirectory;
         var dataDir = Path.Combine(appDir, "data");
-        var settingsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "ASPAssistant");
+        var settingsDir = SettingsDirectory;
 
         // Initialize file logger as early as possible.
         AppLogger.Initialize(Path.Combine(settingsDir, "logs"));
@@ -121,6 +122,11 @@ public partial class App : Application
         // Data layer
         var dataStore = new JsonDataStore(dataDir);
         _settingsManager = new SettingsManager(settingsDir);
+        // Closing the first (modal) window must not terminate a successfully confirmed startup.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var choice = _settingsManager.LoadMemoryReadingConsent() ?? ChooseMemoryReadingMode(null);
+        if (choice is null) return false; // Closed without choosing: no readers and no stored consent.
+        bool memoryReadingAllowed = choice.Value;
 
         // Load data
         AppLogger.Info("App", "Loading operators...");
@@ -185,14 +191,15 @@ public partial class App : Application
 
         // Windows
         _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm, banVm);
+        MainWindow = _sidePanel;
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
         _sidePanel.ConfigureSidePanelOpacity(_settingsManager.LoadSidePanelOpacity(), opacity =>
         {
             try { _settingsManager.SaveSidePanelOpacity(opacity); }
             catch (Exception ex) { AppLogger.Error("Settings", "Could not save side panel opacity", ex); }
         });
         _sidePanel.BattleData.Updated += update => gameStateVm.UpdateMemoryHud(update.Garrison);
-        _gameTarget.Changed += () => gameStateVm.SetHudSource(_gameTarget.Current?.Kind);
-        ConfigureGameSource();
+        _gameTarget.Changed += () => gameStateVm.SetHudSource(_gameTarget.Current?.Kind, memoryReadingAllowed);
         await _lineupSite.RestoreSessionAsync();
         _sidePanel.UseSideFilters = _settingsManager.LoadSideFilterLayout();
         _sidePanel.FilterLayoutChanged += side =>
@@ -232,7 +239,7 @@ public partial class App : Application
         TimeSpan bobMemoryAt = default;
         _sidePanel.BattleData.Updated += update =>
         {
-            if (_gameTarget.Current?.Kind != update.Source) return;
+            if (!memoryReadingAllowed || _gameTarget.Current?.Kind != update.Source) return;
             bobMemory = update;
             bobMemoryAt = bobClock.Elapsed;
         };
@@ -257,9 +264,10 @@ public partial class App : Application
             {
                 if (!bobEnabled || target == null || !ReferenceEquals(target, _gameTarget.Current)) return;
                 if (preparation) { bobTriggers.Reset(); bobMemory = null; return; }
-                var values = hud.HasValue && target.Kind == GameTargetKind.Windows ? gameStateVm.Hud : hud.GetValueOrDefault();
-                if (target.Kind == GameTargetKind.Windows && !values.Round.HasValue) voice = default;
-                var memory = bobClock.Elapsed - bobMemoryAt <= TimeSpan.FromSeconds(2) ? bobMemory : null;
+                bool useMemoryHud = memoryReadingAllowed && target.Kind == GameTargetKind.Windows;
+                var values = hud.HasValue && useMemoryHud ? gameStateVm.Hud : hud.GetValueOrDefault();
+                if (useMemoryHud && !values.Round.HasValue) voice = default;
+                var memory = memoryReadingAllowed && bobClock.Elapsed - bobMemoryAt <= TimeSpan.FromSeconds(2) ? bobMemory : null;
                 if (bobTriggers.Observe(values, items.Select(item => item.Name), voice, bobClock.Elapsed, memory) is { } cue)
                 {
                     if (!bobVoice.Play(cue))
@@ -386,6 +394,21 @@ public partial class App : Application
         };
 
         // Show windows and start services
+        _sidePanel.ReviewMemoryReadingButton.Click += (_, _) =>
+        {
+            if (ChooseMemoryReadingMode(_sidePanel) is not bool allowed || allowed == memoryReadingAllowed) return;
+            memoryReadingAllowed = allowed;
+            bobMemory = null;
+            bobTriggers.Reset();
+            bobVoice.Stop();
+            _sidePanel.HideCannotSpeech();
+            gameStateVm.SetHudSource(_gameTarget.Current?.Kind, allowed, targetChanged: false);
+            _ocrScanner.ReadWindowsHudNumbers = !allowed;
+            _sidePanel.SetMemoryReadingAllowed(allowed);
+        };
+        _ocrScanner.ReadWindowsHudNumbers = !memoryReadingAllowed;
+        _sidePanel.SetMemoryReadingAllowed(memoryReadingAllowed);
+        ConfigureGameSource();
         _sidePanel.Show();
         _windowTracker.Start();
         _ocrScanner.Start();
@@ -394,6 +417,30 @@ public partial class App : Application
 
         // Start background update check
         _sidePanel.StartUpdateCheck(new UpdateService());
+        return true;
+    }
+
+    private bool? ChooseMemoryReadingMode(Window? owner)
+    {
+        var dialog = new MemoryReadingConsentWindow { Owner = owner };
+        if (dialog.ShowDialog() != true) return null;
+        try
+        {
+            _settingsManager!.SaveMemoryReadingConsent(dialog.AllowMemoryReading);
+            return dialog.AllowMemoryReading;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error("Settings", "Could not save memory consent", ex);
+            const string message = "未能保存选择。本次将使用受限功能；下次启动时仍以已保存的选择为准。";
+            // Apply the restricted choice before a second modal dialog can pump any queued samples.
+            Dispatcher.InvokeAsync(() =>
+            {
+                if (owner?.IsVisible == true) MessageBox.Show(owner, message, "游戏内存读取", MessageBoxButton.OK, MessageBoxImage.Warning);
+                else MessageBox.Show(message, "游戏内存读取", MessageBoxButton.OK, MessageBoxImage.Warning);
+            });
+            return false;
+        }
     }
 
     private async Task SaveTrackingAsync(Task previousSave, List<TrackingEntry> entries)

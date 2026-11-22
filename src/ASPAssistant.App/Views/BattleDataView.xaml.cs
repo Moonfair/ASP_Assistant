@@ -22,6 +22,7 @@ public partial class BattleDataView : UserControl
     private string? _displaySourceId;
     private bool _waitingForCombatPhase;
     private bool _allowWindows, _sourceInitialized, _closed, _permissionDeclined;
+    private bool? _memoryReadingAllowed;
     private readonly Func<uint, bool, Func<BattleFeedMessage, Task>, CancellationToken, Task> _connect;
     private readonly Func<GameTarget, Func<BattleUpdate, Task>, CancellationToken, Task> _connectMuMu;
     private BattleFeedState _state = BattleFeedState.WaitingForClient;
@@ -73,6 +74,22 @@ public partial class BattleDataView : UserControl
         _session = null;
     }
 
+    internal void SetMemoryReadingAllowed(bool allowed)
+    {
+        if (_closed || _memoryReadingAllowed == allowed) return;
+        _memoryReadingAllowed = allowed;
+        _permissionDeclined = false;
+        if (!allowed)
+        {
+            _session?.Cancel();
+            _session = null; // Discard callbacks that were already queued on the dispatcher.
+            _waitingForCombatPhase = false;
+            ClearDisplayedBattle();
+            Present(new(BattleFeedState.Restricted));
+        }
+        else if (_sourceInitialized) Start();
+    }
+
     internal void Reconnect()
     {
         _permissionDeclined = false;
@@ -82,7 +99,7 @@ public partial class BattleDataView : UserControl
 
     private void Start()
     {
-        if (_closed) return;
+        if (_closed || _memoryReadingAllowed != true) return;
         _session?.Cancel();
         _session = null;
         if (!_allowWindows && _target?.Kind != GameTargetKind.MuMu)
@@ -170,6 +187,7 @@ public partial class BattleDataView : UserControl
         }
         FeedStatus.Text = _state switch
         {
+            BattleFeedState.Restricted => "DPS 统计已关闭。可在设置中解锁。",
             BattleFeedState.WaitingForRound when _last != null => "上回合数据 · 等待战斗",
             BattleFeedState.Connecting when muMu => "正在连接选中的 MuMu 实例…",
             BattleFeedState.WaitingForClient when muMu => "等待 MuMu 实例中的明日方舟",

@@ -447,6 +447,22 @@ public partial class SidePanelWindow : Window
 
     private void OnCloseSettings(object sender, RoutedEventArgs e) => SetSettingsVisible(false);
 
+    private void OnOpenMemorySettings(object sender, RoutedEventArgs e)
+    {
+        OnOpenSettings(sender, e);
+        ReviewMemoryReadingButton.Focus();
+        ReviewMemoryReadingButton.BringIntoView();
+    }
+
+    internal void SetMemoryReadingAllowed(bool allowed)
+    {
+        if (!allowed && BattleDataTab.IsSelected) MainTabs.SelectedIndex = 0;
+        BattleDataTab.Visibility = allowed ? Visibility.Visible : Visibility.Collapsed;
+        RestrictedNotice.Visibility = allowed ? Visibility.Collapsed : Visibility.Visible;
+        MemoryReadingStatus.Text = allowed ? "当前：全部功能，可读取游戏内存。" : "当前：受限功能，不读取游戏内存。";
+        BattleData.SetMemoryReadingAllowed(allowed);
+    }
+
     internal void ConfigureMarkerCalibration(OverlayWindow overlay)
     {
         MarkerCalibrationToggle.Checked += (_, _) => overlay.SetMarkerCalibration(true);

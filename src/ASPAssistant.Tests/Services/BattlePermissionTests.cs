@@ -1,9 +1,31 @@
 using ASPAssistant.App.Services;
+using System.IO.Pipes;
 
 namespace ASPAssistant.Tests.Services;
 
 public class BattlePermissionTests
 {
+    [Fact]
+    public async Task ClosingParentPipeCancelsIdleWorkerWithoutAnotherSample()
+    {
+        var name = $"asp-test-{Guid.NewGuid():N}";
+        using var parent = new NamedPipeServerStream(name, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        using var child = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
+        var connected = parent.WaitForConnectionAsync();
+        await child.ConnectAsync(3000);
+        await connected;
+        CancellationToken workerToken = default;
+        var worker = BattleDataSession.RunUntilParentClosesAsync(child, token =>
+        {
+            workerToken = token;
+            return Task.Delay(Timeout.Infinite, token);
+        });
+        parent.Dispose();
+        await worker.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.True(workerToken.IsCancellationRequested);
+    }
+
     [Theory]
     [InlineData(0, true, false, false, false, true)]
     [InlineData(45, true, false, true, true, true)]

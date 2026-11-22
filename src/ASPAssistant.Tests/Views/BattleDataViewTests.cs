@@ -13,6 +13,45 @@ namespace ASPAssistant.Tests.Views;
 [Collection("WPF views")]
 public class BattleDataViewTests
 {
+    [Theory]
+    [InlineData(GameTargetKind.Windows)]
+    [InlineData(GameTargetKind.MuMu)]
+    public void RestrictedSourceAndReconnectNeverStartAReader(GameTargetKind kind)
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
+            var tokens = new System.Collections.Concurrent.ConcurrentQueue<CancellationToken>();
+            Task Connect(CancellationToken token) { tokens.Enqueue(token); return Task.Delay(-1, token); }
+            var view = new BattleDataView((_, _, _, token) => Connect(token), (_, _, token) => Connect(token));
+            try
+            {
+                var target = new GameTarget("test", "test", kind, 1, 1);
+                var states = new List<BattleUpdate>();
+                view.Updated += states.Add;
+                view.SetSource(target, kind == GameTargetKind.Windows);
+                view.Reconnect();
+                Assert.DoesNotContain(states, s => s.State == BattleFeedState.Connecting);
+                Assert.Empty(tokens);
+                view.SetMemoryReadingAllowed(true);
+                IconLoadingTests.PumpUntil(() => tokens.Count == 1);
+                view.Present(new(BattleFeedState.Live, new(1, 100, 5, false,
+                    new() { ["operator"] = new(100, 0, 0, 0) })));
+                view.SetMemoryReadingAllowed(false);
+                Assert.True(tokens.First().IsCancellationRequested);
+                Assert.Null(((ItemsControl)view.FindName("OperatorRows")).ItemsSource);
+                Assert.Equal(BattleFeedState.Restricted, states.Last().State);
+                states.Clear();
+                view.SetSource(target with { Id = "next" }, kind == GameTargetKind.Windows);
+                view.Reconnect();
+                Assert.DoesNotContain(states, s => s.State == BattleFeedState.Connecting);
+                view.SetMemoryReadingAllowed(true);
+                IconLoadingTests.PumpUntil(() => tokens.Count == 2);
+            }
+            finally { view.Stop(); }
+        });
+    }
+
     [Fact]
     public void StartsWhileHiddenAndReusesTheAuthorizedConnectionWhenTheGameAppears()
     {
@@ -30,6 +69,7 @@ public class BattleDataViewTests
             try
             {
                 Assert.False(view.IsVisible);
+                view.SetMemoryReadingAllowed(true);
                 view.SetSource(null, false);
                 Assert.Equal(0, connects);
                 view.SetSource(null, true);
@@ -78,6 +118,7 @@ public class BattleDataViewTests
             var scroll = (ScrollViewer)view.FindName("RowsScroll");
             Assert.Equal(0, scroll.ScrollableWidth);
             var emulator = new GameTarget("ld:0", "LD", GameTargetKind.LdPlayer, 1, 1, WindowPid: 77);
+            view.SetMemoryReadingAllowed(true);
             view.SetSource(emulator, true);
             LineupPerformanceTests.Layout(view);
             Assert.DoesNotContain("“暴躁铁皮”", Texts(view));
@@ -157,6 +198,7 @@ public class BattleDataViewTests
             try
             {
                 var one = new GameTarget("mumu:0", "MuMu", GameTargetKind.MuMu, 1, 1, Serial: "127.0.0.1:16384");
+                view.SetMemoryReadingAllowed(true);
                 view.SetSource(one, false);
                 IconLoadingTests.PumpUntil(() => feeds.ContainsKey(one.Id));
                 var first = feeds[one.Id];

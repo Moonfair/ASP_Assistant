@@ -200,6 +200,12 @@
                             </UniformGrid>
                         </DockPanel>
                     </Border>
+                    <DockPanel x:Name="RestrictedNotice" DockPanel.Dock="Bottom" Margin="8,4">
+                        <Button x:Name="RestrictedSettingsButton" DockPanel.Dock="Right" Content="去设置"
+                                Click="OnOpenMemorySettings" Style="{StaticResource TrackingButton}" />
+                        <TextBlock Text="DPS 统计已关闭，可在设置中解锁。" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                    </DockPanel>
                     <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}">
                         <TabItem Header="干员">
                             <views:OperatorBrowseView x:Name="OperatorView" />
@@ -219,7 +225,7 @@
                         <TabItem x:Name="MatchTab" Header="匹配" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                             <views:MatchView x:Name="MatchView" />
                         </TabItem>
-                        <TabItem Header="数据" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem x:Name="BattleDataTab" Header="数据" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                             <views:BattleDataView x:Name="BattleData" />
                         </TabItem>
                     </TabControl>
@@ -276,6 +282,16 @@
                 </Border>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
+                        <Border Style="{StaticResource ItemCardBorder}" Padding="10" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="游戏内存读取" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                <TextBlock x:Name="MemoryReadingStatus" Margin="0,6,0,8" TextWrapping="Wrap"
+                                           Foreground="{StaticResource TextSecondaryBrush}" />
+                                <Button x:Name="ReviewMemoryReadingButton" Content="查看风险并更改选择" Style="{StaticResource TrackingButton}"
+                                        HorizontalAlignment="Left" Padding="8,5" />
+                            </StackPanel>
+                        </Border>
                         <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}"
                                 BorderThickness="1" CornerRadius="7" Padding="10">
                             <StackPanel>

@@ -13,7 +13,7 @@ public class GameStateUpdaterTests
     public void NativeHudRemainsLiveThroughScreenMissesAndClearsWhenMemoryDisconnects()
     {
         var vm = new GameStateViewModel();
-        vm.SetHudSource(GameTargetKind.Windows);
+        vm.SetHudSource(GameTargetKind.Windows, memoryReadingAllowed: true);
         var screen = new Core.GameState.GameState { Hud = new GarrisonHud(1, 2, 99, 7) };
         vm.UpdateFromGameState(screen);
         Assert.Null(vm.Hud.Round);
@@ -28,7 +28,12 @@ public class GameStateUpdaterTests
         vm.UpdateMemoryHud(null);
         vm.UpdateFromGameState(screen);
         Assert.Null(vm.Hud.Gold);
-        vm.SetHudSource(GameTargetKind.MuMu);
+        vm.SetHudSource(GameTargetKind.Windows, memoryReadingAllowed: false);
+        Assert.Null(vm.Hud.Round);
+        vm.UpdateFromGameState(screen);
+        vm.UpdateMemoryHud(snapshot);
+        Assert.Equal(screen.Hud, vm.Hud);
+        vm.SetHudSource(GameTargetKind.MuMu, memoryReadingAllowed: true);
         vm.UpdateMemoryHud(snapshot);
         vm.UpdateFromGameState(screen);
         Assert.Equal(screen.Hud, vm.Hud);

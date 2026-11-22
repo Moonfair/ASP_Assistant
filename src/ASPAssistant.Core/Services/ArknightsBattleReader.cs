@@ -10,7 +10,7 @@ namespace ASPAssistant.Core.Services;
 public enum BattleFeedState
 {
     Connecting, WaitingForClient, WindowsOnly, WaitingForRound, Live, PermissionRequired,
-    UnsupportedBuild, ReadInterrupted, ConnectionFailed
+    UnsupportedBuild, ReadInterrupted, ConnectionFailed, Restricted
 }
 
 public sealed record BattleUpdate(BattleFeedState State, BattleFrame? Sample = null,

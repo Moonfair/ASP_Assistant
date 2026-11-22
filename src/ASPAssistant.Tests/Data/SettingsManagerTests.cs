@@ -23,6 +23,18 @@ public class SettingsManagerTests : IDisposable
     }
 
     [Fact]
+    public void MemoryConsentRequiresAnExplicitChoiceAndRemembersBothModes()
+    {
+        Assert.Null(_manager.LoadMemoryReadingConsent());
+        _manager.SaveMemoryReadingConsent(true);
+        Assert.True(new SettingsManager(_tempDir).LoadMemoryReadingConsent());
+        _manager.SaveMemoryReadingConsent(false);
+        Assert.False(new SettingsManager(_tempDir).LoadMemoryReadingConsent());
+        File.WriteAllText(Path.Combine(_tempDir, "memory-reading.json"), "{}");
+        Assert.Null(_manager.LoadMemoryReadingConsent());
+    }
+
+    [Fact]
     public void GameSourceDefaultsToAutomaticWithoutASavedPreference()
     {
         _manager.LoadGameTarget().Id.Should().Be("auto");

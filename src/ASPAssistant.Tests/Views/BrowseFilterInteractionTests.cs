@@ -173,6 +173,7 @@ public class BrowseFilterInteractionTests
             VerifyDuplicateLabelsAndEmptyResults();
             VerifyDisabledCovenantsRemainFilterable();
             VerifySideFilterLayout();
+            VerifyMemoryReadingDialog();
             app.Dispatcher.Invoke(BetaUpdateInteraction.Verify, DispatcherPriority.Normal);
             VerifySettingsPreferences();
             VerifySideFilterWheelOverChips();
@@ -348,6 +349,24 @@ public class BrowseFilterInteractionTests
         finally { host.Close(); }
     }
 
+    private static void VerifyMemoryReadingDialog()
+    {
+        foreach (var button in new[] { "RestrictedButton", "FullButton", null })
+        {
+            var dialog = new ASPAssistant.App.Windows.MemoryReadingConsentWindow();
+            Assert.Equal(WindowState.Maximized, dialog.WindowState);
+            Assert.Equal(WindowStyle.None, dialog.WindowStyle);
+            Assert.False(dialog.AllowMemoryReading);
+            dialog.ContentRendered += (_, _) =>
+            {
+                if (button == null) dialog.Close();
+                else ((Button)dialog.FindName(button)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            };
+            Assert.Equal(button != null, dialog.ShowDialog());
+            Assert.Equal(button == "FullButton", dialog.AllowMemoryReading);
+        }
+    }
+
     private static void VerifySideFilterLayout()
     {
         Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary
@@ -363,6 +382,18 @@ public class BrowseFilterInteractionTests
         gearVm.LoadEquipment([new() { Name = "装备甲", Tier = 1 }, new() { Name = "装备乙", Tier = 2 }]);
         var window = new ASPAssistant.App.Windows.SidePanelWindow(vm, gearVm, new(), new(), new())
             { Left = 900, Top = 20, Height = 800 };
+        var dataTab = (TabItem)window.FindName("BattleDataTab");
+        var mainTabs = (TabControl)window.FindName("MainTabs");
+        window.SetMemoryReadingAllowed(true);
+        mainTabs.SelectedItem = dataTab;
+        window.SetMemoryReadingAllowed(false);
+        Assert.Equal(Visibility.Collapsed, dataTab.Visibility);
+        Assert.Equal(0, mainTabs.SelectedIndex);
+        ((Button)window.FindName("RestrictedSettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("SettingsPage")).Visibility);
+        ((Button)window.FindName("BackFromSettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.SetMemoryReadingAllowed(true);
+        Assert.Equal(Visibility.Visible, dataTab.Visibility);
         LayoutFilterWindow(window);
         var toggle = window.FindName("LayoutToggle") as System.Windows.Controls.Primitives.ToggleButton;
         toggle.Should().NotBeNull("a layout switch should select the new sidebar layout");

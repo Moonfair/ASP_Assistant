@@ -44,6 +44,11 @@ internal sealed class MatchSession : IDisposable
     internal void Observe(BattleUpdate update)
     {
         if (_shutdown.IsCancellationRequested) return;
+        if (update.State == BattleFeedState.Restricted)
+        {
+            SetUnavailable("受限模式不读取游戏房间。可在设置中更改内存读取选择。");
+            return;
+        }
         if (update.Source == GameTargetKind.MuMu)
         {
             SetUnavailable("自动识别房间需要使用官方 Windows 客户端。");

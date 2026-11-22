@@ -100,7 +100,7 @@ internal static class BattleDataSession
     private static async Task ObserveElevatedAsync(Func<BattleFeedMessage, Task> publish, CancellationToken token)
     {
         var id = Guid.NewGuid();
-        using var pipe = new NamedPipeServerStream(PipeName(id), PipeDirection.In, 1,
+        using var pipe = new NamedPipeServerStream(PipeName(id), PipeDirection.InOut, 1,
             PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
         var start = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "ASPAssistant.App.exe"))
         {
@@ -126,14 +126,31 @@ internal static class BattleDataSession
         throw new IOException("战斗采集进程已断开");
     }
 
-    // The child accepts no commands over the pipe. Ending the session closes its only output.
+    // The child accepts no commands. Monitor EOF so revocation stops an idle reader
+    // without waiting for a future memory sample or a failed write.
+    internal static async Task RunUntilParentClosesAsync(Stream pipe, Func<CancellationToken, Task> watch)
+    {
+        using var lifetime = new CancellationTokenSource();
+        async Task MonitorParentAsync()
+        {
+            try { await pipe.ReadAsync(new byte[1], lifetime.Token).ConfigureAwait(false); }
+            catch (IOException) { }
+            catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+            finally { lifetime.Cancel(); }
+        }
+        var monitor = MonitorParentAsync();
+        try { await watch(lifetime.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        finally { lifetime.Cancel(); await monitor.ConfigureAwait(false); }
+    }
+
     internal static async Task<int> RunWorkerAsync(string[] args)
     {
         if (args.Length != 2 || !Guid.TryParseExact(args[1], "N", out var id))
             return 1;
         try
         {
-            using var pipe = new NamedPipeClientStream(".", PipeName(id), PipeDirection.Out,
+            using var pipe = new NamedPipeClientStream(".", PipeName(id), PipeDirection.InOut,
                 PipeOptions.Asynchronous, TokenImpersonationLevel.Anonymous);
             await pipe.ConnectAsync(12000).ConfigureAwait(false);
             if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out var peer)) return 1;
@@ -141,7 +158,8 @@ internal static class BattleDataSession
             if (!string.Equals(parent.MainModule?.FileName, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
                 return 1;
             using var output = new StreamWriter(pipe, new UTF8Encoding(false)) { AutoFlush = true };
-            await WatchClientsAsync(update => output.WriteLineAsync(JsonSerializer.Serialize(update)), false, CancellationToken.None);
+            await RunUntilParentClosesAsync(pipe, token => WatchClientsAsync(
+                update => output.WriteLineAsync(JsonSerializer.Serialize(update)), false, token));
             return 0;
         }
         catch (Exception ex) when (ex is IOException or TimeoutException or UnauthorizedAccessException or Win32Exception or ArgumentException or InvalidOperationException)

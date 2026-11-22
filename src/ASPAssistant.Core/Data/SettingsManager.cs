@@ -22,6 +22,23 @@ public class SettingsManager
         _settingsDir = settingsDir;
     }
 
+    // Missing, unreadable and pre-consent installations all require a fresh choice.
+    public bool? LoadMemoryReadingConsent()
+    {
+        try
+        {
+            var path = Path.Combine(_settingsDir, "memory-reading.json");
+            return File.Exists(path) ? JsonSerializer.Deserialize<bool?>(File.ReadAllText(path)) : null;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Warn("Settings", $"Could not read memory consent: {ex.Message}");
+            return null;
+        }
+    }
+
+    public void SaveMemoryReadingConsent(bool allowed) => SavePreference("memory-reading", allowed);
+
     public bool LoadSideFilterLayout()
     {
         try
