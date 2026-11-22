@@ -50,7 +50,14 @@ public class UpdateService
     public Version CurrentVersion => _installed.BaseVersion;
     public bool IsDevBuild => CurrentVersion == new Version(0, 0, 0);
 
-    // There is deliberately no persisted channel setting and no automatic caller.
+    private Task<GitHubRelease?> ReadLatestStableAsync(CancellationToken ct) =>
+        _http.GetFromJsonAsync<GitHubRelease>($"https://api.github.com/repos/{Owner}/{Repo}/releases/latest", ct);
+
+    private static ReleaseVersion? StableVersion(GitHubRelease? release) =>
+        release is { Prerelease: false, Draft: false } && ReleaseVersion.FromTag(release.TagName) is { Beta: null } version
+            ? version : null;
+
+    // Settings may read metadata, but only an explicit click can preview a Beta.
     public async Task<UpdateInfo?> CheckForBetaUpdateAsync(CancellationToken ct = default)
     {
         using var response = await _http.GetAsync(BetaBaseUrl + "latest.json", ct);
@@ -61,6 +68,10 @@ public class UpdateService
         if (manifest is null || version?.Beta is null || ParseSha256("sha256:" + manifest.Sha256) is not { } hash)
             throw new InvalidDataException("Beta 更新清单无效。");
         if (version.CompareTo(_installed) <= 0) return null;
+
+        var stable = StableVersion(await ReadLatestStableAsync(ct))
+            ?? throw new InvalidDataException("无法确认最新正式版。");
+        if (version.CompareTo(stable) <= 0) return null;
 
         var name = SetupAssetName(manifest.Tag);
         return new UpdateInfo(manifest.Tag, version.ToString(), manifest.Notes ?? "", BetaBaseUrl + name, name)
@@ -76,12 +87,8 @@ public class UpdateService
 
         try
         {
-            var url = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
-            var release = await _http.GetFromJsonAsync<GitHubRelease>(url, ct);
-            if (release is null || release.Prerelease || release.Draft) return null;
-
-            var latestVersion = ReleaseVersion.FromTag(release.TagName);
-            if (latestVersion is null || latestVersion.Beta.HasValue || latestVersion.CompareTo(_installed) <= 0)
+            var release = await ReadLatestStableAsync(ct);
+            if (release is null || StableVersion(release) is not { } latestVersion || latestVersion.CompareTo(_installed) <= 0)
                 return null;
 
             var asset = release.Assets.FirstOrDefault(a => a.Name == SetupAssetName(release.TagName));

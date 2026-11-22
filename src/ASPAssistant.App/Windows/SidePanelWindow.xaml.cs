@@ -30,6 +30,8 @@ public partial class SidePanelWindow : Window
     private readonly SemaphoreSlim _updateCheckGate = new(1, 1);
     private CancellationTokenSource? _settingsBetaCheck;
     private bool _updateCheckAttempted;
+    private bool _updateButtonsEnabled = true;
+    private bool _betaCheckEnabled;
     private readonly DispatcherTimer _preparationResultTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private bool _waitingForScroll;
     private LineupLibraryViewModel? _lineupLibrary;
@@ -433,12 +435,13 @@ public partial class SidePanelWindow : Window
     {
         _updateService = updateService;
         RefreshVersionLabel(updateService);
+        if (SettingsPage.Visibility == Visibility.Visible) _ = CheckSettingsBetaAsync(preview: false);
         _ = CheckAfterStartupAsync();
     }
 
     private void OnOpenSettings(object sender, RoutedEventArgs e)
     {
-        RefreshVersionLabel(_updateService ??= new UpdateService());
+        RefreshVersionLabel(_updateService ?? new UpdateService());
         SetSettingsVisible(SettingsPage.Visibility != Visibility.Visible);
     }
 
@@ -474,6 +477,7 @@ public partial class SidePanelWindow : Window
         }
         SettingsPage.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         MainContent.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
+        if (visible && _updateService is not null) _ = CheckSettingsBetaAsync(preview: false);
         if (CannotSpeech.IsVisible)
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(PositionCannotSpeech));
         UpdateFilterHost();
@@ -531,46 +535,70 @@ public partial class SidePanelWindow : Window
             ShowPendingUpdate();
     }
 
-    private async void OnCheckForBetaUpdates(object sender, RoutedEventArgs e)
+    private async void OnCheckForBetaUpdates(object sender, RoutedEventArgs e) =>
+        await CheckSettingsBetaAsync(preview: true);
+
+    private async Task CheckSettingsBetaAsync(bool preview)
     {
-        if (!SettingsPage.IsVisible || !_updateCheckGate.Wait(0)) return;
+        // The passive metadata lookup never holds the lock for the ordinary stable update.
+        if (preview && (!SettingsPage.IsVisible || !SettingsCheckBetaButton.IsEnabled || !_updateCheckGate.Wait(0))) return;
+        _settingsBetaCheck?.Cancel();
         using var cancellation = new CancellationTokenSource();
         _settingsBetaCheck = cancellation;
         try
         {
-            SetUpdateButtonsEnabled(false);
-            SettingsBetaStatus.Text = "正在检查 Beta 版…";
-            SettingsBetaStatus.Visibility = Visibility.Visible;
+            SetBetaAvailability(false, "正在核对版本…");
+            if (preview)
+            {
+                SetUpdateButtonsEnabled(false);
+                SettingsBetaStatus.Text = "正在检查 Beta 版…";
+                SettingsBetaStatus.Visibility = Visibility.Visible;
+            }
             var service = _updateService ??= new UpdateService();
             var info = await service.CheckForBetaUpdateAsync(cancellation.Token);
             if (cancellation.IsCancellationRequested) return;
-            if (info is null)
-                SettingsBetaStatus.Text = "没有比当前版本更新的 Beta 版。";
+            const string unavailable = "暂无同时高于最新正式版和当前版本的 Beta 版。";
+            SetBetaAvailability(info is not null, info is null ? unavailable : "查看 Beta 版说明，不会自动安装。");
+            if (!preview) return;
+            if (info is null) SettingsBetaStatus.Text = unavailable;
             else
             {
-                // A Beta result is local to this settings action, never the ordinary update banner.
                 SettingsBetaStatus.Visibility = Visibility.Collapsed;
                 if (SettingsPage.IsVisible && WindowState != WindowState.Minimized)
                     ShowUpdateDialog(service, info);
             }
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (Exception) when (cancellation.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            SettingsBetaStatus.Text = "检查 Beta 版失败，请稍后重试。";
+            SetBetaAvailability(true, "无法确认 Beta 版状态，点击重试。");
+            if (preview) SettingsBetaStatus.Text = "检查 Beta 版失败，请稍后重试。";
             AppLogger.Error("Update", "Could not check for a Beta update", ex);
         }
         finally
         {
-            _settingsBetaCheck = null;
-            SetUpdateButtonsEnabled(true);
-            _updateCheckGate.Release();
+            if (ReferenceEquals(_settingsBetaCheck, cancellation)) _settingsBetaCheck = null;
+            if (preview)
+            {
+                SetUpdateButtonsEnabled(true);
+                _updateCheckGate.Release();
+            }
         }
     }
 
-    private void SetUpdateButtonsEnabled(bool enabled) =>
-        SettingsCheckUpdateButton.IsEnabled = SettingsCheckBetaButton.IsEnabled =
-        SettingsViewUpdateButton.IsEnabled = UpdateActionButton.IsEnabled = enabled;
+    private void SetBetaAvailability(bool enabled, string reason)
+    {
+        _betaCheckEnabled = enabled;
+        SettingsCheckBetaButton.ToolTip = reason;
+        SettingsCheckBetaButton.IsEnabled = _updateButtonsEnabled && enabled;
+    }
+
+    private void SetUpdateButtonsEnabled(bool enabled)
+    {
+        _updateButtonsEnabled = enabled;
+        SettingsCheckUpdateButton.IsEnabled = SettingsViewUpdateButton.IsEnabled = UpdateActionButton.IsEnabled = enabled;
+        SettingsCheckBetaButton.IsEnabled = enabled && _betaCheckEnabled;
+    }
 
     private void OnShowUpdateDialog(object sender, RoutedEventArgs e) => ShowPendingUpdate();
 

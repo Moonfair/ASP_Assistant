@@ -48,16 +48,29 @@ public class BetaChannelTests
     [InlineData("3.10.0", false)]
     public async Task ManualCheckOffersOnlyStrictlyNewerBeta(string installed, bool available)
     {
-        using var handler = new Handler(_ => Json(new { tag = Tag, sha256 = Hash, notes = "测试说明" }));
+        using var handler = new Handler(url => url == Stable ? OlderStable() : Json(new { tag = Tag, sha256 = Hash, notes = "测试说明" }));
         using var http = new HttpClient(handler);
         var info = await new UpdateService(http, installed).CheckForBetaUpdateAsync();
         (info is not null).Should().Be(available);
-        handler.Urls.Should().Equal(Manifest);
+        handler.Urls.Should().Equal(available ? new[] { Manifest, Stable } : new[] { Manifest });
         if (info is null) return;
         info.IsBeta.Should().BeTrue();
         info.ReleaseNotes.Should().Be("测试说明");
         info.AssetName.Should().Be(Asset);
         info.DownloadUrl.Should().Be(Manifest.Replace("latest.json", Asset));
+    }
+
+    [Theory]
+    [InlineData("v3.9.9-beta.10", "v3.10.0", false)]
+    [InlineData("v3.10.0-beta.12", "v3.10.0", false)]
+    [InlineData("v3.10.1-beta.1", "v3.10.0", true)]
+    public async Task BetaMustAlsoBeatLatestPublishedStable(string beta, string stable, bool offered)
+    {
+        using var http = new HttpClient(new Handler(url => url == Stable
+            ? Json(new { tag_name = stable, assets = Array.Empty<object>() })
+            : Json(new { tag = beta, sha256 = Hash })));
+        var update = await new UpdateService(http, "3.8.11").CheckForBetaUpdateAsync();
+        (update is not null).Should().Be(offered);
     }
 
     [Fact]
@@ -84,7 +97,7 @@ public class BetaChannelTests
     [InlineData(false)]
     public async Task BetaPackageUsesOnlyItsOwnChannelAndRequiresMatchingHash(bool intact)
     {
-        using var handler = new Handler(url => url == Manifest
+        using var handler = new Handler(url => url == Stable ? OlderStable() : url == Manifest
             ? Json(new { tag = Tag, sha256 = Hash, url = "https://example.invalid/untrusted" })
             : new(HttpStatusCode.OK) { Content = new ByteArrayContent(intact ? Bytes : [0]) });
         using var http = new HttpClient(handler);
@@ -96,11 +109,21 @@ public class BetaChannelTests
             var download = () => service.DownloadPackageAsync(info!, target, null, default);
             if (!intact) await download.Should().ThrowAsync<InvalidDataException>();
             else { await download(); File.ReadAllBytes(target).Should().Equal(Bytes); }
-            handler.Urls.Should().Equal(Manifest, Manifest.Replace("latest.json", Asset));
+            handler.Urls.Should().Equal(Manifest, Stable, Manifest.Replace("latest.json", Asset));
         }
         finally { File.Delete(target); }
     }
 
+    [Fact]
+    public async Task CannotOfferBetaWhenStableFeedIsUnavailable()
+    {
+        using var http = new HttpClient(new Handler(url => url == Stable
+            ? new(HttpStatusCode.ServiceUnavailable) : Json(new { tag = Tag, sha256 = Hash })));
+        var check = () => new UpdateService(http, "3.8.11").CheckForBetaUpdateAsync();
+        await check.Should().ThrowAsync<HttpRequestException>();
+    }
+
+    private static HttpResponseMessage OlderStable() => Json(new { tag_name = "v3.8.12", assets = Array.Empty<object>() });
     private static HttpResponseMessage Json(object value) => new(HttpStatusCode.OK) { Content = JsonContent.Create(value) };
     private sealed class Handler(Func<string, HttpResponseMessage> respond) : HttpMessageHandler
     {

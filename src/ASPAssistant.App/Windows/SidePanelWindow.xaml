@@ -258,8 +258,19 @@
                                     Click="OnCheckForUpdates" Style="{StaticResource TrackingButton}" Padding="8,5" Margin="0,6,6,0" />
                             <Button x:Name="SettingsViewUpdateButton" Content="查看更新" Click="OnShowUpdateDialog"
                                     Style="{StaticResource TrackingButton}" Visibility="Collapsed" Padding="8,5" Margin="0,6,6,0" />
-                            <Button x:Name="SettingsCheckBetaButton" Content="检查 Beta 版" ToolTip="仅检查这一次，不会自动安装。"
-                                    Click="OnCheckForBetaUpdates" Style="{StaticResource TrackingButton}" Padding="8,5" Margin="0,6,0,0" />
+                            <Button x:Name="SettingsCheckBetaButton" Content="检查 Beta 版" ToolTipService.ShowOnDisabled="True"
+                                    IsEnabled="False" Click="OnCheckForBetaUpdates" Padding="8,5" Margin="0,6,0,0">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource TrackingButton}">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.55" />
+                                                <Setter Property="Cursor" Value="Arrow" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </WrapPanel>
                     </StackPanel>
                 </Border>

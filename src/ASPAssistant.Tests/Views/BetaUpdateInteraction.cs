@@ -37,6 +37,7 @@ internal static class BetaUpdateInteraction
 
         window.Show();
         Click((Button)window.FindName("SettingsButton"));
+        Until(() => beta!.IsEnabled);
         Click(beta!);
         stable.IsEnabled.Should().BeFalse();
         beta!.IsEnabled.Should().BeFalse();
@@ -61,11 +62,35 @@ internal static class BetaUpdateInteraction
         finally
         {
             ComponentDispatcher.EnterThreadModal -= DeferPreview;
-            window.Hide();
         }
         previewed.Should().BeTrue("a manual check must show a distinct Beta confirmation before installation");
-        handler.Paths.Should().Equal("/repos/Moonfair/ASP_Assistant/releases/latest", "/updates/beta/latest.json");
         banner.Text.Should().Be(stableBanner, "a declined Beta must not replace the ordinary update");
+        var toggle = (Button)window.FindName("SettingsButton");
+        Click(toggle); // Close and reopen with a newer stable than both installed and Beta.
+        handler.StableTag = "v3.10.0";
+        Click(toggle);
+        Until(() => !beta.IsEnabled && beta.ToolTip?.ToString()?.Contains("正式版") == true);
+        beta.Opacity.Should().BeLessThan(1);
+        stable.IsEnabled.Should().BeTrue();
+        var requests = handler.Paths.Count;
+        Click(beta); // Routed events can be raised even on a disabled WPF button.
+        handler.Paths.Should().HaveCount(requests);
+        window.OwnedWindows.Cast<Window>().Should().BeEmpty();
+
+        Click(toggle);
+        handler.BetaTag = "v3.10.1-beta.1";
+        Click(toggle);
+        Until(() => beta.IsEnabled);
+        window.OwnedWindows.Cast<Window>().Should().BeEmpty("opening settings only checks availability");
+
+        handler.StableTag = "v3.10.1"; // A final may ship while the settings page remains open.
+        Click(beta);
+        Until(() => stable.IsEnabled && !beta.IsEnabled);
+        window.OwnedWindows.Cast<Window>().Should().BeEmpty();
+        handler.Paths.Should().OnlyContain(path => path.EndsWith("/latest") || path.EndsWith("/latest.json"),
+            "metadata checks must not download installers");
+        Click(toggle);
+        window.Hide();
     }
 
     private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -80,17 +105,24 @@ internal static class BetaUpdateInteraction
 
     private sealed class Releases : HttpMessageHandler
     {
+        public string StableTag = "v3.8.12", BetaTag = "v3.9.0-beta.1";
+        private int _betaReads;
         public readonly List<string> Paths = [];
         public readonly TaskCompletionSource<HttpResponseMessage> Beta = new(TaskCreationOptions.RunContinuationsAsynchronously);
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
         {
             var path = request.RequestUri!.AbsolutePath;
             Paths.Add(path);
-            if (path == "/updates/beta/latest.json") return Beta.Task.WaitAsync(token);
+            if (path == "/updates/beta/latest.json")
+            {
+                if (++_betaReads == 2) return Beta.Task.WaitAsync(token); // delay explicit preview, not availability
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new
+                    { tag = BetaTag, sha256 = new string('a', 64) }) });
+            }
             if (path != "/repos/Moonfair/ASP_Assistant/releases/latest") return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new
             {
-                tag_name = "v3.8.12", assets = new[] { new { name = "ASPAssistant-v3.8.12-win-x64-setup.exe",
+                tag_name = StableTag, assets = new[] { new { name = $"ASPAssistant-{StableTag}-win-x64-setup.exe",
                     browser_download_url = "https://example.invalid/stable" } }
             }) });
         }
