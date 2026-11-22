@@ -134,17 +134,12 @@ function sendMatchStroke(player, body, now) {
   room.strokes.push({ id, playerId: player.member.id, points: points.map(({ x, y }) => ({ x, y })), expiresAt: now + MATCH_STROKE_MS });
 }
 
-export class DesktopMatchService {
-  constructor(now = Date.now) {
-    this.now = now;
-    this.players = new Map();
-    this.queue = [];
-    this.rooms = new Map();
+class MatchTicketLedger {
+  constructor() {
     this.ended = new Map();
     this.claimsByIp = new Map();
     this.claimCount = 0;
     this.claimWindowEnds = 0;
-    this.nextSweep = 0;
   }
 
   countNewAttempt(ip, now) {
@@ -162,6 +157,24 @@ export class DesktopMatchService {
   rememberEnd(key, selfId, message, now) {
     this.ended.set(key, { selfId, message, at: now });
     if (this.ended.size > 65_536) this.ended.delete(this.ended.keys().next().value);
+  }
+
+  pruneEnded(now) {
+    for (const [key, record] of this.ended) {
+      if (record.at + MATCH_REPLAY_MS > now) break;
+      this.ended.delete(key);
+    }
+  }
+}
+
+export class DesktopMatchService extends MatchTicketLedger {
+  constructor(now = Date.now) {
+    super();
+    this.now = now;
+    this.players = new Map();
+    this.queue = [];
+    this.rooms = new Map();
+    this.nextSweep = 0;
   }
 
   forget(player, message, now) {
@@ -228,10 +241,7 @@ export class DesktopMatchService {
         else pruneMatchStrokes(room, now);
       }
       this.removeIdlePlayers(this.players.values(), now);
-      for (const [key, record] of this.ended) {
-        if (record.at + MATCH_REPLAY_MS > now) break;
-        this.ended.delete(key);
-      }
+      this.pruneEnded(now);
     }
     this.admitWaiting(now);
   }
@@ -379,12 +389,15 @@ export class DesktopMatchService {
 }
 
 async function desktopMatchApi(request, action, env) {
-  if (!MATCH_ACTIONS.has(action)) throw new HttpError(404, '找不到这个匹配操作。');
+  const live = action.startsWith('live/');
+  if (live) action = action.slice(5);
+  if (!(live ? LIVE_MATCH_ACTIONS : MATCH_ACTIONS).has(action)) throw new HttpError(404, '找不到这个匹配操作。');
   if (request.method !== 'POST') throw new HttpError(405, '匹配接口需要使用 POST。');
   const ticket = /^Bearer ([0-9a-f]{64})$/i.exec(request.headers.get('authorization') ?? '')?.[1];
   if (!ticket) throw new HttpError(401, '匹配凭证无效。');
-  if (!env.matchService) throw new HttpError(503, '匹配服务暂时不可用。');
+  const service = live ? env.liveMatchService : env.matchService;
+  if (!service) throw new HttpError(503, '匹配服务暂时不可用。');
   const body = await readBody(request, action === 'stroke' ? 32_768 : 8192);
-  const key = await digest('desktop-match:' + ticket.toLowerCase());
-  return reply(env.matchService.execute(key, action, body, env.clientIp ?? 'unknown'));
+  const key = await digest((live ? 'desktop-live-match:' : 'desktop-match:') + ticket.toLowerCase());
+  return reply(service.execute(key, action, body, env.clientIp ?? 'unknown'));
 }
