@@ -44,6 +44,11 @@ internal sealed class MatchSession : IDisposable
     internal void Observe(BattleUpdate update)
     {
         if (_shutdown.IsCancellationRequested) return;
+        if (update.Source == GameTargetKind.MuMu)
+        {
+            SetUnavailable("自动识别房间需要使用官方 Windows 客户端。");
+            return;
+        }
         var game = update.Room;
         if (game == null)
         {

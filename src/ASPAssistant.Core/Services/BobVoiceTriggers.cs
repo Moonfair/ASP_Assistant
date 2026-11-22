@@ -5,10 +5,11 @@ namespace ASPAssistant.Core.Services;
 public enum BobVoiceCue
 {
     Opening, Upgrade, TrackedShopItem, BeforeBattle, BattleVictory, BattleLoss,
-    LowHealth, Recruit, Sell, PreparationChatter
+    LowHealth, Recruit, Sell, PreparationChatter, ShopFrozen, ShopRefreshed, Promotion,
+    BattleStart, FirstVictory
 }
 
-public sealed class BobVoiceTriggers
+public sealed partial class BobVoiceTriggers
 {
     private readonly record struct ShopFrame(int Round, int Level, int Gold);
 
@@ -25,7 +26,7 @@ public sealed class BobVoiceTriggers
     private TimeSpan? _nextChatter;
 
     public BobVoiceCue? Observe(GarrisonHud hud, IEnumerable<string> trackedShopNames,
-        GarrisonVoiceFrame voice = default, TimeSpan? elapsed = null)
+        GarrisonVoiceFrame voice = default, TimeSpan? elapsed = null, BattleUpdate? memory = null)
     {
         if (hud.Round is int round && round > 0)
         {
@@ -34,15 +35,22 @@ public sealed class BobVoiceTriggers
             _lastRound = round;
         }
 
-        var shopCue = ObserveShop(hud, trackedShopNames, voice);
+        var snapshot = memory is { Source: GameTargetKind.Windows, GarrisonInterrupted: false,
+            Garrison.Round: > 0 } && memory.Garrison.Round == hud.Round ? memory.Garrison : null;
+        if (snapshot?.Health is >= 0) voice = voice with { Health = snapshot.Health };
+        var memoryCue = ObserveMemoryShop(snapshot, voice);
+        var battleStart = voice.Preparation || voice.ShopVisible == true || voice.BattleCue.HasValue
+            ? null : ObserveBattleStart(memory, hud.Round);
+        var shopCue = ObserveShop(hud, trackedShopNames, voice, snapshot != null);
         if (hud.Round is > 0 && voice.BattleCue is { } battleCue && _battleCues.Add((hud.Round.Value, battleCue)))
         {
             if (battleCue != BobVoiceCue.BattleVictory) return battleCue;
             if (!_victoryAnnounced)
             {
                 _victoryAnnounced = true;
-                return battleCue;
+                return BobVoiceCue.FirstVictory;
             }
+            return battleCue;
         }
 
         bool? low = voice.Health.HasValue ? voice.Health.Value <= 10 : null;
@@ -55,24 +63,26 @@ public sealed class BobVoiceTriggers
             return BobVoiceCue.LowHealth;
         }
 
+        var actionCue = memoryCue ?? shopCue ?? battleStart;
         if (!voice.Preparation || voice.BattleCue.HasValue)
         {
             _nextChatter = null;
-            return shopCue;
+            return actionCue;
         }
 
         if (elapsed is not { } now || hud.Round is not > 0 ||
-            _battleCues.Contains((hud.Round.Value, BobVoiceCue.BeforeBattle))) return shopCue;
+            _battleCues.Contains((hud.Round.Value, BobVoiceCue.BeforeBattle))) return actionCue;
         _nextChatter ??= now + ChatterDelay();
-        if (shopCue.HasValue || now < _nextChatter) return shopCue;
+        if (actionCue.HasValue || now < _nextChatter) return actionCue;
 
         _nextChatter = now + ChatterDelay();
         return BobVoiceCue.PreparationChatter;
     }
 
-    private BobVoiceCue? ObserveShop(GarrisonHud hud, IEnumerable<string> trackedShopNames, GarrisonVoiceFrame voice)
+    private BobVoiceCue? ObserveShop(GarrisonHud hud, IEnumerable<string> trackedShopNames, GarrisonVoiceFrame voice,
+        bool hasMemory)
     {
-        if (hud is not { Round: > 0, ShopLevel: > 0, Gold: >= 0 } || voice.BattleCue.HasValue)
+        if (hud is not { Round: > 0, ShopLevel: > 0, Gold: >= 0 } || voice.BattleCue.HasValue || voice.ShopVisible == false)
         {
             _previousFrame = null;
             _previousNames.Clear();
@@ -104,7 +114,7 @@ public sealed class BobVoiceTriggers
         }
         if (prior is { } previous && current.Round >= previous.Round && current.Level > previous.Level)
             return BobVoiceCue.Upgrade;
-        if (prior is { } baseline && current.Round == baseline.Round && current.Level == baseline.Level)
+        if (!hasMemory && prior is { } baseline && current.Round == baseline.Round && current.Level == baseline.Level)
         {
             int delta = current.Gold - baseline.Gold;
             if (delta < -2) return BobVoiceCue.Recruit;
@@ -135,5 +145,7 @@ public sealed class BobVoiceTriggers
         _previousHealthWasLow = null;
         _lowHealthAnnounced = false;
         _nextChatter = null;
+        _memoryCandidate = _memoryConfirmed = null;
+        _lastMemoryBattle = null;
     }
 }

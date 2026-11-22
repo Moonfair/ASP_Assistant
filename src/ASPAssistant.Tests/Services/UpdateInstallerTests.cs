@@ -16,47 +16,30 @@ public class UpdateInstallerTests : IDisposable
         return job;
     }
 
-    [Theory]
-    [InlineData("ordinary path")]
-    [InlineData("中文目录")]
-    [InlineData("release$aspa[1]'quote`tick")]
-    public async Task Installer_CopiesLiteralPaths_RestartsAndCleansOnlyItsJob(string name)
+    [Fact]
+    public async Task Installer_RunsDownloadedExecutableAndCleansOnlyItsJob()
     {
         var job = NewJob();
         var otherJob = NewJob();
-        var source = Path.Combine(job, name, "win-x64");
-        var target = Path.Combine(_fixture, name, "app");
-        Directory.CreateDirectory(Path.Combine(source, "data", "嵌套[1]$目录"));
-        Directory.CreateDirectory(target);
-        await File.WriteAllTextAsync(Path.Combine(source, "data", "嵌套[1]$目录", "marker.txt"), "new content");
-        // A harmless GUI executable with no arguments, so testing restart opens no console.
-        File.Copy(Path.Combine(Environment.SystemDirectory, "rundll32.exe"), Path.Combine(source, "ASPAssistant.App.exe"));
-        var script = await UpdateInstaller.PrepareAsync(source, target, job, int.MaxValue, Path.Combine(_fixture, "logs"));
+        // hostname.exe emits a known value only if the helper actually launches the payload.
+        File.Copy(Path.Combine(Environment.SystemDirectory, "hostname.exe"), Path.Combine(job, "setup.exe"));
+        var script = await UpdateInstaller.PrepareAsync(job, int.MaxValue, Path.Combine(_fixture, "logs"));
         var result = await RunInstaller(script);
         result.ExitCode.Should().Be(0, result.Output);
-
-        (await File.ReadAllTextAsync(Path.Combine(target, "data", "嵌套[1]$目录", "marker.txt"))).Should().Be("new content");
-        File.Exists(Path.Combine(target, "ASPAssistant.App.exe")).Should().BeTrue();
+        result.Output.Should().ContainEquivalentOf(Environment.MachineName);
         Directory.Exists(job).Should().BeFalse();
         Directory.Exists(otherJob).Should().BeTrue();
     }
 
     [Fact]
-    public async Task Installer_CopyFailure_ReportsFailureAndCleansJob()
+    public async Task Installer_LaunchFailure_LogsFailureAndCleansJob()
     {
         var job = NewJob();
-        var source = Path.Combine(job, "source");
-        var target = Path.Combine(_fixture, "app");
-        Directory.CreateDirectory(source);
-        Directory.CreateDirectory(target);
-        File.Copy(Path.Combine(Environment.SystemDirectory, "rundll32.exe"), Path.Combine(source, "ASPAssistant.App.exe"));
-        var targetExe = Path.Combine(target, "ASPAssistant.App.exe");
-        await File.WriteAllTextAsync(targetExe, "original");
-        var script = await UpdateInstaller.PrepareAsync(source, target, job, int.MaxValue, Path.Combine(_fixture, "logs"));
-        using (File.Open(targetExe, FileMode.Open, FileAccess.Read, FileShare.Read))
-            (await RunInstaller(script)).ExitCode.Should().NotBe(0);
-
-        (await File.ReadAllTextAsync(targetExe)).Should().Be("original");
+        var logDir = Path.Combine(_fixture, "中文 logs [1]$");
+        await File.WriteAllTextAsync(Path.Combine(job, "setup.exe"), "invalid executable");
+        var script = await UpdateInstaller.PrepareAsync(job, int.MaxValue, logDir);
+        (await RunInstaller(script)).ExitCode.Should().NotBe(0);
+        File.Exists(Path.Combine(logDir, "update-errors.log")).Should().BeTrue();
         Directory.Exists(job).Should().BeFalse();
     }
 
@@ -64,7 +47,7 @@ public class UpdateInstallerTests : IDisposable
     public async Task Prepare_InvalidPackage_RejectsBeforeApplicationExits()
     {
         var job = NewJob();
-        var prepare = () => UpdateInstaller.PrepareAsync(job, _fixture, job, 1, Path.Combine(_fixture, "logs"));
+        var prepare = () => UpdateInstaller.PrepareAsync(job, 1, Path.Combine(_fixture, "logs"));
         await prepare.Should().ThrowAsync<InvalidDataException>();
     }
 
@@ -85,7 +68,7 @@ public class UpdateInstallerTests : IDisposable
         var before = Directory.GetDirectories(root);
         using var canceled = new CancellationTokenSource();
         canceled.Cancel();
-        var info = new UpdateInfo("v1.0.0", "1.0.0", "", "https://example.invalid/update.zip", "release.zip");
+        var info = new UpdateInfo("v1.0.0", "1.0.0", "", "https://example.invalid/setup.exe", "ASPAssistant-v1.0.0-win-x64-setup.exe");
         var download = () => new UpdateService().DownloadAndApplyUpdateAsync(info, ct: canceled.Token);
         await download.Should().ThrowAsync<OperationCanceledException>();
         Directory.GetDirectories(root).Should().BeEquivalentTo(before);

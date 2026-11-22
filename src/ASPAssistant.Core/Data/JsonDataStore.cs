@@ -24,6 +24,9 @@ public class JsonDataStore
     public async Task<Dictionary<string, string>> LoadBattleOperatorNamesAsync() =>
         await ReadSupplementAsync<Dictionary<string, string>>("battle_operator_names.json").ConfigureAwait(false) ?? [];
 
+    public async Task<Dictionary<string, Dictionary<string, string>>> LoadChessNamesAsync() =>
+        await ReadSupplementAsync<Dictionary<string, Dictionary<string, string>>>("garrison_chess_names.json").ConfigureAwait(false) ?? [];
+
     private async Task<List<Operator>> LoadOperatorsAsync(string fileName)
     {
         var path = Path.Combine(_dataDirectory, fileName);

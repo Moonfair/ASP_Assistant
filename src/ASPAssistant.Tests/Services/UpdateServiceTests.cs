@@ -9,11 +9,11 @@ namespace ASPAssistant.Tests.Services;
 
 public class UpdateServiceTests : IDisposable
 {
-    private const string GitHubUrl = "https://github.com/Moonfair/ASP_Assistant/releases/download/v99.1.2/ASPAssistant-v99.1.2-win-x64.zip";
-    private const string OssUrl = "https://aspa.oss-cn-beijing.aliyuncs.com/releases/ASPAssistant-v99.1.2-win-x64.zip";
+    private const string GitHubUrl = "https://github.com/Moonfair/ASP_Assistant/releases/download/v99.1.2/ASPAssistant-v99.1.2-win-x64-setup.exe";
+    private const string OssUrl = "https://aspa.oss-cn-beijing.aliyuncs.com/releases/ASPAssistant-v99.1.2-win-x64-setup.exe";
     private static readonly byte[] Package = "update package"u8.ToArray();
     private static readonly string Digest = $"sha256:{Convert.ToHexString(SHA256.HashData(Package)).ToLowerInvariant()}";
-    private readonly string _zipPath = Path.Combine(Path.GetTempPath(), $"asp_update_test_{Guid.NewGuid():N}.zip");
+    private readonly string _packagePath = Path.Combine(Path.GetTempPath(), $"asp_update_test_{Guid.NewGuid():N}.exe");
 
     [Theory]
     [InlineData("valid", false)]
@@ -34,10 +34,10 @@ public class UpdateServiceTests : IDisposable
         var info = await service.CheckForUpdateAsync(userInitiated: true);
         info.Should().NotBeNull();
 
-        await service.DownloadPackageAsync(info!, _zipPath, null, CancellationToken.None);
+        await service.DownloadPackageAsync(info!, _packagePath, null, CancellationToken.None);
 
         handler.Downloads.Should().Equal(fallsBack ? new[] { OssUrl, GitHubUrl } : new[] { OssUrl });
-        (await File.ReadAllBytesAsync(_zipPath)).Should().Equal(Package);
+        (await File.ReadAllBytesAsync(_packagePath)).Should().Equal(Package);
     }
 
     [Theory]
@@ -50,10 +50,10 @@ public class UpdateServiceTests : IDisposable
         var service = new UpdateService(http);
         var info = await service.CheckForUpdateAsync(userInitiated: true);
 
-        await service.DownloadPackageAsync(info!, _zipPath, null, CancellationToken.None);
+        await service.DownloadPackageAsync(info!, _packagePath, null, CancellationToken.None);
 
         handler.Downloads.Should().Equal(GitHubUrl);
-        (await File.ReadAllBytesAsync(_zipPath)).Should().Equal(Package);
+        (await File.ReadAllBytesAsync(_packagePath)).Should().Equal(Package);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class UpdateServiceTests : IDisposable
         var service = new UpdateService(http);
         var info = await service.CheckForUpdateAsync(userInitiated: true);
 
-        var download = () => service.DownloadPackageAsync(info!, _zipPath, null, CancellationToken.None);
+        var download = () => service.DownloadPackageAsync(info!, _packagePath, null, CancellationToken.None);
         await download.Should().ThrowAsync<InvalidDataException>();
         handler.Downloads.Should().Equal(OssUrl, GitHubUrl);
     }
@@ -86,7 +86,7 @@ public class UpdateServiceTests : IDisposable
         var service = new UpdateService(http);
         var info = await service.CheckForUpdateAsync(userInitiated: true);
 
-        var download = () => service.DownloadPackageAsync(info!, _zipPath, null, cts.Token);
+        var download = () => service.DownloadPackageAsync(info!, _packagePath, null, cts.Token);
         await download.Should().ThrowAsync<OperationCanceledException>();
         handler.Downloads.Should().Equal(OssUrl);
     }
@@ -112,7 +112,11 @@ public class UpdateServiceTests : IDisposable
                     Content = JsonContent.Create(new
                     {
                         tag_name = "v99.1.2", body = "Release notes",
-                        assets = new[] { new { name = "ASPAssistant-v99.1.2-win-x64.zip", browser_download_url = GitHubUrl, digest } }
+                        assets = new[]
+                        {
+                            new { name = "ASPAssistant-v99.1.2-win-x64.zip", browser_download_url = "https://example.invalid/legacy.zip", digest },
+                            new { name = "ASPAssistant-v99.1.2-win-x64-setup.exe", browser_download_url = GitHubUrl, digest }
+                        }
                     })
                 });
             }
@@ -127,5 +131,5 @@ public class UpdateServiceTests : IDisposable
         }
     }
 
-    public void Dispose() => File.Delete(_zipPath);
+    public void Dispose() => File.Delete(_packagePath);
 }

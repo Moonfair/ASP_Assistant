@@ -75,11 +75,57 @@ public class BattleDataViewTests
             Assert.Contains("0.00%", texts);
             var scroll = (ScrollViewer)view.FindName("RowsScroll");
             Assert.Equal(0, scroll.ScrollableWidth);
-            view.Present(new(BattleFeedState.WindowsOnly));
+            var emulator = new GameTarget("ld:0", "LD", GameTargetKind.LdPlayer, 1, 1, WindowPid: 77);
+            view.SetSource(emulator, true);
             LineupPerformanceTests.Layout(view);
             Assert.DoesNotContain("“暴躁铁皮”", Texts(view));
+            Assert.Contains("当前来源无法读取干员伤害。战斗统计支持官方 PC 客户端和 MuMu。", Texts(view));
+            Assert.Equal(Visibility.Collapsed, ((Button)view.FindName("ConnectButton")).Visibility);
             view.Present(new(BattleFeedState.PermissionRequired));
             Assert.Equal(Visibility.Visible, ((Button)view.FindName("ConnectButton")).Visibility);
+        });
+    }
+
+    [Fact]
+    public void MuMuPublishesToTheSameRowsAndReleasesTheOldInstanceOnSwitch()
+    {
+        LineupPerformanceTests.RunSta(() =>
+        {
+            SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext());
+            var feeds = new System.Collections.Concurrent.ConcurrentDictionary<string,
+                (Func<BattleUpdate, Task> Publish, CancellationToken Token)>();
+            int windows = 0;
+            var view = new BattleDataView((_, _, _, token) => { Interlocked.Increment(ref windows); return Task.Delay(-1, token); },
+                (t, publish, token) => { feeds[t.Id] = (publish, token); return Task.Delay(-1, token); });
+            try
+            {
+                var one = new GameTarget("mumu:0", "MuMu", GameTargetKind.MuMu, 1, 1, Serial: "127.0.0.1:16384");
+                view.SetSource(one, false);
+                IconLoadingTests.PumpUntil(() => feeds.ContainsKey(one.Id));
+                var first = feeds[one.Id];
+                var unsupported = first.Publish(new(BattleFeedState.UnsupportedBuild));
+                IconLoadingTests.PumpUntil(() => unsupported.IsCompletedSuccessfully);
+                Assert.Equal(Visibility.Visible, ((Button)view.FindName("ConnectButton")).Visibility);
+                var update = new BattleUpdate(BattleFeedState.Live, new(1, 30, 1, false,
+                    new() { ["char_probe"] = new(40, 20, 30, 10) }));
+                var task = first.Publish(update);
+                IconLoadingTests.PumpUntil(() => task.IsCompletedSuccessfully);
+                LineupPerformanceTests.Layout(view);
+                Assert.Contains("char_probe", Texts(view));
+                Assert.Contains("100.00%", Texts(view));
+                var two = one with { Id = "mumu:1", Serial = "127.0.0.1:16416" };
+                view.SetSource(two, false);
+                IconLoadingTests.PumpUntil(() => feeds.ContainsKey(two.Id));
+                Assert.True(first.Token.IsCancellationRequested);
+                var stale = first.Publish(update);
+                IconLoadingTests.PumpUntil(() => stale.IsCompleted);
+                LineupPerformanceTests.Layout(view);
+                Assert.DoesNotContain("char_probe", Texts(view));
+                Assert.Equal(0, windows);
+                view.Stop();
+                Assert.True(feeds[two.Id].Token.IsCancellationRequested);
+            }
+            finally { view.Stop(); }
         });
     }
 

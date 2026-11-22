@@ -46,7 +46,7 @@ ASP Assistant 是一款用于《明日方舟》**卫戍协议**玩法的透明�
 - 手动禁用/取消禁用会保留至清空或下一局；清空后，相同盟约状态不会立即重新填入，点击“截屏录入”可恢复自动结果
 
 ### 敌人
-- 在 BP 的「确认本局信息」页自动记录敌方领袖、特训敌人和战场编号，供本局随时查看。战场可在页签内手动更正，缩略图参照[战场一览](https://prts.wiki/w/卫戍协议·规程/战场一览)。
+- 在 BP 的「确认本局信息」页自动记录敌方领袖、特训敌人和战场编号，供本局随时查看。敌方领袖和战场均可在页签内手动选择，未识别时也可选择并查看路线；手动选择保留至下一局，可随时切回自动识别。领袖选项参照[PRTS 领袖资料](https://prts.wiki/w/卫戍协议·规程/PRTS盟约记录#领袖)，缩略图参照[战场一览](https://prts.wiki/w/卫戍协议·规程/战场一览)。
 - 假想敌：铳、假想敌：鳍、矩兽的路线取自随附参考图。第 14、15 回合各自选择左侧或右侧，站位待确认时可查看两侧。第 15 回合仅在触发隐秘核心时适用。
 
 ### 装备追踪
@@ -80,7 +80,7 @@ ASP Assistant 是一款用于《明日方舟》**卫戍协议**玩法的透明�
 - 复制短链接后，在桌面端点击**从剪切板导入**，或在作业站阵容编辑器中粘贴短链接。桌面端也兼容旧版分享文本。导入保留作者，并在**导入阵容**分类中创建新阵容。
 
 ### 其他
-- 内置 36 句鲍勃简体中文语音，默认开启。可在「设置 → 默认鲍勃语音」试听或关闭。
+- 内置 47 句鲍勃简体中文语音，默认开启。可在「设置 → 默认鲍勃语音」试听或关闭。PC 内存采集可判断商店冻结、付费／免费刷新、干员招募、出售与精锐变化。PC 和 MuMu 的战斗帧可补充开战提示。首次全胜与后续全胜使用各自的台词，完整语音清单见[原版语音核对表](docs/bob-voice-coverage.md)。
 - 自动检测新版本并弹出更新提示
 - 在设置中点击「发送反馈」，将近期应用日志和更新失败日志发送到卫戍阵容库，成功后显示反馈编号
 - 窗口置顶、可自由拖动和缩放
@@ -92,9 +92,17 @@ ASP Assistant 是一款用于《明日方舟》**卫戍协议**玩法的透明�
 | 条件 | 说明 |
 |------|------|
 | 操作系统 | Windows 10 / 11（x64） |
-| 运行库 | 正式发布 ZIP 包自带 .NET 8 Desktop Runtime 和 x64 VC++ CRT；源码运行需要安装开发依赖 |
+| 运行库 | 安装包自带 .NET 8 Desktop Runtime 和 x64 VC++ CRT |
 | 游戏客户端 | 明日方舟 PC 版（B 服 / 官服均可），或运行游戏的 Windows 安卓模拟器 |
 | 游戏分辨率 | 推荐 16:9（1280×720 及以上） |
+
+### 安装、覆盖安装与卸载
+
+从[项目发布页](https://github.com/Moonfair/ASP_Assistant/releases/latest)下载 `ASPAssistant-v版本号-win-x64-setup.exe`，双击打开中文向导。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ASPAssistant`，也可在首次安装时选择其他目录。安装完成后从开始菜单启动 **ASP Assistant**。
+
+升级时退出助手并运行新安装包，向导会沿用已有安装目录。安装版也可在 **设置 → 检查更新** 中下载并打开向导。旧 ZIP 版用户首次迁移时，请退出旧程序，手动运行安装包，之后从开始菜单启动安装版。已有阵容和设置会自动沿用。
+
+在 Windows **设置 → 应用** 中找到 **ASP Assistant** 并选择 **卸载**。卸载会移除程序、快捷方式和属于本次安装的阵容链接关联，个人阵容与设置保留在 `%APPDATA%\ASPAssistant`，重装后可继续使用。
 
 ### 游戏来源
 
@@ -107,6 +115,12 @@ ASP Assistant 是一款用于《明日方舟》**卫戍协议**玩法的透明�
 3. 蓝叠、夜神、逍遥等可选择 **手动绑定 ADB**。选择模拟器窗口和其 ADB 程序，填写 `adb devices` 中对应的本机序列号。模拟器的 ADB 端口变更后，在这里更新序列号。
 
 模拟器窗口在前台时，商店标记贴在游戏画面上。模拟器截图优先使用增强模式，可回退到普通 ADB 或窗口截图。ADB 未开启时，手动选择 MuMu 或雷电实例仍可通过窗口截图尝试识别。推荐使用横屏 16:9。
+
+使用官方 Windows 客户端（已验证版本 2.7.91）时，助手自行读取卫戍协议对局内存。**Debug** 页显示回合、商店等级、金币、持有的干员和装备，以及客户端已同步的队友字段。**数据** 页显示战斗时间、干员伤害和占比。
+
+**MuMu 12 战斗统计：** 在 MuMu 中开启 ADB 和 Root，启动适配的《明日方舟》Android ARM64 2.7.91，在助手中自动检测或选择对应的 **MuMu 实例**（不是「手动绑定 ADB」）。进入战斗后直接查看原来的**数据**页，无需安装或运行 ArkDPS。采集使用游戏内时间，物理、法术、真实、元素伤害与 PC 端口径相同，不把治疗算作伤害。没有 Root 或版本不匹配时不读取伤害；不会自动开启 Root。同一实例内请只运行一个游戏客户端。
+
+模拟器的回合、商店等级和金币仍来自画面识别，房间和队友内存信息仍仅支持 Windows 客户端。其他模拟器的截图识别不变。
 
 ---
 
@@ -141,13 +155,12 @@ dotnet run --project src/ASPAssistant.App
 ```powershell
 dotnet test ASPAssistant.sln -c Release
 python -B -m unittest discover -s tests
-./scripts/publish.ps1 -Version 1.2.3 -OutputDirectory publish/win-x64
-Compress-Archive -LiteralPath publish/win-x64 -DestinationPath publish/ASPAssistant-v1.2.3-win-x64.zip
+./scripts/publish.ps1 -Version 1.2.3
 ```
 
-打包机需安装 .NET 8 SDK 和 Visual Studio / Build Tools 的 C++ 工具。脚本自动查找 Visual Studio 的 x64 CRT 可再分发文件，将它们放到 `runtimes/win-x64/native` 的 Maa DLL 旁边，确保原生加载器能找到依赖；也可用 `-VcRedistDirectory` 指定 CRT 来源目录。找不到依赖、依赖架构错误或输出目录非空时会停止，避免生成不完整或夹带旧文件的包。重新打包请使用新的空目录。
+打包机需安装 .NET 8 SDK、Visual Studio / Build Tools 的 C++ 工具和 Inno Setup 6.7.3（`winget install --id JRSoftware.InnoSetup -e --version 6.7.3`）。脚本在独立临时目录发布自包含应用，把 x64 CRT 放到 Maa DLL 旁，验证运行库和数据资源，再生成 `publish/ASPAssistant-v1.2.3-win-x64-setup.exe`。可用 `-OutputDirectory` 指定安装包输出目录，`-VcRedistDirectory` 指定 CRT 来源，`-IsccPath` 指定编译器。
 
-GitHub 标签发布也调用同一个脚本。发布前需要提交全部代码和数据更新，包括 `covenants.json` 与新增图片；标签对应的提交必须包含这些文件。
+推送 `vX.Y.Z` 标签时，GitHub Actions 调用同一脚本，验证安装、覆盖安装和卸载后，将同一个 EXE 发布到 GitHub Release 和 OSS，并更新下载页。
 
 发布包只包含 Windows x64 原生库、当前目录数据、浏览图片和 OCR 模型，不包含旧皮肤匹配模板、调试符号、Python 缓存或个人设置。皮肤下载脚本仍保留供开发参考。
 
@@ -158,7 +171,6 @@ GitHub 标签发布也调用同一个脚本。发布前需要提交全部代码�
 - 阵容数据：`%APPDATA%\ASPAssistant\lineups.json`。采用临时文件替换保存；读取失败时显示提示并阻止覆盖，便于先备份、修复原文件。
 - 应用日志和更新失败日志：`%APPDATA%\ASPAssistant\logs`。
 - 更新临时目录：`%TEMP%\ASPAssistant-Update\<独立任务 ID>`。下载失败或安装结束后清理本次任务，不删除其他正在进行的更新。
-- 将程序解压到当前用户可写的目录；更新前会检查目标目录写入权限。中文、空格及特殊字符路径均按字面值处理。
 
 ---
 

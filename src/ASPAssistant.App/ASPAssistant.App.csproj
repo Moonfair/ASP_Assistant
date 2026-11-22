@@ -21,7 +21,7 @@
     <Resource Include="Resources\AppIcon.png" />
     <None Update="LICENSE-FontAwesome.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Ship active catalogues and UI resources. -->
-    <Content Include="..\..\data\battle_operator_names.json" Link="data\%(Filename)%(Extension)"
+    <Content Include="..\..\data\battle_operator_names.json;..\..\data\garrison_chess_names.json" Link="data\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\data\operators.json;..\..\data\self-selected-operators.json;..\..\data\equipment.json;..\..\data\covenants.json;..\..\data\strategies.json;..\..\data\source_metadata.json;..\..\data\operator_skills.json;..\..\data\self-selected-operator-skills.json;..\..\data\catalog_tips.json"
              Link="data\%(Filename)%(Extension)">

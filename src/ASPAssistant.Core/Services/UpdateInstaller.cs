@@ -5,6 +5,7 @@ namespace ASPAssistant.Core.Services;
 
 internal static class UpdateInstaller
 {
+    internal const string SetupFileName = "setup.exe";
     private static string UpdateRoot => Path.Combine(Path.GetTempPath(), "ASPAssistant-Update");
 
     internal static string CreateJobDirectory()
@@ -30,26 +31,15 @@ internal static class UpdateInstaller
     }
 
     internal static async Task<string> PrepareAsync(
-        string sourceDirectory, string appDirectory, string jobDirectory, int processId,
-        string logDirectory, CancellationToken ct = default)
+        string jobDirectory, int processId, string logDirectory, CancellationToken ct = default)
     {
         var job = ValidateJobDirectory(jobDirectory);
-        var source = Path.GetFullPath(sourceDirectory);
-        var destination = Path.TrimEndingDirectorySeparator(Path.GetFullPath(appDirectory));
-        if (!source.StartsWith(job + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            || !File.Exists(Path.Combine(source, "ASPAssistant.App.exe")))
-            throw new InvalidDataException("更新包缺少 ASPAssistant.App.exe，无法安装。");
-        if (string.Equals(destination, job, StringComparison.OrdinalIgnoreCase)
-            || destination.StartsWith(job + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("更新目标不能位于临时更新目录内。");
-
-        // Fail while the current application can still report the error to the user.
-        using (new FileStream(Path.Combine(destination, $".aspa-update-{Guid.NewGuid():N}.tmp"),
-                   FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) { }
+        if (!File.Exists(Path.Combine(job, SetupFileName)))
+            throw new InvalidDataException("未找到下载的安装向导。");
 
         var manifest = new
         {
-            SourceDirectory = source, AppDirectory = destination, ProcessId = processId,
+            ProcessId = processId,
             ErrorLogPath = Path.Combine(Path.GetFullPath(logDirectory), "update-errors.log")
         };
         var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);

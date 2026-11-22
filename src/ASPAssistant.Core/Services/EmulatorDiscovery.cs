@@ -200,6 +200,7 @@ public sealed class EmulatorDiscovery
         {
             if (entry.ValueKind != JsonValueKind.Object ||
                 !entry.TryGetProperty("is_process_started", out var running) || running.ValueKind != JsonValueKind.True ||
+                (entry.TryGetProperty("is_android_started", out var booted) && booted.ValueKind == JsonValueKind.False) ||
                 !int.TryParse(Read(entry, "index"), out int index) || index < 0 ||
                 !long.TryParse(Read(entry, "main_wnd"), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long window) ||
                 !long.TryParse(Read(entry, "render_wnd"), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long render) ||

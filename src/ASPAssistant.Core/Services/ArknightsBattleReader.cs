@@ -14,7 +14,10 @@ public enum BattleFeedState
 }
 
 public sealed record BattleUpdate(BattleFeedState State, BattleFrame? Sample = null,
-    GarrisonSnapshot? Garrison = null, bool GarrisonInterrupted = false, GameRoomObservation? Room = null);
+    GarrisonSnapshot? Garrison = null, bool GarrisonInterrupted = false, GameRoomObservation? Room = null)
+{
+    public GameTargetKind Source { get; init; } = GameTargetKind.Windows;
+}
 
 /// <summary>Reads the fixed-step clock and character counters of the verified Windows 2.7.91 build.</summary>
 public sealed class ArknightsBattleReader : IDisposable

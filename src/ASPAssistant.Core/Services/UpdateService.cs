@@ -1,5 +1,4 @@
 using System.IO;
-using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -58,7 +57,7 @@ public class UpdateService
             var latestVersion = ParseVersion(release.TagName);
             if (latestVersion <= CurrentVersion) return null;
 
-            var asset = release.Assets.FirstOrDefault(a => a.Name.Contains("win-x64") && a.Name.EndsWith(".zip"));
+            var asset = release.Assets.FirstOrDefault(a => a.Name == SetupAssetName(release.TagName));
             if (asset is null) return null;
 
             return new UpdateInfo(
@@ -88,22 +87,10 @@ public class UpdateService
         {
             var scriptPath = await Task.Run(async () =>
             {
-                // Use a fixed local name: release metadata is never interpreted as a path.
-                var zipPath = Path.Combine(tempDir, "update.zip");
-                await DownloadPackageAsync(info, zipPath, progress, ct);
-
-                progress?.Report(0.92);
-                var extractDir = Path.Combine(tempDir, "extracted");
-                ct.ThrowIfCancellationRequested();
-                ZipFile.ExtractToDirectory(zipPath, extractDir);
-                ct.ThrowIfCancellationRequested();
-
-                var sourceDir = File.Exists(Path.Combine(extractDir, "ASPAssistant.App.exe"))
-                    ? extractDir : Path.Combine(extractDir, "win-x64");
+                await DownloadPackageAsync(info, Path.Combine(tempDir, UpdateInstaller.SetupFileName), progress, ct);
                 var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                     "ASPAssistant", "logs");
-                return await UpdateInstaller.PrepareAsync(
-                    sourceDir, AppContext.BaseDirectory, tempDir, Environment.ProcessId, logDir, ct);
+                return await UpdateInstaller.PrepareAsync(tempDir, Environment.ProcessId, logDir, ct);
             }, ct);
 
             // Launch on the caller's context so a dialog close cannot race this final check.
@@ -127,7 +114,7 @@ public class UpdateService
         }
         finally
         {
-            // Once launched, the installer owns cleanup, including copy/restart failures.
+            // The helper waits for the wizard to finish before removing the download.
             if (!installerStarted)
             {
                 try { await Task.Run(() => UpdateInstaller.DeleteJobDirectory(tempDir)); }
@@ -139,15 +126,17 @@ public class UpdateService
         }
     }
 
-    internal async Task DownloadPackageAsync(UpdateInfo info, string zipPath, IProgress<double>? progress,
+    private static string SetupAssetName(string tag) => $"ASPAssistant-{tag}-win-x64-setup.exe";
+
+    internal async Task DownloadPackageAsync(UpdateInfo info, string packagePath, IProgress<double>? progress,
         CancellationToken ct)
     {
-        if (info.ExpectedSha256 is not null && info.AssetName == $"ASPAssistant-{info.TagName}-win-x64.zip")
+        if (info.ExpectedSha256 is not null && info.AssetName == SetupAssetName(info.TagName))
         {
             var ossUrl = OssReleaseBaseUrl + Uri.EscapeDataString(info.AssetName);
             try
             {
-                await DownloadFileAsync(ossUrl, zipPath, info.ExpectedSha256, progress, ct);
+                await DownloadFileAsync(ossUrl, packagePath, info.ExpectedSha256, progress, ct);
                 return;
             }
             catch (Exception ex) when (!ct.IsCancellationRequested &&
@@ -158,10 +147,10 @@ public class UpdateService
             }
         }
 
-        await DownloadFileAsync(info.DownloadUrl, zipPath, info.ExpectedSha256, progress, ct);
+        await DownloadFileAsync(info.DownloadUrl, packagePath, info.ExpectedSha256, progress, ct);
     }
 
-    private async Task DownloadFileAsync(string url, string zipPath, string? expectedSha256,
+    private async Task DownloadFileAsync(string url, string packagePath, string? expectedSha256,
         IProgress<double>? progress, CancellationToken ct)
     {
         using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -169,7 +158,7 @@ public class UpdateService
 
         var totalBytes = response.Content.Headers.ContentLength ?? -1L;
         await using var httpStream = await response.Content.ReadAsStreamAsync(ct);
-        await using var fileStream = File.Create(zipPath);
+        await using var fileStream = File.Create(packagePath);
         using var hash = expectedSha256 is null ? null : IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[65536];
         long downloaded = 0;
@@ -179,7 +168,7 @@ public class UpdateService
             await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
             hash?.AppendData(buffer, 0, bytesRead);
             downloaded += bytesRead;
-            if (totalBytes > 0) progress?.Report((double)downloaded / totalBytes * 0.89);
+            if (totalBytes > 0) progress?.Report((double)downloaded / totalBytes * 0.96);
         }
 
         ct.ThrowIfCancellationRequested();

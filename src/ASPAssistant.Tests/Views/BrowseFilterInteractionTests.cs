@@ -41,6 +41,7 @@ public class BrowseFilterInteractionTests
         });
         try
         {
+            VerifyManualBossSelection();
             List<Operator> operators = [
                 new() { Name = "高阶", Tier = 3, CoreCovenants = ["甲"], AdditionalCovenants = ["丙"],
                     Normal = new() { Traits = [new() { TraitType = "作战", TraitDescription = "<获得时>攻击+1" }] } },
@@ -180,6 +181,61 @@ public class BrowseFilterInteractionTests
             RenderFilterPreviews();
         }
         finally { app.Shutdown(); }
+    }
+
+    private static void VerifyManualBossSelection()
+    {
+        var view = new EnemyView();
+        view.FindName("BossPicker").Should().BeOfType<ComboBox>();
+        var boss = (ComboBox)view.FindName("BossPicker");
+        var battlefield = (ComboBox)view.FindName("BattlefieldPicker");
+        var routes = (ItemsControl)view.FindName("Routes");
+        boss.SelectedValuePath = battlefield.SelectedValuePath = "Label";
+        ((StackPanel)view.FindName("Details")).Visibility.Should().Be(Visibility.Visible,
+            "manual selection should be available before BP information is recognized");
+
+        boss.SelectedValue = "矩兽";
+        battlefield.SelectedValue = "#06";
+        LayoutView(view);
+        RouteFile().Should().EndWith("06-beast.jpg");
+
+        view.UpdateInfo(new("假想敌：铳", ["致命", "复苏", "折射"], 11, "终极模拟"));
+        LayoutView(view);
+        boss.SelectedValue.Should().Be("矩兽", "automatic updates must preserve the manual boss");
+        battlefield.SelectedValue.Should().Be("#06");
+        RouteFile().Should().EndWith("06-beast.jpg");
+        ((TextBlock)view.FindName("EnemyTypes")).Text.Should().Be("致命、复苏、折射");
+
+        boss.SelectedIndex = 0;
+        LayoutView(view);
+        boss.SelectedValue.Should().Be("自动识别 · 假想敌：铳");
+        RouteFile().Should().EndWith("06-patrol.jpg");
+        battlefield.SelectedIndex = 0;
+        LayoutView(view);
+        RouteFile().Should().EndWith("11-patrol.jpg");
+
+        view.UpdateInfo(new("矩兽", [], 2, "标准模拟"));
+        LayoutView(view);
+        boss.SelectedValue.Should().Be("自动识别 · 矩兽");
+        RouteFile().Should().EndWith("02-beast.jpg");
+        boss.SelectedValue = "假想敌：鳍";
+        LayoutView(view);
+        RouteFile().Should().EndWith("02-patrol.jpg");
+        VisualChildren<TextBlock>(routes).Select(text => text.Text)
+            .Should().Contain("当前难度没有隐秘核心回合");
+
+        view.UpdateInfo(null);
+        LayoutView(view);
+        boss.SelectedIndex.Should().Be(0, "a new game must clear the manual boss");
+        battlefield.SelectedIndex.Should().Be(0);
+        VisualChildren<Image>(routes).Should().OnlyContain(image => image.Source == null);
+
+        string RouteFile()
+        {
+            var image = VisualChildren<Image>(routes).Select(item => item.Source)
+                .OfType<System.Windows.Media.Imaging.CroppedBitmap>().First();
+            return ((System.Windows.Media.Imaging.BitmapImage)image.Source).UriSource.LocalPath;
+        }
     }
 
     private static void VerifySideFilterLayout()

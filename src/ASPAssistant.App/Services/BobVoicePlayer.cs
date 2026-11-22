@@ -40,6 +40,21 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
             new("General_02", "我给你物色了一些新人！", 2295),
             new("AfterTriple_02", "这就是你要找的那一个。", 2086)
         ],
+        BobVoiceCue.ShopRefreshed =>
+        [
+            new("Hire_01", "去吧，从这些人选里挑一位。", 2841),
+            new("General_02", "我给你物色了一些新人！", 2295)
+        ],
+        BobVoiceCue.ShopFrozen =>
+        [
+            new("AfterFreezing_01", "下次的时候它们还会在这儿。", 2437),
+            new("AfterFreezing_02", "我会暂时把它们保存起来。", 2529)
+        ],
+        BobVoiceCue.Promotion =>
+        [
+            new("AfterTriple_01", "哦吼！你又前进了一大步！", 3284),
+            new("AfterTriple_03", "绝妙的操作。看看接下来会发生什么。", 3941)
+        ],
         BobVoiceCue.BeforeBattle =>
         [
             new("Ahead_03", "这局我觉得你能赢。", 1977),
@@ -48,11 +63,20 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
             new("ShopToCombat_01", "享受战斗吧，朋友！", 2215),
             new("Flavor_05", "我有个预感，我觉得这次你能赢。", 4187)
         ],
+        BobVoiceCue.FirstVictory =>
+        [
+            new("FirstVictory_01", "这游戏就是这么玩儿的！你还真是个人才啊，朋友！", 5097)
+        ],
         BobVoiceCue.BattleVictory =>
         [
-            new("FirstVictory_01", "这游戏就是这么玩儿的！你还真是个人才啊，朋友！", 5097),
             new("CombatWin_02", "你干得不错！", 1472),
-            new("CombatWin_03", "干得漂亮！保持状态。", 2867)
+            new("CombatWin_03", "干得漂亮！保持状态。", 2867),
+            new("Ahead_01", "你的表现真不错！", 1867),
+            new("FirstPlace_03", "看看你能否保持优势！", 2456)
+        ],
+        BobVoiceCue.BattleStart =>
+        [
+            new("General_03", "战斗正在逐渐升温！", 2255)
         ],
         BobVoiceCue.BattleLoss =>
         [
@@ -64,16 +88,20 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
         [
             new("Behind_01", "你现在还有反败为胜的机会！", 2875),
             new("Behind_02", "形势还不算太糟糕！", 2168),
-            new("Behind_03", "你还有翻盘的可能！", 2082)
+            new("Behind_03", "你还有翻盘的可能！", 2082),
+            new("AFK_01", "现在你可能有点落后，但你肯定能慢慢赶上来的。", 4949)
         ],
         BobVoiceCue.Recruit =>
         [
             new("RecruitSmallMinion_01", "它不是最强的，却是最拼的。", 3050),
             new("RecruitMediumMinion_01", "要是我的话，我也选这个。", 2137),
             new("RecruitSmallMinion_02", "大小搭配，战斗不累。", 2680),
+            new("RecruitSmallMinion_03", "这个小家伙也可能改写战局。", 2687),
             new("RecruitMediumMinion_02", "优秀的战术。", 1687),
             new("RecruitMediumMinion_03", "我喜欢这个选择。", 2033),
-            new("RecruitLargeMinion_02", "你这支队伍越来越强了，朋友！", 2886)
+            new("RecruitLargeMinion_02", "你这支队伍越来越强了，朋友！", 2886),
+            new("RecruitLargeMinion_01", "那家伙破坏力惊人！", 2035),
+            new("RecruitLargeMinion_03", "座右铭：不选大的怎么能赢？", 3352)
         ],
         BobVoiceCue.Sell =>
         [
@@ -97,7 +125,8 @@ internal sealed class BobVoicePlayer(string directory) : IDisposable
 
     internal bool Play(BobVoiceCue cue, bool preview = false)
     {
-        var cooldown = cue is BobVoiceCue.BeforeBattle or BobVoiceCue.BattleLoss or BobVoiceCue.BattleVictory
+        var cooldown = cue is BobVoiceCue.BeforeBattle or BobVoiceCue.BattleLoss or BobVoiceCue.BattleVictory or
+            BobVoiceCue.FirstVictory or BobVoiceCue.BattleStart
             ? TimeSpan.FromSeconds(1) : TimeSpan.FromSeconds(8);
         if (!preview && _lastPlayback is long last && Stopwatch.GetElapsedTime(last) < cooldown)
             return false;

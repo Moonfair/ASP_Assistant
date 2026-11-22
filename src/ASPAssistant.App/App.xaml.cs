@@ -16,6 +16,8 @@ namespace ASPAssistant.App;
 
 public partial class App : Application
 {
+    // The installer and uninstaller prompt for a clean exit while this handle exists.
+    private readonly Mutex _installerMutex = new(false, "ASPAssistant.App.InUse");
     private WindowTrackerService? _windowTracker;
     private OcrScannerService? _ocrScanner;
     private SidePanelWindow? _sidePanel;
@@ -158,7 +160,6 @@ public partial class App : Application
         var lineupVm = new LineupLibraryViewModel(new LineupStore(settingsDir));
         await lineupVm.LoadAsync();
         _lineupSite = new LineupSiteClient(settingsDir);
-        await _lineupSite.RestoreSessionAsync();
 
         // GameState
         var gameState = new Core.GameState.GameState();
@@ -184,6 +185,12 @@ public partial class App : Application
 
         // Windows
         _sidePanel = new SidePanelWindow(operatorVm, equipmentVm, trackingVm, gameStateVm, banVm);
+        _sidePanel.BattleData.Updated += update => gameStateVm.UpdateMemoryHud(update.Garrison);
+        _gameTarget.Changed += () => gameStateVm.SetHudSource(_gameTarget.Current?.Kind);
+        _sidePanel.GarrisonDebug.IsVisibleChanged += (_, _) =>
+            _ocrScanner.CompareWindowsHud = _sidePanel.GarrisonDebug.IsVisible;
+        ConfigureGameSource();
+        await _lineupSite.RestoreSessionAsync();
         _sidePanel.UseSideFilters = _settingsManager.LoadSideFilterLayout();
         _sidePanel.FilterLayoutChanged += side =>
         {
@@ -202,19 +209,28 @@ public partial class App : Application
         _sidePanel.ConfigureMatch(_match, _settingsManager, strategies, covenantCatalog, _overlay);
         var battleNames = await dataStore.LoadBattleOperatorNamesAsync();
         _sidePanel.BattleData.SetNames(battleNames);
-        ConfigureGameSource();
+        _sidePanel.GarrisonDebug.SetNames(await dataStore.LoadChessNamesAsync(), battleNames);
 
         var bobVoice = _bobVoice = new BobVoicePlayer(Path.Combine(dataDir, "voice", "bob"));
         bobVoice.Spoken += _sidePanel.ShowCannotSpeech;
         var bobTriggers = new BobVoiceTriggers();
         bool bobEnabled = _settingsManager.LoadBobVoice();
         var bobClock = Stopwatch.StartNew();
+        BattleUpdate? bobMemory = null;
+        TimeSpan bobMemoryAt = default;
+        _sidePanel.BattleData.Updated += update =>
+        {
+            if (_gameTarget.Current?.Kind != update.Source) return;
+            bobMemory = update;
+            bobMemoryAt = bobClock.Elapsed;
+        };
         _ocrScanner.EnableVoiceRecognition = bobVoice.Available && bobEnabled;
         _sidePanel.ConfigureBobVoice(bobVoice.Available, bobEnabled, enabled =>
         {
             bobEnabled = enabled;
             _ocrScanner.EnableVoiceRecognition = enabled;
             bobTriggers.Reset();
+            bobMemory = null;
             if (!enabled)
             {
                 bobVoice.Stop();
@@ -228,8 +244,11 @@ public partial class App : Application
             _ocrScanner.VoiceScanCompleted += (target, hud, items, preparation, voice) => Dispatcher.Invoke(() =>
             {
                 if (!bobEnabled || target == null || !ReferenceEquals(target, _gameTarget.Current)) return;
-                if (preparation) bobTriggers.Reset();
-                else if (bobTriggers.Observe(hud, items.Select(item => item.Name), voice, bobClock.Elapsed) is { } cue)
+                if (preparation) { bobTriggers.Reset(); bobMemory = null; return; }
+                var values = hud.HasValue && target.Kind == GameTargetKind.Windows ? gameStateVm.Hud : hud.GetValueOrDefault();
+                if (target.Kind == GameTargetKind.Windows && !values.Round.HasValue) voice = default;
+                var memory = bobClock.Elapsed - bobMemoryAt <= TimeSpan.FromSeconds(2) ? bobMemory : null;
+                if (bobTriggers.Observe(values, items.Select(item => item.Name), voice, bobClock.Elapsed, memory) is { } cue)
                 {
                     if (!bobVoice.Play(cue) && cue == BobVoiceCue.LowHealth)
                         bobTriggers.RetryLowHealth();
@@ -241,6 +260,7 @@ public partial class App : Application
         {
             hasCurrentGameState = false;
             bobTriggers.Reset();
+            bobMemory = null;
             bobVoice.Stop();
             _sidePanel.HideCannotSpeech();
             _sidePanel.ClearGamePosition();
@@ -382,6 +402,7 @@ public partial class App : Application
         _bobVoice?.Dispose();
         _windowTracker?.Dispose();
         _trackingSave.GetAwaiter().GetResult();
+        _installerMutex.Dispose();
         base.OnExit(e);
     }
 }

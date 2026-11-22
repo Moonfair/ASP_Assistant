@@ -19,6 +19,8 @@ public class OcrScannerService : IDisposable
     private readonly GarrisonHudRecognizer? _hudRecognizer;
     private readonly IOcrEngine _ocrEngine;
     public bool EnableVoiceRecognition { get; set; }
+    private volatile bool _compareWindowsHud;
+    public bool CompareWindowsHud { get => _compareWindowsHud; set => _compareWindowsHud = value; }
     private readonly GameState.GameState _gameState;
     private readonly Func<IReadOnlyList<string>> _getTrackedNames;
     private readonly PreparationScanner? _preparation;
@@ -37,7 +39,7 @@ public class OcrScannerService : IDisposable
     private int _pendingManualScans;
 
     public event Action<GameTarget?, GameState.GameState>? GameStateUpdated;
-    public event Action<GameTarget?, GarrisonHud, IReadOnlyList<ShopItem>, bool, GarrisonVoiceFrame>? VoiceScanCompleted;
+    public event Action<GameTarget?, GarrisonHud?, IReadOnlyList<ShopItem>, bool, GarrisonVoiceFrame>? VoiceScanCompleted;
 
     /// <summary>
     /// Raised when covenant recognition or a manual override changes the bans.
@@ -164,8 +166,10 @@ public class OcrScannerService : IDisposable
                 }
             }
 
-            var (hud, voice) = _hudRecognizer == null ? default
-                : await _hudRecognizer.RecognizeWithVoiceAsync(screenshot, EnableVoiceRecognition);
+            bool windows = target?.Kind == GameTargetKind.Windows;
+            var (hud, voice, shopVisible) = _hudRecognizer == null ? default
+                : await _hudRecognizer.ScanAsync(screenshot, EnableVoiceRecognition, !windows || CompareWindowsHud);
+            if (windows) voice = voice with { ShopVisible = shopVisible };
             hudMs = timing.ElapsedMilliseconds - captureMs - preparationMs;
             if (!IsCurrentTarget) return;
             var regions = _ocrStrategy.GetScanRegions();
@@ -181,7 +185,7 @@ public class OcrScannerService : IDisposable
             var trackedNames = _getTrackedNames();
             targetMs = timing.ElapsedMilliseconds - captureMs - preparationMs - hudMs;
             var rawItems = await _shopRecognizer.RecognizeAsync(
-                screenshot, imgWidth, imgHeight, trackedNames, shopRegion, hud.ShopLevel.HasValue && hud.Gold.HasValue);
+                screenshot, imgWidth, imgHeight, trackedNames, shopRegion, shopVisible);
             shopMs = timing.ElapsedMilliseconds - captureMs - preparationMs - hudMs - targetMs;
             if (!IsCurrentTarget) return;
 

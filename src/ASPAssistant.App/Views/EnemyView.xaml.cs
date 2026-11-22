@@ -10,6 +10,12 @@ namespace ASPAssistant.App.Views;
 
 public partial class EnemyView : UserControl
 {
+    // https://prts.wiki/w/卫戍协议·规程/PRTS盟约记录#领袖
+    private static readonly string[] BossNames =
+    [
+        "假想敌：胄", "假想敌：铳", "假想敌：管", "盐风主教昆图斯", "阿利斯泰尔，帝国余晖",
+        "“萨米的意志”", "假想敌：械", "假想敌：茧", "假想敌：鳍", "矩兽"
+    ];
     private readonly RoundRoute[] _rounds = [new(14, "最终领袖"), new(15, "隐秘核心（若触发）")];
     private PreparationEnemyInfo? _info;
 
@@ -17,7 +23,7 @@ public partial class EnemyView : UserControl
     {
         InitializeComponent();
         Routes.ItemsSource = _rounds;
-        UpdateBattlefieldChoices();
+        UpdateInfo(null);
     }
 
     public void UpdateInfo(PreparationEnemyInfo? info)
@@ -25,18 +31,27 @@ public partial class EnemyView : UserControl
         var previous = _info;
         _info = info;
         EmptyMessage.Visibility = info == null ? Visibility.Visible : Visibility.Collapsed;
-        Details.Visibility = info == null ? Visibility.Collapsed : Visibility.Visible;
         if (info == null)
         {
             foreach (var round in _rounds) round.Side = 0;
+            BossPicker.SelectedIndex = 0;
             BattlefieldPicker.SelectedIndex = 0;
         }
-        BossName.Text = info?.Boss ?? "待识别";
         EnemyTypes.Text = info is { EnemyTypes.Count: > 0 }
             ? string.Join("、", info.EnemyTypes) + (info.EnemyTypes.Count < 3 ? "（识别中）" : "")
             : "待识别";
-        if (previous?.Battlefield != info?.Battlefield) UpdateBattlefieldChoices();
+        if (previous?.Boss != info?.Boss || BossPicker.ItemsSource == null) UpdateBossChoices();
+        if (previous?.Battlefield != info?.Battlefield || BattlefieldPicker.ItemsSource == null) UpdateBattlefieldChoices();
         RefreshRoutes();
+    }
+
+    private void UpdateBossChoices()
+    {
+        int selection = Math.Max(0, BossPicker.SelectedIndex);
+        var label = $"自动识别 · {_info?.Boss ?? "待识别"}";
+        BossPicker.ItemsSource = new BossChoice[] { new(null, label) }
+            .Concat(BossNames.Select(name => new BossChoice(name, name)));
+        BossPicker.SelectedIndex = selection;
     }
 
     private void UpdateBattlefieldChoices()
@@ -49,13 +64,16 @@ public partial class EnemyView : UserControl
     }
 
     private void OnBattlefieldChanged(object sender, SelectionChangedEventArgs e) => RefreshRoutes();
+    private void OnBossChanged(object sender, SelectionChangedEventArgs e) => RefreshRoutes();
 
     private void RefreshRoutes()
     {
+        string? boss = (BossPicker.SelectedItem as BossChoice)?.Name ?? _info?.Boss;
         int? battlefield = (BattlefieldPicker.SelectedItem as BattlefieldChoice)?.Number ?? _info?.Battlefield;
-        foreach (var round in _rounds) round.Update(_info, battlefield);
+        foreach (var round in _rounds) round.Update(boss, _info?.Mode, battlefield);
     }
 
+    private sealed record BossChoice(string? Name, string Label);
     private sealed record BattlefieldChoice(int? Number, string Label);
 
     private sealed class RoundRoute(int round, string name) : ObservableObject
@@ -89,13 +107,13 @@ public partial class EnemyView : UserControl
         public string? LeftOrder => _route?.Order(left: true);
         public string? RightOrder => _route?.Order(left: false);
 
-        public void Update(PreparationEnemyInfo? info, int? battlefield)
+        public void Update(string? boss, string? mode, int? battlefield)
         {
-            _route = battlefield is int map ? BossRoutes.For(info?.Boss, info?.Mode, map, round) : null;
-            Status = (info?.Boss, battlefield) switch
+            _route = battlefield is int map ? BossRoutes.For(boss, mode, map, round) : null;
+            Status = (boss, battlefield) switch
             {
-                _ when round == 14 && info?.Mode == "极速模拟" => "极速模拟在第 9 回合迎战领袖",
-                _ when round == 15 && !BossRoutes.HasHiddenRound(info?.Mode) => "当前难度没有隐秘核心回合",
+                _ when round == 14 && mode == "极速模拟" => "极速模拟在第 9 回合迎战领袖",
+                _ when round == 15 && !BossRoutes.HasHiddenRound(mode) => "当前难度没有隐秘核心回合",
                 ("矩兽", _) when round == 15 => "矩兽没有隐秘核心形态",
                 (null, _) => "等待识别敌方领袖",
                 (_, null) => "请选择战场编号",

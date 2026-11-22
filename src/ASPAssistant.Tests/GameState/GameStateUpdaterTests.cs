@@ -1,6 +1,7 @@
 using ASPAssistant.Core.GameModes.GarrisonProtocol;
 using ASPAssistant.Core.GameState;
 using ASPAssistant.Core.Models;
+using ASPAssistant.Core.Services;
 using ASPAssistant.Core.ViewModels;
 using FluentAssertions;
 
@@ -8,6 +9,31 @@ namespace ASPAssistant.Tests.GameState;
 
 public class GameStateUpdaterTests
 {
+    [Fact]
+    public void NativeHudRemainsLiveThroughScreenMissesAndClearsWhenMemoryDisconnects()
+    {
+        var vm = new GameStateViewModel();
+        vm.SetHudSource(GameTargetKind.Windows);
+        var screen = new Core.GameState.GameState { Hud = new GarrisonHud(1, 2, 99, 7) };
+        vm.UpdateFromGameState(screen);
+        Assert.Null(vm.Hud.Round);
+        var snapshot = new GarrisonSnapshot(12, 0, 8, 3, 98,
+            new(5, 0, 7, 2, 0, []), [], [], [], []);
+        vm.UpdateMemoryHud(snapshot);
+        Assert.Equal(new GarrisonHud(12, 5, 0, 7), vm.Hud);
+        Assert.Equal(screen.Hud, vm.ScreenHud);
+        vm.UpdateFromGameState(new());
+        Assert.Equal(12, vm.Hud.Round);
+        Assert.Equal(0, vm.Hud.Gold);
+        vm.UpdateMemoryHud(null);
+        vm.UpdateFromGameState(screen);
+        Assert.Null(vm.Hud.Gold);
+        vm.SetHudSource(GameTargetKind.MuMu);
+        vm.UpdateMemoryHud(snapshot);
+        vm.UpdateFromGameState(screen);
+        Assert.Equal(screen.Hud, vm.Hud);
+    }
+
     [Fact]
     public void HudPreservesZeroGoldAndClearsWhenTheMatchIsUnavailable()
     {
