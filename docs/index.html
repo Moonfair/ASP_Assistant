@@ -377,8 +377,8 @@
       <div class="step-num">1</div>
       <div class="step-line"></div>
       <div class="step-body">
-        <h3 id="install-title">运行安装向导</h3>
-        <p id="install-instructions">下载并双击 Windows x64 安装包，按向导完成安装。旧 ZIP 版用户先退出助手，再运行安装包，已有阵容和设置会自动沿用。</p>
+        <h3 id="install-title">安装正式版</h3>
+        <p id="install-instructions">下载 Windows x64 正式版。ZIP 包请完整解压后运行；EXE 安装包请按向导完成安装。</p>
       </div>
     </div>
 
@@ -408,7 +408,7 @@
   <div class="center">
     <div class="section-label">立即下载</div>
     <h2 class="section-title">获取最新版本</h2>
-    <p id="download-summary" class="section-sub">安装包自带 .NET 运行时。新版可直接覆盖安装，卸载入口在 Windows 设置的应用列表中。</p>
+    <p id="download-summary" class="section-sub">正式版自带 .NET 运行时，无需单独安装。</p>
   </div>
   <div class="download-card">
     <div class="download-info">
@@ -468,7 +468,7 @@
       const ossRes = await fetch('oss-release.json?_=' + Date.now());
       if (ossRes.ok) {
         const oss = await ossRes.json();
-        if (oss.version && oss.url) {
+        if (/^v\d+\.\d+\.\d+$/.test(oss.version) && oss.url) {
           tag      = oss.version;
           dlUrl    = oss.url;
           fileName = dlUrl.split('/').pop();
@@ -485,7 +485,7 @@
         const base = `ASPAssistant-${gh.tag_name}-win-x64`;
         const setup = assets.find(a => a.name === base + '-setup.exe');
         const asset = setup ?? assets.find(a => a.name === base + '.zip');
-        if (asset) {
+        if (!gh.prerelease && !gh.draft && /^v\d+\.\d+\.\d+$/.test(gh.tag_name) && asset) {
           if (!dlUrl || (setup && fileName !== setup.name)) {
             tag      = gh.tag_name;
             dlUrl    = asset.browser_download_url;

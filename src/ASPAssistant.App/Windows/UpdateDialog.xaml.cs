@@ -21,14 +21,20 @@ public partial class UpdateDialog : Window
 
         InitializeComponent();
 
-        TitleText.Text = $"发现新版本 {updateInfo.TagName}";
+        Title = TitleText.Text = updateInfo.IsBeta ? $"试用 Beta 版 {updateInfo.TagName}" : $"发现新版本 {updateInfo.TagName}";
         CurrentVersionText.Text = _updateService.IsDevBuild
             ? "0.0.0 (dev)"
-            : _updateService.CurrentVersion.ToString(3);
+            : _updateService.CurrentVersionLabel;
         LatestVersionText.Text = updateInfo.Version;
         ReleaseNotesText.Text = string.IsNullOrWhiteSpace(updateInfo.ReleaseNotes)
             ? "（暂无更新说明）"
             : updateInfo.ReleaseNotes;
+        if (updateInfo.IsBeta)
+        {
+            BetaWarning.Visibility = Visibility.Visible;
+            UpdateButton.Content = "下载并安装 Beta 版";
+            DeferButton.Content = "不安装";
+        }
     }
 
     private void OnTitleBarDrag(object sender, MouseButtonEventArgs e)

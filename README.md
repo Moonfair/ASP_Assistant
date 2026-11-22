@@ -83,7 +83,7 @@ ASP Assistant 是一款用于《明日方舟》**卫戍协议**玩法的透明�
 ### 其他
 - 内置 47 句鲍勃简体中文语音，默认开启。可在「设置 → 默认鲍勃语音」试听或关闭。PC 内存采集可判断商店冻结、付费／免费刷新、干员招募、出售与精锐变化。PC 和 MuMu 的战斗帧可补充开战提示。首次全胜与后续全胜使用各自的台词，完整语音清单见[原版语音核对表](docs/bob-voice-coverage.md)。
 - 可在同一设置卡片调整**随机语音频率**（0～1，默认 1）；战备时每隔随机 5～10 秒判定一次，按设置概率播放。0 为关闭随机闲聊，1 为每次判定都播放，修改自动保存。开局、战前和战斗结算等事件语音保持原来的触发方式。
-- 自动检测新版本并弹出更新提示
+- 启动和普通「检查更新」只检查正式版。「检查 Beta 版」必须每次在设置中手动点击；预览后仍需确认才会下载。
 - 在设置中点击「发送反馈」，将近期应用日志和更新失败日志发送到卫戍阵容库，成功后显示反馈编号
 - 窗口置顶、可自由拖动和缩放
 
@@ -100,9 +100,9 @@ ASP Assistant 是一款用于《明日方舟》**卫戍协议**玩法的透明�
 
 ### 安装、覆盖安装与卸载
 
-从[项目发布页](https://github.com/Moonfair/ASP_Assistant/releases/latest)下载 `ASPAssistant-v版本号-win-x64-setup.exe`，双击打开中文向导。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\ASPAssistant`，也可在首次安装时选择其他目录。安装完成后从开始菜单启动 **ASP Assistant**。
+正式版可从[项目发布页](https://github.com/Moonfair/ASP_Assistant/releases/latest)获取。v3.8.11 是兼容旧更新器的过渡版：沿用 ZIP 格式，完整解压后运行 `win-x64/ASPAssistant.App.exe`。在 v3.8.10 中也可以直接通过 **设置 → 检查更新** 升级到过渡版。
 
-升级时退出助手并运行新安装包，向导会沿用已有安装目录。安装版也可在 **设置 → 检查更新** 中下载并打开向导。旧 ZIP 版用户首次迁移时，请退出旧程序，手动运行安装包，之后从开始菜单启动安装版。已有阵容和设置会自动沿用。
+**Beta 只在软件内提供。** 从 v3.8.11 起，进入 **设置 → 检查 Beta 版**，阅读测试说明并确认安装。此选择仅对当次有效，不会订阅测试版。安装向导默认安装到 `%LOCALAPPDATA%\Programs\ASPAssistant`；从便携 ZIP 迁移后请从开始菜单打开 **ASP Assistant**，无需迁移个人阵容和设置。
 
 在 Windows **设置 → 应用** 中找到 **ASP Assistant** 并选择 **卸载**。卸载会移除程序、快捷方式和属于本次安装的阵容链接关联，个人阵容与设置保留在 `%APPDATA%\ASPAssistant`，重装后可继续使用。
 
@@ -162,7 +162,7 @@ python -B -m unittest discover -s tests
 
 打包机需安装 .NET 8 SDK、Visual Studio / Build Tools 的 C++ 工具和 Inno Setup 6.7.3（`winget install --id JRSoftware.InnoSetup -e --version 6.7.3`）。脚本在独立临时目录发布自包含应用，把 x64 CRT 放到 Maa DLL 旁，验证运行库和数据资源，再生成 `publish/ASPAssistant-v1.2.3-win-x64-setup.exe`。可用 `-OutputDirectory` 指定安装包输出目录，`-VcRedistDirectory` 指定 CRT 来源，`-IsccPath` 指定编译器。
 
-推送 `vX.Y.Z` 标签时，GitHub Actions 调用同一脚本，验证安装、覆盖安装和卸载后，将同一个 EXE 发布到 GitHub Release 和 OSS，并更新下载页。
+推送 `vX.Y.Z` 标签时，GitHub Actions 调用同一脚本，验证安装、覆盖安装和卸载后，将同一个 EXE 发布到 GitHub Release 和 OSS，并更新下载页。测试标签 `vX.Y.Z-beta.N` 只部署到软件内的独立更新通道，不创建 GitHub Release，也不改动正式版清单。
 
 发布包只包含 Windows x64 原生库、当前目录数据、浏览图片和 OCR 模型，不包含旧皮肤匹配模板、调试符号、Python 缓存或个人设置。皮肤下载脚本仍保留供开发参考。
 

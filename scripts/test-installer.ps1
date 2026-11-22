@@ -8,6 +8,12 @@ param(
 $ErrorActionPreference = 'Stop'
 $setup = (Get-Item -LiteralPath $Installer).FullName
 $previous = (Get-Item -LiteralPath $PreviousInstaller).FullName
+# Do not touch shortcuts, registry or the user's profile when a running assistant vetoes setup.
+$appMutex = $null
+if ([Threading.Mutex]::TryOpenExisting('ASPAssistant.App.InUse', [ref]$appMutex)) {
+    $appMutex.Dispose()
+    throw 'ASP Assistant is running. Use a clean test session for the installer smoke test.'
+}
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Moonfair.ASPAssistant_is1'
 $protocol = 'HKCU:\Software\Classes\aspassistant'
 $links = @('Programs', 'DesktopDirectory') | ForEach-Object {

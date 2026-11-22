@@ -247,16 +247,20 @@
                 </DockPanel>
                 <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
                     <StackPanel>
+                        <TextBlock x:Name="SettingsVersion" Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontSize="12" TextWrapping="Wrap" />
                         <TextBlock x:Name="SettingsUpdateStatus" Foreground="{StaticResource TextSecondaryBrush}"
-                                   TextWrapping="Wrap" Margin="0,0,0,6" />
-                        <Button x:Name="SettingsViewUpdateButton" Content="查看更新" Click="OnShowUpdateDialog"
-                                Style="{StaticResource TrackingButton}" HorizontalAlignment="Right" Visibility="Collapsed" Margin="0,0,0,6" />
-                        <DockPanel>
-                            <Button x:Name="SettingsCheckUpdateButton" Content="检查更新" DockPanel.Dock="Right"
-                                    Click="OnCheckForUpdates" Style="{StaticResource TrackingButton}" Padding="8,5" />
-                            <TextBlock x:Name="SettingsVersion" Foreground="{StaticResource TextPrimaryBrush}"
-                                       FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,6,0" />
-                        </DockPanel>
+                                   TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                        <TextBlock x:Name="SettingsBetaStatus" Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Visibility="Collapsed" AutomationProperties.LiveSetting="Polite" />
+                        <WrapPanel>
+                            <Button x:Name="SettingsCheckUpdateButton" Content="检查更新" ToolTip="检查正式版更新"
+                                    Click="OnCheckForUpdates" Style="{StaticResource TrackingButton}" Padding="8,5" Margin="0,6,6,0" />
+                            <Button x:Name="SettingsViewUpdateButton" Content="查看更新" Click="OnShowUpdateDialog"
+                                    Style="{StaticResource TrackingButton}" Visibility="Collapsed" Padding="8,5" Margin="0,6,6,0" />
+                            <Button x:Name="SettingsCheckBetaButton" Content="检查 Beta 版" ToolTip="仅检查这一次，不会自动安装。"
+                                    Click="OnCheckForBetaUpdates" Style="{StaticResource TrackingButton}" Padding="8,5" Margin="0,6,0,0" />
+                        </WrapPanel>
                     </StackPanel>
                 </Border>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

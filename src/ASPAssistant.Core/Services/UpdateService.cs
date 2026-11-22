@@ -14,6 +14,7 @@ public record UpdateInfo(
     string DownloadUrl,
     string AssetName)
 {
+    public bool IsBeta { get; internal init; }
     internal string? ExpectedSha256 { get; init; }
 }
 
@@ -29,19 +30,44 @@ public class UpdateService
     private const string Repo = "ASP_Assistant";
     // Same bucket and versioned object path as the website's release workflow.
     private const string OssReleaseBaseUrl = "https://aspa.oss-cn-beijing.aliyuncs.com/releases/";
+    private const string BetaBaseUrl = "https://aspa.oss-cn-beijing.aliyuncs.com/updates/beta/";
     private readonly HttpClient _http;
+    private readonly ReleaseVersion _installed;
 
     public UpdateService() : this(DefaultHttpClient) { }
 
-    internal UpdateService(HttpClient http) => _http = http;
+    internal UpdateService(HttpClient http, string? informationalVersion = null)
+    {
+        _http = http;
+        var assembly = Assembly.GetEntryAssembly();
+        var label = informationalVersion ?? assembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        _installed = ReleaseVersion.Parse(label?.Split('+', 2)[0])
+            ?? ReleaseVersion.Parse(assembly?.GetName().Version?.ToString(3))
+            ?? new(new Version(0, 0, 0), null);
+    }
 
-    public Version CurrentVersion =>
-        Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0);
+    public string CurrentVersionLabel => _installed.ToString();
+    public Version CurrentVersion => _installed.BaseVersion;
+    public bool IsDevBuild => CurrentVersion == new Version(0, 0, 0);
 
-    /// <summary>
-    /// 返回 true 表示当前是开发构建（版本号为 0.0.0），跳过自动更新检查。
-    /// </summary>
-    public bool IsDevBuild => CurrentVersion <= new Version(0, 0, 0, 0);
+    // There is deliberately no persisted channel setting and no automatic caller.
+    public async Task<UpdateInfo?> CheckForBetaUpdateAsync(CancellationToken ct = default)
+    {
+        using var response = await _http.GetAsync(BetaBaseUrl + "latest.json", ct);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        var manifest = await response.Content.ReadFromJsonAsync<BetaManifest>(ct);
+        var version = ReleaseVersion.FromTag(manifest?.Tag);
+        if (manifest is null || version?.Beta is null || ParseSha256("sha256:" + manifest.Sha256) is not { } hash)
+            throw new InvalidDataException("Beta 更新清单无效。");
+        if (version.CompareTo(_installed) <= 0) return null;
+
+        var name = SetupAssetName(manifest.Tag);
+        return new UpdateInfo(manifest.Tag, version.ToString(), manifest.Notes ?? "", BetaBaseUrl + name, name)
+        {
+            IsBeta = true, ExpectedSha256 = hash
+        };
+    }
 
     public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct = default, bool userInitiated = false)
     {
@@ -52,10 +78,11 @@ public class UpdateService
         {
             var url = $"https://api.github.com/repos/{Owner}/{Repo}/releases/latest";
             var release = await _http.GetFromJsonAsync<GitHubRelease>(url, ct);
-            if (release is null) return null;
+            if (release is null || release.Prerelease || release.Draft) return null;
 
-            var latestVersion = ParseVersion(release.TagName);
-            if (latestVersion <= CurrentVersion) return null;
+            var latestVersion = ReleaseVersion.FromTag(release.TagName);
+            if (latestVersion is null || latestVersion.Beta.HasValue || latestVersion.CompareTo(_installed) <= 0)
+                return null;
 
             var asset = release.Assets.FirstOrDefault(a => a.Name == SetupAssetName(release.TagName));
             if (asset is null) return null;
@@ -131,7 +158,7 @@ public class UpdateService
     internal async Task DownloadPackageAsync(UpdateInfo info, string packagePath, IProgress<double>? progress,
         CancellationToken ct)
     {
-        if (info.ExpectedSha256 is not null && info.AssetName == SetupAssetName(info.TagName))
+        if (!info.IsBeta && info.ExpectedSha256 is not null && info.AssetName == SetupAssetName(info.TagName))
         {
             var ossUrl = OssReleaseBaseUrl + Uri.EscapeDataString(info.AssetName);
             try
@@ -186,14 +213,12 @@ public class UpdateService
         return value.Length == 64 && value.All(Uri.IsHexDigit) ? value : null;
     }
 
-    private static Version ParseVersion(string tag)
-    {
-        var v = tag.TrimStart('v');
-        return Version.TryParse(v, out var result) ? result : new Version(0, 0, 0);
-    }
+    private record BetaManifest(string Tag, string? Sha256, string? Notes);
 
     private record GitHubRelease(
         [property: JsonPropertyName("tag_name")] string TagName,
+        [property: JsonPropertyName("prerelease")] bool Prerelease,
+        [property: JsonPropertyName("draft")] bool Draft,
         [property: JsonPropertyName("body")] string? Body,
         [property: JsonPropertyName("assets")] List<GitHubAsset> Assets);
 
