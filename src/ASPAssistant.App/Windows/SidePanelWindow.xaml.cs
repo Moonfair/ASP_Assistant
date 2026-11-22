@@ -98,6 +98,8 @@ public partial class SidePanelWindow : Window
         OperatorView.DataContext = operatorVm;
         EquipmentView.DataContext = equipmentVm;
         TrackingView.DataContext = trackingVm;
+        TrackingView.BrowseRequested += type =>
+            MainTabs.SelectedItem = type == TrackingType.Operator ? OperatorTab : EquipmentTab;
         LineupView.Tracking = trackingVm;
 
         OperatorView.IsTrackedCheck = trackingVm.IsTracked;

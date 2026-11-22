@@ -11,6 +11,63 @@
         Topmost="True"
         Icon="{StaticResource AspaLogo}"
         Background="{StaticResource PanelBackgroundBrush}">
+    <Window.Resources>
+        <Style x:Key="PanelPage" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        </Style>
+        <!-- Only the main panel uses overflow; detail and editor tabs retain their own layouts. -->
+        <ControlTemplate x:Key="PanelNavigation" TargetType="TabControl">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Background="#FF151B2B" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                    <Grid KeyboardNavigation.TabNavigation="Continue">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="3*" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <UniformGrid x:Name="HeaderPanel" IsItemsHost="True" Rows="1"
+                                     KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        <Button x:Name="MorePagesButton" Grid.Column="1" Click="OnMorePages" Padding="4,6"
+                                ToolTip="更多页面" AutomationProperties.Name="{Binding Content, RelativeSource={RelativeSource Self}, StringFormat='更多页面：{0}'}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource TitleBarButton}">
+                                    <Setter Property="Content" Value="更多" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedItem.Visibility, RelativeSource={RelativeSource AncestorType=TabControl}}" Value="Collapsed">
+                                            <Setter Property="Content" Value="{Binding SelectedItem.Header, RelativeSource={RelativeSource AncestorType=TabControl}}" />
+                                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Button.ContentTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                                        <Path Data="M 0,0 L 3,3 L 6,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              StrokeThickness="1.4" VerticalAlignment="Center" Margin="5,2,0,0" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </Button.ContentTemplate>
+                        </Button>
+                        <Border x:Name="MoreSelectedLine" Grid.Column="1" Height="2" VerticalAlignment="Bottom"
+                                Background="{StaticResource AccentBrush}" IsHitTestVisible="False">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedItem.Visibility, RelativeSource={RelativeSource AncestorType=TabControl}}" Value="Collapsed">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                    </Grid>
+                </Border>
+                <Border Background="{StaticResource PanelBackgroundBrush}">
+                    <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" />
+                </Border>
+            </DockPanel>
+        </ControlTemplate>
+    </Window.Resources>
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" GlassFrameThickness="0" />
     </WindowChrome.WindowChrome>
@@ -43,9 +100,9 @@
                         <Button x:Name="SettingsButton" Content="⚙" FontFamily="Segoe UI Symbol"
                                 Click="OnOpenSettings" ToolTip="设置" AutomationProperties.Name="设置"
                                 Style="{StaticResource TitleBarButton}" />
-                        <Button Content="─" Click="OnMinimize"
+                        <Button Content="─" Click="OnMinimize" ToolTip="最小化" AutomationProperties.Name="最小化"
                                 Style="{StaticResource TitleBarButton}" />
-                        <Button Content="✕" Click="OnClose"
+                        <Button Content="✕" Click="OnClose" ToolTip="关闭" AutomationProperties.Name="关闭"
                                 Style="{StaticResource CloseButton}" />
                     </StackPanel>
                 </Grid>
@@ -153,72 +210,60 @@
                                     Margin="0,0,6,0" Padding="1" VerticalAlignment="Center"
                                     Background="#FF10242A" BorderBrush="#FF65C6BE"
                                     BorderThickness="1" CornerRadius="5" ToolTip="坎诺特">
-                                <Image x:Name="CannotPortraitImage" Stretch="UniformToFill"
-                                       AutomationProperties.Name="坎诺特" />
+                                <Grid><Image Source="{StaticResource AspaLogo}" Width="18" Height="18" Opacity="0.65" />
+                                    <Image x:Name="CannotPortraitImage" Stretch="UniformToFill"
+                                       AutomationProperties.Name="坎诺特" /></Grid>
                             </Border>
-                            <UniformGrid Rows="1">
+                            <UniformGrid Rows="1" MinHeight="32">
                                 <UniformGrid.Resources>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="TextAlignment" Value="Center" />
-                                        <Setter Property="VerticalAlignment" Value="Center" />
                                         <Setter Property="FontSize" Value="11" />
                                         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
                                     </Style>
-                                    <Style x:Key="MatchStatusValue" TargetType="Run">
+                                    <Style x:Key="HudValue" TargetType="Run">
+                                        <Setter Property="FontSize" Value="14" />
                                         <Setter Property="FontWeight" Value="SemiBold" />
                                         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
                                     </Style>
                                 </UniformGrid.Resources>
-                                <TextBlock>
-                                    <Run Text="回合 " /><Run Style="{StaticResource MatchStatusValue}"
-                                         Text="{Binding Hud.Round, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                </TextBlock>
-                                <StackPanel>
-                                    <TextBlock>
-                                        <Run Text="升级费用 " /><Run Style="{StaticResource MatchStatusValue}"
-                                             Text="{Binding Hud.UpgradeCost, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                    </TextBlock>
-                                    <TextBlock>
-                                        <Run Text="商店等级 " /><Run Style="{StaticResource MatchStatusValue}"
-                                             Text="{Binding Hud.ShopLevel, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                    </TextBlock>
+                                <StackPanel VerticalAlignment="Center" Margin="4,0">
+                                    <TextBlock><Run Text="回合 " /><Run Style="{StaticResource HudValue}" Text="{Binding Hud.Round, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
                                 </StackPanel>
-                                <StackPanel>
-                                    <TextBlock>
-                                        <Run Text="金币 " /><Run Style="{StaticResource MatchStatusValue}"
-                                             Text="{Binding Hud.Gold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                    </TextBlock>
-                                    <TextBlock>
-                                        <Run Text="下回合金币 " /><Run Style="{StaticResource MatchStatusValue}"
-                                             Text="{Binding Hud.NextRoundGold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" />
-                                    </TextBlock>
+                                <StackPanel VerticalAlignment="Center" Margin="4,0">
+                                    <TextBlock><Run Text="商店等级 " /><Run Style="{StaticResource HudValue}" Text="{Binding Hud.ShopLevel, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
+                                    <TextBlock Margin="0,1,0,0" FontSize="10"><Run Text="升级费用 " /><Run Text="{Binding Hud.UpgradeCost, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
+                                </StackPanel>
+                                <StackPanel VerticalAlignment="Center" Margin="4,0">
+                                    <TextBlock><Run Text="金币 " /><Run Style="{StaticResource HudValue}" Text="{Binding Hud.Gold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
+                                    <TextBlock Margin="0,1,0,0" FontSize="10"><Run Text="下回合 " /><Run Text="{Binding Hud.NextRoundGold, Mode=OneWay, TargetNullValue=—, FallbackValue=—}" /></TextBlock>
                                 </StackPanel>
                             </UniformGrid>
                         </DockPanel>
                     </Border>
-                    <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}">
-                        <TabItem Header="干员">
+                    <TabControl x:Name="MainTabs" Style="{StaticResource DarkTabControl}" Template="{StaticResource PanelNavigation}"
+                                ItemContainerStyle="{StaticResource PanelPage}">
+                        <TabItem x:Name="OperatorTab" Header="干员">
                             <views:OperatorBrowseView x:Name="OperatorView" />
                         </TabItem>
-                        <TabItem Header="装备">
+                        <TabItem x:Name="EquipmentTab" Header="装备">
                             <views:EquipmentBrowseView x:Name="EquipmentView" />
                         </TabItem>
                         <TabItem Header="追踪">
                             <views:TrackingView x:Name="TrackingView" />
                         </TabItem>
-                        <TabItem Header="敌人">
+                        <TabItem Visibility="Collapsed" Header="敌人">
                             <views:EnemyView x:Name="EnemyView" />
                         </TabItem>
-                        <TabItem x:Name="LineupTab" Header="阵容">
+                        <TabItem x:Name="LineupTab" Visibility="Collapsed" Header="阵容">
                             <views:LineupView x:Name="LineupView" />
                         </TabItem>
-                        <TabItem x:Name="MatchTab" Header="匹配" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem x:Name="MatchTab" Visibility="Collapsed" Header="匹配" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                             <views:MatchView x:Name="MatchView" />
                         </TabItem>
-                        <TabItem Header="数据" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem Visibility="Collapsed" Header="数据" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                             <views:BattleDataView x:Name="BattleData" />
                         </TabItem>
-                        <TabItem Header="Debug" FontSize="11" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TabItem Visibility="Collapsed" Header="调试" FontSize="11" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                             <views:GarrisonDebugView x:Name="GarrisonDebug" />
                         </TabItem>
                     </TabControl>

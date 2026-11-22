@@ -8,10 +8,10 @@
 
     <Border Style="{StaticResource ItemCardBorder}" MouseLeftButtonUp="OnDetailClick">
         <StackPanel>
-            <!-- Header: icon left | right side stacks name+toggle above track button -->
+            <!-- Identity and primary action share a row at every panel width. -->
             <DockPanel>
                 <!-- Icon (left, top-aligned) -->
-                <Border DockPanel.Dock="Left" Width="72" Height="72" Margin="0,0,8,0"
+                <Border DockPanel.Dock="Left" Width="48" Height="48" Margin="0,0,8,0"
                         CornerRadius="4" Background="#22FFFFFF" VerticalAlignment="Top"
                         ClipToBounds="True">
                     <Border.Style>
@@ -28,41 +28,31 @@
                     <Image x:Name="IconImage" Stretch="UniformToFill" />
                 </Border>
 
-                <!-- Right side -->
-                <StackPanel VerticalAlignment="Top">
-                    <!-- Row 1: tier + name + toggle, all top-aligned -->
-                    <DockPanel>
-                        <Border DockPanel.Dock="Right" CornerRadius="9"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                                Background="#1A4FC3F7" Padding="2" VerticalAlignment="Top">
-                            <StackPanel Orientation="Horizontal">
-                                <ToggleButton x:Name="NormalToggle" Content="普通"
-                                              IsChecked="True"
-                                              Style="{StaticResource VariantToggleButton}"
-                                              Click="OnNormalClick" />
-                                <ToggleButton x:Name="EliteToggle" Content="精锐"
-                                              Style="{StaticResource VariantToggleButton}"
-                                              Click="OnEliteClick" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock DockPanel.Dock="Left"
-                                   Text="{Binding Tier, Converter={StaticResource TierToRoman}}"
-                                   Foreground="{StaticResource AccentBrush}"
-                                   FontWeight="Bold" FontSize="13" Margin="0,0,5,0"
-                                   VerticalAlignment="Top" />
-                        <TextBlock Text="{Binding Name}"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   FontWeight="SemiBold" FontSize="13"
-                                   VerticalAlignment="Top" />
-                    </DockPanel>
-
-                    <!-- Row 2: track button -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
-                        <Button Content="详情" Style="{StaticResource TrackingButton}" Margin="0,0,6,0"
-                                Click="OnDetailClick" />
-                        <Button x:Name="TrackButton" Style="{StaticResource TrackingButton}" Click="OnTrackClick" />
-                    </StackPanel>
+                <Button x:Name="TrackButton" DockPanel.Dock="Right" Style="{StaticResource CatalogTrackAction}"
+                        Margin="6,0,0,0" VerticalAlignment="Center" Click="OnTrackClick" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Tier, Converter={StaticResource TierToRoman}, StringFormat='等阶 {0}'}"
+                               Foreground="{StaticResource AccentBrush}" FontSize="11" />
+                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontSize="15" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
                 </StackPanel>
+            </DockPanel>
+            <DockPanel Margin="0,8,0,0" LastChildFill="False">
+                <Border DockPanel.Dock="Left" CornerRadius="9"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        Background="#1A4FC3F7" Padding="2" VerticalAlignment="Top">
+                    <StackPanel Orientation="Horizontal">
+                        <ToggleButton x:Name="NormalToggle" Content="普通"
+                                      IsChecked="True"
+                                      Style="{StaticResource VariantToggleButton}"
+                                      Click="OnNormalClick" />
+                        <ToggleButton x:Name="EliteToggle" Content="精锐"
+                                      Style="{StaticResource VariantToggleButton}"
+                                      Click="OnEliteClick" />
+                    </StackPanel>
+                </Border>
+                <Button DockPanel.Dock="Right" Content="详情" Style="{StaticResource TrackingButton}" MinHeight="24"
+                        Padding="8,2" Click="OnDetailClick" />
             </DockPanel>
 
             <TextBlock x:Name="EffectText" Margin="0,4,0,0"

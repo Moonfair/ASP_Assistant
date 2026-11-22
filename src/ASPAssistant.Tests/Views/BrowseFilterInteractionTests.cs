@@ -15,7 +15,7 @@ using FluentAssertions;
 namespace ASPAssistant.Tests.Views;
 
 [Collection("WPF views")]
-public class BrowseFilterInteractionTests
+public partial class BrowseFilterInteractionTests
 {
     [Fact]
     public void BrowseViews_MultiselectChipsAndAllStayInSyncWithResults()
@@ -39,8 +39,13 @@ public class BrowseFilterInteractionTests
         {
             Source = new Uri("/ASPAssistant.App;component/Resources/Styles.xaml", UriKind.Relative)
         });
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("/ASPAssistant.App;component/Resources/Logo.xaml", UriKind.Relative)
+        });
         try
         {
+            VerifySidebarWorkflow();
             VerifyManualBossSelection();
             List<Operator> operators = [
                 new() { Name = "高阶", Tier = 3, CoreCovenants = ["甲"], AdditionalCovenants = ["丙"],
@@ -240,10 +245,6 @@ public class BrowseFilterInteractionTests
 
     private static void VerifySideFilterLayout()
     {
-        Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary
-        {
-            Source = new Uri("/ASPAssistant.App;component/Resources/Logo.xaml", UriKind.Relative)
-        });
         var vm = new OperatorBrowseViewModel();
         vm.LoadOperators([
             new() { Name = "甲", Tier = 1, CoreCovenants = ["炎"] },
@@ -675,7 +676,8 @@ public class BrowseFilterInteractionTests
         vm.LoadOperators(store.LoadOperatorsAsync().GetAwaiter().GetResult());
         var gearVm = new EquipmentBrowseViewModel();
         gearVm.LoadEquipment(store.LoadEquipmentAsync().GetAwaiter().GetResult().Item1);
-        var window = new ASPAssistant.App.Windows.SidePanelWindow(vm, gearVm, new(), new(), new())
+        var tracking = new TrackingViewModel(vm.FilteredOperators, gearVm.FilteredEquipment);
+        var window = new ASPAssistant.App.Windows.SidePanelWindow(vm, gearVm, tracking, new(), new())
             { Left = 900, Top = 20, Height = 820 };
         LayoutFilterWindow(window);
         var view = (OperatorBrowseView)window.FindName("OperatorView");
@@ -693,6 +695,21 @@ public class BrowseFilterInteractionTests
         ((TabControl)window.FindName("MainTabs")).SelectedIndex = 1;
         ((System.Windows.Controls.Primitives.ToggleButton)((EquipmentBrowseView)window.FindName("EquipmentView")).FindName("FilterToggle")).IsChecked = true;
         Render("equipment-sidebar.png");
+        var tabs = (TabControl)window.FindName("MainTabs");
+        tabs.SelectedIndex = 2;
+        window.Width = 280;
+        window.Height = 600;
+        Render("tracking-empty-280.png");
+        foreach (var op in vm.FilteredOperators.Take(2)) tracking.AddTracking(op.Name, TrackingType.Operator);
+        foreach (var gear in gearVm.FilteredEquipment.Take(2)) tracking.AddTracking(gear.Name, TrackingType.Equipment);
+        Render("tracking-list-280.png");
+        tabs.SelectedIndex = 1;
+        window.UseSideFilters = false;
+        ((System.Windows.Controls.Primitives.ToggleButton)((EquipmentBrowseView)window.FindName("EquipmentView")).FindName("FilterToggle")).IsChecked = false;
+        gearVm.SearchText = "未匹配的名称";
+        Render("search-empty-280.png");
+        window.Width = 310;
+        window.Height = 820;
         ((Button)window.FindName("SettingsButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Render("settings-page.png");
         void Render(string name)

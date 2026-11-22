@@ -5,104 +5,138 @@
              Background="{StaticResource PanelBackgroundBrush}">
     <UserControl.Resources>
         <DataTemplate x:Key="TrackingItemTemplate">
-            <Border Style="{StaticResource ItemCardBorder}" Padding="4">
+            <Border Style="{StaticResource ItemCardBorder}" Padding="8,5">
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="✕" Padding="4,2" Margin="4,0,0,0"
+                    <Button DockPanel.Dock="Right" Content="×" MinWidth="28" MinHeight="26" Padding="4,2" Margin="4,0,0,0"
                             VerticalAlignment="Center" Style="{StaticResource TrackingButton}"
                             Click="OnRemoveTracking" ToolTip="取消追踪" AutomationProperties.Name="取消追踪" />
                     <Image DockPanel.Dock="Left" Width="24" Height="24" Margin="0,0,4,0"
                            Stretch="Uniform" controls:DeferredIcon.Path="{Binding IconPath}" />
                     <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextPrimaryBrush}"
-                               FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
+                               FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" />
                 </DockPanel>
             </Border>
         </DataTemplate>
     </UserControl.Resources>
     <DockPanel Margin="8">
-        <Button DockPanel.Dock="Top" Content="取消所有" HorizontalAlignment="Right" Margin="0,0,0,8"
-                Click="OnClearTracking">
-            <Button.Style>
-                <Style TargetType="Button" BasedOn="{StaticResource TrackingButton}">
-                    <Style.Triggers>
-                        <MultiDataTrigger>
-                            <MultiDataTrigger.Conditions>
-                                <Condition Binding="{Binding TrackedOperators.Count}" Value="0" />
-                                <Condition Binding="{Binding TrackedEquipment.Count}" Value="0" />
-                            </MultiDataTrigger.Conditions>
-                            <Setter Property="IsEnabled" Value="False" />
-                            <Setter Property="Opacity" Value="0.5" />
-                        </MultiDataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Button.Style>
-        </Button>
-        <Border DockPanel.Dock="Bottom" Style="{StaticResource ItemCardBorder}" Margin="0,8,0,0" Padding="8">
+        <DockPanel DockPanel.Dock="Top" Margin="0,2,0,8">
+            <Button DockPanel.Dock="Right" Content="取消全部" Padding="8,3" Click="OnClearTracking"
+                    ToolTip="取消本局所有目标的追踪">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource TrackingButton}">
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding TrackedOperators.Count}" Value="0" />
+                                    <Condition Binding="{Binding TrackedEquipment.Count}" Value="0" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <TextBlock Text="本局追踪" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{StaticResource TextPrimaryBrush}" />
+        </DockPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
-                <TextBlock Text="盟约组合快捷追踪" FontSize="12" FontWeight="Bold"
-                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="核心盟约" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2" />
-                    <TextBlock Grid.Column="2" Text="附加盟约" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2" />
-                    <ComboBox x:Name="CoreCovenantPicker" Grid.Row="1" ItemsSource="{Binding CoreCovenants}" SelectedIndex="0"
-                              AutomationProperties.Name="核心盟约" MaxDropDownHeight="240"
-                              SelectionChanged="OnCovenantSelectionChanged" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="或" Foreground="{StaticResource TextSecondaryBrush}"
-                               FontSize="11" Margin="6,0" VerticalAlignment="Center" />
-                    <ComboBox x:Name="AdditionalCovenantPicker" Grid.Row="1" Grid.Column="2"
-                              ItemsSource="{Binding AdditionalCovenants}" SelectedIndex="0"
-                              AutomationProperties.Name="附加盟约" MaxDropDownHeight="240"
-                              SelectionChanged="OnCovenantSelectionChanged" />
-                </Grid>
-                <DockPanel Margin="0,6,0,0">
-                    <Button x:Name="TrackCombinationButton" DockPanel.Dock="Right" Content="追踪全部" Margin="6,0,0,0"
-                            IsEnabled="False" Click="OnTrackCombination" VerticalAlignment="Center">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource TrackingButton}">
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Opacity" Value="0.5" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <TextBlock x:Name="CombinationStatus" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"
-                               TextWrapping="Wrap" VerticalAlignment="Center" />
-                </DockPanel>
-            </StackPanel>
-        </Border>
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition />
-                    <ColumnDefinition Width="8" />
-                    <ColumnDefinition />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock FontSize="12" FontWeight="Bold" Margin="0,0,0,4"
-                               Foreground="{StaticResource TextPrimaryBrush}">
-                        <Run Text="追踪中的干员 (" /><Run Text="{Binding TrackedOperators.Count, Mode=OneWay}" /><Run Text=")" />
+                <Expander Header="按盟约批量追踪" IsExpanded="False" Style="{StaticResource FilterSectionExpander}">
+                    <StackPanel Margin="2,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="核心盟约" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBlock Grid.Column="2" Text="附加盟约" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <ComboBox x:Name="CoreCovenantPicker" Grid.Row="1" ItemsSource="{Binding CoreCovenants}" SelectedIndex="0"
+                                      AutomationProperties.Name="核心盟约" MaxDropDownHeight="240"
+                                      SelectionChanged="OnCovenantSelectionChanged" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="或" Foreground="{StaticResource TextSecondaryBrush}"
+                                       FontSize="11" Margin="6,0" VerticalAlignment="Center" />
+                            <ComboBox x:Name="AdditionalCovenantPicker" Grid.Row="1" Grid.Column="2"
+                                      ItemsSource="{Binding AdditionalCovenants}" SelectedIndex="0"
+                                      AutomationProperties.Name="附加盟约" MaxDropDownHeight="240"
+                                      SelectionChanged="OnCovenantSelectionChanged" />
+                        </Grid>
+                        <DockPanel Margin="0,6,0,0">
+                            <Button x:Name="TrackCombinationButton" DockPanel.Dock="Right" Content="追踪全部" Margin="6,0,0,0"
+                                    IsEnabled="False" Click="OnTrackCombination" VerticalAlignment="Center">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource TrackingButton}">
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.5" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <TextBlock x:Name="CombinationStatus" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"
+                                       TextWrapping="Wrap" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </StackPanel>
+                </Expander>
+                <Border x:Name="EmptyTracking" Margin="0,4,0,0" Padding="14,16" CornerRadius="6"
+                        Background="{StaticResource CardBackgroundBrush}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding TrackedOperators.Count}" Value="0" />
+                                        <Condition Binding="{Binding TrackedEquipment.Count}" Value="0" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <TextBlock Text="还没有追踪目标" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="在卡片上点「追踪」，目标出现在商店时会被标记。" TextWrapping="Wrap"
+                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,5,0,10" />
+                        <WrapPanel>
+                            <Button x:Name="BrowseOperatorsButton" Content="查找干员" Click="OnBrowseOperators" Style="{StaticResource TrackingButton}" Padding="10,5" Margin="0,0,6,0" />
+                            <Button x:Name="BrowseEquipmentButton" Content="查找装备" Click="OnBrowseEquipment" Style="{StaticResource TrackingButton}" Padding="10,5" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding TrackedOperators.Count}" Value="0"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Margin="0,6,0,5" Foreground="{StaticResource TextPrimaryBrush}">
+                        <Run Text="干员 · " /><Run Text="{Binding TrackedOperators.Count, Mode=OneWay}" />
                     </TextBlock>
                     <ItemsControl ItemsSource="{Binding TrackedOperators}" ItemTemplate="{StaticResource TrackingItemTemplate}" />
                 </StackPanel>
-                <StackPanel Grid.Column="2">
-                    <TextBlock FontSize="12" FontWeight="Bold" Margin="0,0,0,4"
-                               Foreground="{StaticResource TextPrimaryBrush}">
-                        <Run Text="追踪中的装备 (" /><Run Text="{Binding TrackedEquipment.Count, Mode=OneWay}" /><Run Text=")" />
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding TrackedEquipment.Count}" Value="0"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Margin="0,6,0,5" Foreground="{StaticResource TextPrimaryBrush}">
+                        <Run Text="装备 · " /><Run Text="{Binding TrackedEquipment.Count, Mode=OneWay}" />
                     </TextBlock>
                     <ItemsControl ItemsSource="{Binding TrackedEquipment}" ItemTemplate="{StaticResource TrackingItemTemplate}" />
                 </StackPanel>
-            </Grid>
+            </StackPanel>
         </ScrollViewer>
     </DockPanel>
 </UserControl>
