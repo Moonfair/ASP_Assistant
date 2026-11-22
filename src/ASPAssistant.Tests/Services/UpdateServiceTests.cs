@@ -1,7 +1,9 @@
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 using ASPAssistant.Core.Services;
 using FluentAssertions;
 
@@ -89,6 +91,36 @@ public class UpdateServiceTests : IDisposable
         var download = () => service.DownloadPackageAsync(info!, _zipPath, null, cts.Token);
         await download.Should().ThrowAsync<OperationCanceledException>();
         handler.Downloads.Should().Equal(OssUrl);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PreparesTheRightHelperForTheSelectedFormat(bool setup)
+    {
+        using var archive = new MemoryStream();
+        using (var zip = new ZipArchive(archive, ZipArchiveMode.Create, leaveOpen: true))
+        using (var stream = zip.CreateEntry("win-x64/ASPAssistant.App.exe").Open())
+            stream.Write(Package);
+        var bytes = setup ? Package : archive.ToArray();
+        var job = UpdateInstaller.CreateJobDirectory();
+        var app = Directory.CreateTempSubdirectory();
+        var name = "ASPAssistant-v99.1.2-win-x64" + (setup ? "-setup.exe" : ".zip");
+        using var handler = new ReleaseHandler(null, _ => throw new InvalidOperationException()) { GitHubPackage = bytes };
+        using var http = new HttpClient(handler);
+        var service = new UpdateService(http);
+        var info = new UpdateInfo("v99.1.2", "99.1.2", "", GitHubUrl, name);
+        try
+        {
+            var script = await service.PreparePackageAsync(info, job, app.FullName, null, CancellationToken.None);
+            File.Exists(script).Should().BeTrue();
+            using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(job, "update.json")));
+            manifest.RootElement.TryGetProperty("SourceDirectory", out var source).Should().Be(!setup);
+            var payload = setup ? Path.Combine(job, "setup.exe")
+                : Path.Combine(source.GetString()!, "ASPAssistant.App.exe");
+            File.ReadAllBytes(payload).Should().Equal(Package);
+        }
+        finally { UpdateInstaller.DeleteJobDirectory(job); app.Delete(true); }
     }
 
     private static HttpResponseMessage PackageResponse(byte[] bytes) => new(HttpStatusCode.OK)

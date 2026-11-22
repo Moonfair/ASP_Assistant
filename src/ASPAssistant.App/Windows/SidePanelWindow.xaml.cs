@@ -27,7 +27,8 @@ public partial class SidePanelWindow : Window
 
     private UpdateService? _updateService;
     private UpdateInfo? _pendingUpdate;
-    private bool _checkingForUpdates;
+    private readonly SemaphoreSlim _updateCheckGate = new(1, 1);
+    private CancellationTokenSource? _settingsBetaCheck;
     private bool _updateCheckAttempted;
     private readonly DispatcherTimer _preparationResultTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private bool _waitingForScroll;
@@ -85,6 +86,7 @@ public partial class SidePanelWindow : Window
         };
         Closed += (_, _) =>
         {
+            _settingsBetaCheck?.Cancel();
             _lineupEditor?.ApprovePanelClose();
             Application.Current.Shutdown();
         };
@@ -466,7 +468,12 @@ public partial class SidePanelWindow : Window
     private void SetSettingsVisible(bool visible)
     {
         if (visible) RefreshSettingsLineupAccount();
-        else MarkerCalibrationToggle.IsChecked = false;
+        else
+        {
+            MarkerCalibrationToggle.IsChecked = false;
+            _settingsBetaCheck?.Cancel();
+            SettingsBetaStatus.Visibility = Visibility.Collapsed;
+        }
         SettingsPage.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         MainContent.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
         if (CannotSpeech.IsVisible)
@@ -475,33 +482,35 @@ public partial class SidePanelWindow : Window
     }
 
     private void RefreshVersionLabel(UpdateService service)
-        => SettingsVersion.Text = $"当前版本 v{service.CurrentVersion.ToString(3)}";
+        => SettingsVersion.Text = $"当前版本 v{service.CurrentVersionLabel}";
 
     private async Task CheckAfterStartupAsync()
     {
         await Task.Delay(3000);
-        if (!_updateCheckAttempted) await CheckForUpdatesAsync();
+        await CheckForUpdatesAsync();
     }
 
     private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(userInitiated: true);
 
     private async Task CheckForUpdatesAsync(bool userInitiated = false)
     {
-        if (_checkingForUpdates) return;
-        var service = _updateService ??= new UpdateService();
-        _updateCheckAttempted = true;
-        if (service.IsDevBuild && !userInitiated)
-        {
-            SettingsUpdateStatus.Text = "开发构建未自动检查更新。";
-            return;
-        }
-
-        _checkingForUpdates = true;
-        SettingsCheckUpdateButton.IsEnabled = false;
-        SettingsUpdateStatus.Text = "正在检查更新…";
+        // Startup may coincide with a one-time Beta preview. Queue its normal stable check;
+        // ignore overlapping button clicks rather than queueing surprise user-initiated dialogs.
+        if (!await _updateCheckGate.WaitAsync(userInitiated ? 0 : Timeout.Infinite)) return;
         UpdateInfo? info;
         try
         {
+            if (!userInitiated && _updateCheckAttempted) return;
+            var service = _updateService ??= new UpdateService();
+            _updateCheckAttempted = true;
+            if (service.IsDevBuild && !userInitiated)
+            {
+                SettingsUpdateStatus.Text = "开发构建未自动检查更新。";
+                return;
+            }
+            SetUpdateButtonsEnabled(false);
+            if (userInitiated) SettingsBetaStatus.Visibility = Visibility.Collapsed;
+            SettingsUpdateStatus.Text = "正在检查更新…";
             info = await service.CheckForUpdateAsync(userInitiated: userInitiated);
             _pendingUpdate = info;
             UpdateBanner.Visibility = SettingsViewUpdateButton.Visibility = info is null ? Visibility.Collapsed : Visibility.Visible;
@@ -516,20 +525,66 @@ public partial class SidePanelWindow : Window
         }
         finally
         {
-            SettingsCheckUpdateButton.IsEnabled = true;
-            _checkingForUpdates = false;
+            SetUpdateButtonsEnabled(true);
+            _updateCheckGate.Release();
         }
 
         if (userInitiated && info is not null && IsVisible)
             ShowPendingUpdate();
     }
 
+    private async void OnCheckForBetaUpdates(object sender, RoutedEventArgs e)
+    {
+        if (!SettingsPage.IsVisible || !_updateCheckGate.Wait(0)) return;
+        using var cancellation = new CancellationTokenSource();
+        _settingsBetaCheck = cancellation;
+        try
+        {
+            SetUpdateButtonsEnabled(false);
+            SettingsBetaStatus.Text = "正在检查 Beta 版…";
+            SettingsBetaStatus.Visibility = Visibility.Visible;
+            var service = _updateService ??= new UpdateService();
+            var info = await service.CheckForBetaUpdateAsync(cancellation.Token);
+            if (cancellation.IsCancellationRequested) return;
+            if (info is null)
+                SettingsBetaStatus.Text = "没有比当前版本更新的 Beta 版。";
+            else
+            {
+                // A Beta result is local to this settings action, never the ordinary update banner.
+                SettingsBetaStatus.Visibility = Visibility.Collapsed;
+                if (SettingsPage.IsVisible && WindowState != WindowState.Minimized)
+                    ShowUpdateDialog(service, info);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            SettingsBetaStatus.Text = "检查 Beta 版失败，请稍后重试。";
+            AppLogger.Error("Update", "Could not check for a Beta update", ex);
+        }
+        finally
+        {
+            _settingsBetaCheck = null;
+            SetUpdateButtonsEnabled(true);
+            _updateCheckGate.Release();
+        }
+    }
+
+    private void SetUpdateButtonsEnabled(bool enabled) =>
+        SettingsCheckUpdateButton.IsEnabled = SettingsCheckBetaButton.IsEnabled =
+        SettingsViewUpdateButton.IsEnabled = UpdateActionButton.IsEnabled = enabled;
+
     private void OnShowUpdateDialog(object sender, RoutedEventArgs e) => ShowPendingUpdate();
 
     private void ShowPendingUpdate()
     {
         if (_pendingUpdate is null || _updateService is null) return;
-        var dialog = new UpdateDialog(_updateService, _pendingUpdate)
+        ShowUpdateDialog(_updateService, _pendingUpdate);
+    }
+
+    private void ShowUpdateDialog(UpdateService service, UpdateInfo info)
+    {
+        var dialog = new UpdateDialog(service, info)
         {
             Owner = this
         };

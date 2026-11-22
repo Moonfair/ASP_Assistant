@@ -21,14 +21,20 @@ public partial class UpdateDialog : Window
 
         InitializeComponent();
 
-        TitleText.Text = $"发现新版本 {updateInfo.TagName}";
+        Title = TitleText.Text = updateInfo.IsBeta ? $"试用 Beta 版 {updateInfo.TagName}" : $"发现新版本 {updateInfo.TagName}";
         CurrentVersionText.Text = _updateService.IsDevBuild
             ? "0.0.0 (dev)"
-            : _updateService.CurrentVersion.ToString(3);
+            : _updateService.CurrentVersionLabel;
         LatestVersionText.Text = updateInfo.Version;
         ReleaseNotesText.Text = string.IsNullOrWhiteSpace(updateInfo.ReleaseNotes)
             ? "（暂无更新说明）"
             : updateInfo.ReleaseNotes;
+        if (updateInfo.IsBeta)
+        {
+            BetaWarning.Visibility = Visibility.Visible;
+            UpdateButton.Content = "下载并安装 Beta 版";
+            DeferButton.Content = "不安装";
+        }
     }
 
     private void OnTitleBarDrag(object sender, MouseButtonEventArgs e)
@@ -74,7 +80,8 @@ public partial class UpdateDialog : Window
 
             DownloadProgress.Value = value * 100;
             ProgressPercent.Text = $"{(int)(value * 100)}%";
-            StatusText.Text = value >= 0.9 ? "正在解压更新包..." : "正在下载更新...";
+            StatusText.Text = _updateInfo.IsPortableZip && value >= 0.9 ? "正在解压更新包..."
+                : !_updateInfo.IsPortableZip && value >= 0.97 ? "正在准备安装向导..." : "正在下载更新...";
         });
 
         try
@@ -82,7 +89,7 @@ public partial class UpdateDialog : Window
             _updateTask = _updateService.DownloadAndApplyUpdateAsync(_updateInfo, progress, cancellation.Token);
             await _updateTask;
 
-            StatusText.Text = "更新包已就绪，即将重启应用...";
+            StatusText.Text = _updateInfo.IsPortableZip ? "更新包已就绪，即将重启应用..." : "下载完成，助手即将退出并打开安装向导。";
             DownloadProgress.Value = 100;
             ProgressPercent.Text = "100%";
 
@@ -92,7 +99,7 @@ public partial class UpdateDialog : Window
         catch (Exception ex)
         {
             if (!cancellation.IsCancellationRequested)
-                ResetToIdle($"下载失败：{ex.Message}");
+                ResetToIdle($"更新失败：{ex.Message}");
         }
         finally
         {

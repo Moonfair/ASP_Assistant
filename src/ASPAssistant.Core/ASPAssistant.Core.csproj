@@ -8,6 +8,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="ASPAssistant.Tests" />
     <EmbeddedResource Include="Services\UpdateInstaller.ps1" LogicalName="ASPAssistant.Core.UpdateInstaller.ps1" />
+    <EmbeddedResource Include="Services\SetupUpdateInstaller.ps1" LogicalName="ASPAssistant.Core.SetupUpdateInstaller.ps1" />
   </ItemGroup>
 
   <ItemGroup>

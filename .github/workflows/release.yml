@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   build:
+    # This bridge publishes only stable ZIPs. A beta tag must never update latest or the website.
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: windows-latest
 
     steps:
@@ -23,7 +25,9 @@ jobs:
       - name: Extract version from tag
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -cnotmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw "Invalid stable tag: $tag" }
+          $version = $tag.Substring(1)
           echo "VERSION=$version" >> $env:GITHUB_ENV
 
       - name: Run tests
@@ -49,7 +53,7 @@ jobs:
         with:
           files: publish/ASPAssistant-${{ github.ref_name }}-win-x64.zip
           body_path: RELEASE_NOTES.md
-          generate_release_notes: true
+          fail_on_unmatched_files: true
 
       - name: Setup ossutil
         uses: yizhoumo/setup-ossutil@v2

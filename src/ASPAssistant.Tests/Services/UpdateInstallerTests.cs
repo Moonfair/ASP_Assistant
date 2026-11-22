@@ -16,6 +16,33 @@ public class UpdateInstallerTests : IDisposable
         return job;
     }
 
+    [Fact]
+    public async Task Installer_RunsDownloadedExecutableAndCleansOnlyItsJob()
+    {
+        var job = NewJob();
+        var otherJob = NewJob();
+        // hostname.exe emits a known value only if the helper actually launches the payload.
+        File.Copy(Path.Combine(Environment.SystemDirectory, "hostname.exe"), Path.Combine(job, "setup.exe"));
+        var script = await UpdateInstaller.PrepareAsync(job, int.MaxValue, Path.Combine(_fixture, "logs"));
+        var result = await RunInstaller(script);
+        result.ExitCode.Should().Be(0, result.Output);
+        result.Output.Should().ContainEquivalentOf(Environment.MachineName);
+        Directory.Exists(job).Should().BeFalse();
+        Directory.Exists(otherJob).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Installer_LaunchFailure_LogsFailureAndCleansJob()
+    {
+        var job = NewJob();
+        var logDir = Path.Combine(_fixture, "中文 logs [1]$");
+        await File.WriteAllTextAsync(Path.Combine(job, "setup.exe"), "invalid executable");
+        var script = await UpdateInstaller.PrepareAsync(job, int.MaxValue, logDir);
+        (await RunInstaller(script)).ExitCode.Should().NotBe(0);
+        File.Exists(Path.Combine(logDir, "update-errors.log")).Should().BeTrue();
+        Directory.Exists(job).Should().BeFalse();
+    }
+
     [Theory]
     [InlineData("ordinary path")]
     [InlineData("中文目录")]

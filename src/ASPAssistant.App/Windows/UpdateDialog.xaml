@@ -75,6 +75,10 @@
                     </StackPanel>
                 </Grid>
 
+                <TextBlock x:Name="BetaWarning" Visibility="Collapsed" Margin="0,0,0,12"
+                           Foreground="#FFFFD28A" TextWrapping="Wrap" FontSize="12"
+                           Text="Beta 版可能不稳定。确认后将下载并打开安装向导；如果你使用便携版，请在向导中确认安装位置。" />
+
                 <!-- Release notes -->
                 <TextBlock Text="更新内容" Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="11" Margin="0,0,0,4" />
@@ -105,14 +109,14 @@
                 <!-- Buttons -->
                 <DockPanel>
                     <Button x:Name="UpdateButton" DockPanel.Dock="Right" Content="立即更新"
-                            Click="OnUpdateClick" Width="90" Height="30"
+                            Click="OnUpdateClick" MinWidth="90" Padding="10,0" Height="30"
                             Background="#FF4FC3F7" Foreground="#FF1A1A2E"
                             FontWeight="SemiBold" FontSize="12"
                             BorderThickness="0" Cursor="Hand">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="bg" Background="{TemplateBinding Background}"
-                                        CornerRadius="6">
+                                        CornerRadius="6" Padding="{TemplateBinding Padding}">
                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <ControlTemplate.Triggers>

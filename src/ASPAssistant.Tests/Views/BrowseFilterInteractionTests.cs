@@ -171,6 +171,7 @@ public class BrowseFilterInteractionTests
             VerifyDuplicateLabelsAndEmptyResults();
             VerifyDisabledCovenantsRemainFilterable();
             VerifySideFilterLayout();
+            app.Dispatcher.Invoke(BetaUpdateInteraction.Verify, DispatcherPriority.Normal);
             VerifySettingsPreferences();
             VerifySideFilterWheelOverChips();
             VerifySideFilterOutsideClickAndShortcuts();

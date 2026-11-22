@@ -5,6 +5,7 @@ namespace ASPAssistant.Core.Services;
 
 internal static class UpdateInstaller
 {
+    internal const string SetupFileName = "setup.exe";
     private static string UpdateRoot => Path.Combine(Path.GetTempPath(), "ASPAssistant-Update");
 
     internal static string CreateJobDirectory()
@@ -52,9 +53,28 @@ internal static class UpdateInstaller
             SourceDirectory = source, AppDirectory = destination, ProcessId = processId,
             ErrorLogPath = Path.Combine(Path.GetFullPath(logDirectory), "update-errors.log")
         };
+        return await WriteHelperAsync(job, manifest, "ASPAssistant.Core.UpdateInstaller.ps1", ct);
+    }
+
+    internal static async Task<string> PrepareAsync(
+        string jobDirectory, int processId, string logDirectory, CancellationToken ct = default)
+    {
+        var job = ValidateJobDirectory(jobDirectory);
+        if (!File.Exists(Path.Combine(job, SetupFileName)))
+            throw new InvalidDataException("未找到下载的安装向导。");
+        return await WriteHelperAsync(job, new
+        {
+            ProcessId = processId,
+            ErrorLogPath = Path.Combine(Path.GetFullPath(logDirectory), "update-errors.log")
+        }, "ASPAssistant.Core.SetupUpdateInstaller.ps1", ct);
+    }
+
+    private static async Task<string> WriteHelperAsync(
+        string job, object manifest, string resourceName, CancellationToken ct)
+    {
         var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
         await File.WriteAllTextAsync(Path.Combine(job, "update.json"), JsonSerializer.Serialize(manifest), encoding, ct);
-        using var resource = typeof(UpdateInstaller).Assembly.GetManifestResourceStream("ASPAssistant.Core.UpdateInstaller.ps1")
+        using var resource = typeof(UpdateInstaller).Assembly.GetManifestResourceStream(resourceName)
             ?? throw new InvalidOperationException("Missing embedded updater.");
         using var reader = new StreamReader(resource);
         var script = await reader.ReadToEndAsync(ct);
