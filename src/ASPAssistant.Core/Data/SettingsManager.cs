@@ -5,6 +5,7 @@ using ASPAssistant.Core.Services;
 namespace ASPAssistant.Core.Data;
 
 public sealed record MatchPreferences(string[] Strategies, string[] Covenants, string Tactic);
+public sealed record RecentShout(string Template, string Word, bool IsRoomNickname = false);
 
 public class SettingsManager
 {
@@ -123,6 +124,25 @@ public class SettingsManager
     }
 
     public void SaveMatchPreferences(MatchPreferences preferences) => SavePreference("match-preferences", preferences);
+
+    public RecentShout[] LoadRecentShouts()
+    {
+        try
+        {
+            var path = Path.Combine(_settingsDir, "recent-shouts.json");
+            if (File.Exists(path))
+                return (JsonSerializer.Deserialize<RecentShout[]>(File.ReadAllText(path), JsonOptions) ?? [])
+                    .Where(s => s != null && !string.IsNullOrWhiteSpace(s.Template) && !string.IsNullOrWhiteSpace(s.Word))
+                    .Take(5).ToArray();
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Warn("Settings", $"Could not read recent shouts: {ex.Message}");
+        }
+        return [];
+    }
+
+    public void SaveRecentShouts(IEnumerable<RecentShout> shouts) => SavePreference("recent-shouts", shouts.Take(5).ToArray());
 
     public MarkerOffset LoadMarkerOffset()
     {

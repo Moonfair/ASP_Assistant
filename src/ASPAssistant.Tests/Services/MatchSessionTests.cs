@@ -303,15 +303,170 @@ public class MatchSessionTests
         Assert.Contains("授权", session.MemoryStatus);
     }
 
+    [Fact]
+    public async Task LegacySnapshotKeepsDrawingButOnlyAnUnmutedCapablePeerCanReceiveShouts()
+    {
+        var syncs = 0;
+        using var client = new LineupSiteClient("", new Handler((action, _, body) =>
+        {
+            Assert.Equal("sync", action);
+            Assert.True(body.GetProperty("supportsShouts").GetBoolean());
+            if (++syncs == 1) // Old relay: neither the member capability nor the shouts array exists.
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new
+                {
+                    phase = "playing", selfId = "me", roomId = "aspa-stage", gameRoomId = "stage",
+                    members = new[] { new { id = "me", hasPlugin = true }, new { id = "peer", hasPlugin = true } },
+                    muted = Array.Empty<string>(), strokes = Array.Empty<MatchStroke>()
+                }) };
+            return Reply("playing", "stage", muted: syncs == 3 ? ["modern"] : [], members:
+            [
+                new { id = "me", hasPlugin = true, supportsShouts = true },
+                new { id = "peer", hasPlugin = true },
+                new { id = "modern", hasPlugin = true, supportsShouts = true },
+                new { id = "noPlugin", hasPlugin = false, supportsShouts = true }
+            ]);
+        }));
+        using var session = new MatchSession(client);
+        session.Observe(Sample(Room("stage", "playing")));
+        await session.RefreshAsync();
+        Assert.True(session.CanSendStroke);
+        Assert.False(session.CanSendShout);
+        Assert.False(await session.SendShoutAsync(new("当心□！", "浊心斯卡蒂")));
+        await session.RefreshAsync();
+        Assert.True(session.CanSendShout);
+        await session.RefreshAsync();
+        Assert.False(session.CanSendShout);
+        Assert.True(session.CanSendStroke);
+    }
+
+    [Fact]
+    public async Task QueuedShoutRechecksCapabilitiesAfterThePendingPoll()
+    {
+        var polling = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var refresh = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var client = new LineupSiteClient("", new Handler(async (action, _, body) =>
+        {
+            Assert.Equal("sync", action);
+            if (body.GetProperty("sequence").GetInt64() == 1) return Reply("playing", "stage");
+            polling.SetResult();
+            await refresh.Task;
+            return Reply("playing", "stage", members: [new { id = "peer", hasPlugin = true, supportsShouts = false }]);
+        }));
+        using var session = new MatchSession(client);
+        session.Observe(Sample(Room("stage", "playing")));
+        await session.RefreshAsync();
+        var inFlight = session.RefreshAsync();
+        await polling.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.True(session.CanSendShout);
+        var queued = session.SendShoutAsync(new("当心□！", "浊心斯卡蒂"));
+        refresh.SetResult();
+        await inFlight;
+        Assert.False(await queued);
+        Assert.True(session.CanSendStroke);
+    }
+
+    [Fact]
+    public async Task SendingAndRepeatingShareOneCooldownAndNeverQueueDoubleClicks()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ids = new List<long>();
+        List<MatchShout> echoes = [];
+        using var client = new LineupSiteClient("", new Handler(async (action, _, body) =>
+        {
+            ids.Add(body.GetProperty("sequence").GetInt64());
+            if (action == "shout")
+            {
+                Assert.Equal("aspa-stage", body.GetProperty("roomId").GetString());
+                Assert.Equal("当心□！", body.GetProperty("template").GetString());
+                Assert.Equal("浊心斯卡蒂", body.GetProperty("word").GetString());
+                Assert.DoesNotContain(body.EnumerateObject(), property => property.Name == "text");
+                started.TrySetResult();
+                await resume.Task;
+                echoes.Add(new(Guid.NewGuid().ToString(), "me", "当心浊心斯卡蒂！", 1760000000000L));
+            }
+            return Reply("playing", "stage", shouts: [.. echoes]);
+        }));
+        using var session = new MatchSession(client);
+        var phrase = new QuickPhrase("当心□！", "浊心斯卡蒂");
+        Assert.False(await session.SendShoutAsync(phrase));
+        session.Observe(Sample(Room("stage", "playing")));
+        await session.RefreshAsync();
+        Assert.True(session.CanSendShout);
+        Assert.False(await session.SendShoutAsync(phrase with { Word = "自由输入" }));
+        var first = session.SendShoutAsync(phrase);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.False(session.CanSendShout);
+        Assert.False(await session.SendShoutAsync(phrase));
+        resume.SetResult();
+        Assert.True(await first);
+        Assert.InRange(session.ShoutCooldownMs, 1, 2000);
+        Assert.False(await session.SendShoutAsync(phrase));
+        var echo = Assert.Single(session.State!.Shouts);
+        Assert.Equal("当心浊心斯卡蒂！", echo.Text);
+        Assert.Equal(1760000000000L, echo.SentAt);
+        Assert.Equal([1L, 2L], ids);
+        await Task.Delay(session.ShoutCooldownMs + 25);
+        await session.RefreshAsync();
+        Assert.True(session.CanSendShout);
+        Assert.True(await session.SendShoutAsync(phrase));
+        Assert.Equal(2, session.State.Shouts.Length);
+    }
+
+    [Fact]
+    public async Task FailedStaleAndUnacknowledgedSendsDoNotBecomeRecentPhrases()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var count = 0;
+        using var client = new LineupSiteClient("", new Handler(async (action, _, body) =>
+        {
+            if (action == "shout")
+            {
+                switch (++count)
+                {
+                    case 1: return new(HttpStatusCode.Conflict) { Content = JsonContent.Create(new { error = "无人接收" }) };
+                    case 2: return Reply("playing", "stage"); // No acknowledgement of this phrase.
+                }
+                started.SetResult();
+                await resume.Task;
+                return Reply("playing", "stage", shouts: [new("id", "me", "当心浊心斯卡蒂！")]);
+            }
+            return Reply("playing", "stage", action == "mute" ? ["peer"] : []);
+        }));
+        using var session = new MatchSession(client);
+        var game = Room("stage", "playing");
+        var phrase = new QuickPhrase("当心□！", "浊心斯卡蒂");
+        session.Observe(Sample(game));
+        await session.RefreshAsync();
+        await session.MuteAsync(["peer"]);
+        Assert.False(await session.SendShoutAsync(phrase));
+        await session.RefreshAsync();
+        session.Observe(new(BattleFeedState.ReadInterrupted));
+        Assert.False(await session.SendShoutAsync(phrase));
+        session.Observe(Sample(game));
+        Assert.False(await session.SendShoutAsync(phrase));
+        Assert.Equal("无人接收", session.Error);
+        Assert.False(await session.SendShoutAsync(phrase));
+        var stale = session.SendShoutAsync(phrase);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        session.Observe(Sample(Room("other", "playing")));
+        resume.SetResult();
+        Assert.False(await stale);
+        Assert.Null(session.State);
+        Assert.Equal(3, count);
+    }
+
     private static HttpResponseMessage Reply(string phase, string? gameRoomId = null,
-        string[]? muted = null, MatchStroke[]? strokes = null) => new(HttpStatusCode.OK)
+        string[]? muted = null, MatchStroke[]? strokes = null, MatchShout[]? shouts = null, object[]? members = null) => new(HttpStatusCode.OK)
         {
             Content = JsonContent.Create(new
             {
                 phase, selfId = "me", serverNow = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 roomId = gameRoomId == null ? null : "aspa-" + gameRoomId, gameRoomId,
-                members = new[] { new { id = "me", hasPlugin = true }, new { id = "peer", hasPlugin = true },
-                    new { id = "noPlugin", hasPlugin = false } }, muted = muted ?? [], strokes = strokes ?? []
+                members = members ?? [new { id = "me", hasPlugin = true, supportsShouts = true },
+                    new { id = "peer", hasPlugin = true, supportsShouts = true }, new { id = "noPlugin", hasPlugin = false }],
+                muted = muted ?? [], strokes = strokes ?? [], shouts = shouts ?? []
             })
         };
 

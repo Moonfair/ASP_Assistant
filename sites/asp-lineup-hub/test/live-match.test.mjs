@@ -12,7 +12,7 @@ const game = (selfUid, roomId = '', hostUid = '', uids = [], phase = 'lobby') =>
   ({ selfUid, nickname: '', roomId, hostUid, phase: roomId ? phase : 'idle', members: uids.map(seat) });
 const stroke = () => ({ id: randomUUID(), points: [{ x: .5, y: .25 }] });
 
-function setup() {
+function setup(syncDefaults = {}) {
   let now = 1_800_000_000_000;
   const env = { matchService: new DesktopMatchService(() => now), liveMatchService: new LiveMatchService(() => now) };
   async function request(key, action, body = {}) {
@@ -27,7 +27,7 @@ function setup() {
     assert.equal(status, 200, JSON.stringify(data));
     return data;
   }
-  const sync = (key, state, options = {}) => ok(key, 'sync', { game: state, strategies: [], covenants: [], tactic: '随便', ...options });
+  const sync = (key, state, options = {}) => ok(key, 'sync', { game: state, strategies: [], covenants: [], tactic: '随便', ...syncDefaults, ...options });
   async function publish(key, state, options = {}, invitation = '游戏邀请') {
     const { roomId } = await sync(key, state, options);
     return ok(key, 'recruit', { roomId, invitation });
@@ -74,7 +74,9 @@ test('推荐只展示当前一个房间，多人看同一邀请均不占位，�
     assert.equal(offer.members.length, 1);
     assert.ok(!offer.members.some(m => m.id === offer.selfId));
     assert.deepEqual(offer.strokes, []);
+    assert.deepEqual(offer.shouts, []);
     assert.equal((await live(key, 'stroke', { roomId: h.roomId, ...stroke() })).status, 409);
+    assert.equal((await live(key, 'shout', shout(h.roomId))).status, 409);
     assert.equal((await live(key, 'force-start', { roomId: h.roomId })).status, 409);
   }
   assert.equal((await sync(a, game('A', '101', 'A', ['A']))).members.length, 1);
@@ -379,4 +381,159 @@ test('凭证、房间与上报代次各自隔离，旧版匹配继续独立工�
   advance(90_000);
   assert.equal((await sync(a, lobby)).phase, 'ended');
   assert.notEqual((await sync(ticket(), lobby)).roomId, room.roomId);
+});
+
+const shout = (roomId, sequence = 1) => ({ roomId, sequence, template: '当心□！', word: '折光' });
+
+test('快捷喊话由服务端组合白名单，不接受自由输入，只能发送给同一对局的插件队友', async () => {
+  const { sync, live, ok } = setup({ supportsShouts: true });
+  const a = ticket(), b = ticket(), c = ticket();
+  const lobby = uid => game(uid, 'L', 'A', ['A', 'B']);
+  const battle = uid => game(uid, 'G', '', ['A', 'B'], 'playing');
+  const other = game('C', 'G2', '', ['C'], 'playing');
+  const { roomId } = await sync(a, lobby('A'));
+  assert.equal((await live(a, 'shout', shout(roomId))).status, 409);
+  await sync(a, battle('A'));
+  assert.equal((await live(a, 'shout', shout(roomId))).status, 409);
+  await sync(b, battle('B'));
+  const outsider = await sync(c, other);
+  assert.equal((await live(a, 'shout', shout(outsider.roomId))).status, 409);
+  for (const bad of [{ text: '你好' }, { template: '自由□' }, { word: '不在词库的自由文本' }, { word: ['折光'] }, { sequence: undefined }]) {
+    assert.equal((await live(a, 'shout', { ...shout(roomId), ...bad })).status, 400);
+  }
+  const sent = await ok(a, 'shout', shout(roomId));
+  assert.equal(sent.shouts.length, 1);
+  const [{ id }] = sent.shouts;
+  assert.match(id, /^[0-9a-f-]{36}$/);
+  assert.deepEqual(sent.shouts, [{ id, playerId: sent.selfId, text: '当心折光！', sentAt: sent.serverNow }]);
+  assert.deepEqual((await sync(b, battle('B'))).shouts, sent.shouts);
+  assert.deepEqual((await sync(c, other)).shouts, []);
+  assert.deepEqual((await ok(a, 'leave')).shouts, []);
+  assert.deepEqual((await sync(b, battle('B'))).shouts, []);
+});
+
+test('快捷喊话对每个发送者独立限流：1999 毫秒拒发，2000 毫秒可发，迟到重试不复制，按时序保留最近八条', async () => {
+  const { sync, ok, live, advance } = setup({ supportsShouts: true });
+  const a = ticket(), b = ticket(), battle = uid => game(uid, 'G', '', ['A', 'B'], 'playing');
+  const { roomId } = await sync(a, battle('A'));
+  await sync(b, battle('B'));
+  const first = await ok(a, 'shout', shout(roomId));
+  assert.deepEqual((await ok(a, 'shout', shout(roomId))).shouts, first.shouts);
+  const reply = await ok(b, 'shout', shout(roomId));
+  assert.deepEqual(reply.shouts.map(x => x.playerId), [first.selfId, reply.selfId]);
+  const ids = reply.shouts.map(x => x.id);
+  advance(1999);
+  assert.equal((await live(a, 'shout', shout(roomId, 2))).status, 429);
+  advance(1);
+  for (let seq = 2; seq <= 10; seq++) {
+    const updated = await ok(a, 'shout', shout(roomId, seq));
+    ids.push(updated.shouts.at(-1).id);
+    advance(2000);
+  }
+  assert.equal(new Set(ids).size, 11);
+  assert.deepEqual((await sync(b, battle('B'))).shouts.map(x => x.id), ids.slice(-8));
+});
+
+test('快捷喊话尊重双方屏蔽：第三位队友仍能接收，屏蔽期间的消息解禁后不补发', async () => {
+  const { sync, ok, live, advance } = setup({ supportsShouts: true });
+  const a = ticket(), b = ticket(), c = ticket(), battle = uid => game(uid, 'G', '', ['A', 'B', 'C'], 'playing');
+  const host = await sync(a, battle('A')), second = await sync(b, battle('B'));
+  const { roomId } = host;
+  await ok(b, 'mute', { roomId, muted: [host.selfId] });
+  assert.equal((await live(a, 'shout', shout(roomId))).status, 409);
+  assert.equal((await live(b, 'shout', shout(roomId))).status, 409);
+  await sync(c, battle('C'));
+  const sent = await ok(a, 'shout', shout(roomId));
+  assert.deepEqual((await sync(c, battle('C'))).shouts, sent.shouts);
+  assert.deepEqual((await ok(b, 'mute', { roomId, muted: [] })).shouts, []);
+  advance(2000);
+  const secondSend = await ok(a, 'shout', shout(roomId, 2));
+  assert.deepEqual((await sync(b, battle('B'))).shouts, secondSend.shouts.slice(-1));
+  assert.deepEqual((await ok(b, 'mute', { roomId, muted: [host.selfId] })).shouts, []);
+  assert.deepEqual((await ok(a, 'mute', { roomId, muted: [second.selfId] })).shouts, secondSend.shouts);
+});
+
+test('强制测试房间的喊话不会随合房进入真实对局，也不能通过重发旧序号重新显示', async () => {
+  const { sync, ok, live, advance } = setup({ supportsShouts: true });
+  const a = ticket(), b = ticket(), c = ticket(), d = ticket();
+  const left = uid => game(uid, 'L1', 'A', ['A', 'B']);
+  const right = uid => game(uid, 'L2', 'C', ['C', 'D']);
+  const battle = uid => game(uid, 'G', '', ['A', 'B', 'C', 'D'], 'playing');
+  const first = await sync(a, left('A')), second = await sync(c, right('C'));
+  await sync(b, left('B')); await sync(d, right('D'));
+  await ok(a, 'force-start', { roomId: first.roomId });
+  await ok(c, 'force-start', { roomId: second.roomId });
+  assert.equal((await ok(a, 'shout', shout(first.roomId))).shouts.length, 1);
+  assert.equal((await ok(c, 'shout', shout(second.roomId))).shouts.length, 1);
+  const merged = await sync(b, battle('B'));
+  assert.deepEqual(merged.shouts, []);
+  advance(2000);
+  assert.deepEqual((await ok(a, 'shout', shout(first.roomId))).shouts, []);
+  // The reused room ID is not proof the sender left the test lobby. A delayed
+  // command with a fresh sequence must not go to newly merged teammates.
+  assert.equal((await live(a, 'shout', shout(first.roomId, 2))).status, 409);
+  assert.equal((await live(b, 'shout', shout(merged.roomId, 1))).status, 409);
+  assert.deepEqual((await sync(d, battle('D'))).shouts, []);
+  await sync(c, battle('C'));
+  const actual = await ok(c, 'shout', shout(merged.roomId, 2));
+  assert.deepEqual((await sync(b, battle('B'))).shouts, actual.shouts);
+  assert.deepEqual((await sync(a, battle('A'))).shouts, []);
+});
+
+test('新旧插件混部时只把明确支持喊话的队友计为收件人，老版仍能照常共享画笔', async () => {
+  const { sync, ok, live } = setup();
+  const a = ticket(), b = ticket(), c = ticket();
+  const battle = uid => game(uid, 'G', '', ['A', 'B', 'C'], 'playing');
+  const current = { supportsShouts: true };
+  const host = await sync(a, battle('A'), current);
+  const legacy = await sync(b, battle('B'));
+  const { roomId } = host;
+  const notDelivered = await live(a, 'shout', shout(roomId));
+  assert.equal(notDelivered.status, 409);
+  assert.match(notDelivered.data.error, /更新|升级/);
+  assert.deepEqual(legacy.members.map(m => [m.hasPlugin, m.supportsShouts]), [[true,true], [true,false], [false,false]]);
+  const oldSender = await live(b, 'shout', shout(roomId));
+  assert.equal(oldSender.status, 409);
+  const ink = stroke();
+  await ok(b, 'stroke', { roomId, ...ink });
+  assert.equal((await sync(a, battle('A'), current)).strokes[0].id, ink.id);
+  // A string is not affirmative. A send while B is old must not surface when B upgrades.
+  const third = await sync(c, battle('C'), current);
+  assert.deepEqual(third.members.map(m => m.supportsShouts), [true,false,true]);
+  const sent = await ok(a, 'shout', shout(roomId));
+  assert.deepEqual((await sync(c, battle('C'), current)).shouts, sent.shouts);
+  const oldPoll = await sync(b, battle('B'), { supportsShouts: 'true' });
+  assert.equal(oldPoll.members.find(m => m.id === legacy.selfId).supportsShouts, false);
+  assert.deepEqual(oldPoll.shouts, []);
+  assert.deepEqual((await sync(b, battle('B'), current)).shouts, []);
+  assert.equal((await ok(b, 'shout', shout(roomId))).shouts.at(-1).playerId, legacy.selfId);
+  const downgraded = await sync(b, battle('B'));
+  assert.equal(downgraded.members.find(m => m.id === legacy.selfId).supportsShouts, false);
+  assert.deepEqual(downgraded.shouts, []);
+});
+
+test('房间昵称从真实座位取词，未安装插件的成员也可被点名，离房旧名不能重发', async () => {
+  const { ok, live, sync, advance } = setup({ supportsShouts: true });
+  const a = ticket(), b = ticket(), c = ticket();
+  const battle = (uid, withGuests = true) => {
+    const state = game(uid, 'R', 'A', withGuests ? ['A', 'B', 'G', 'H'] : ['A', 'B'], 'playing');
+    const names = { A: '', B: '同名', G: '旅行$&博士', H: '同名' };
+    return { ...state, nickname: uid === 'A' ? '房主甲' : names[uid],
+      members: state.members.map(s => ({ ...s, nickname: names[s.uid] })) };
+  };
+  const first = await sync(a, battle('A'));
+  assert.deepEqual(first.roomNicknames, ['房主甲', '同名', '旅行$&博士']);
+  await sync(b, battle('B'));
+  const other = await sync(c, game('Z', 'Q', 'Z', ['Z'], 'playing'));
+  assert.deepEqual(other.roomNicknames, ['博士Z']);
+  const send = (word, sequence) => live(a, 'shout', { ...shout(first.roomId, sequence), word, isRoomNickname: true });
+  for (const word of ['博士Z', '随意输入', '折光', '旅行']) assert.equal((await send(word, 1)).status, 400);
+  const sent = await ok(a, 'shout', { ...shout(first.roomId), word: '旅行$&博士', isRoomNickname: true });
+  assert.equal(sent.shouts.at(-1).text, '当心旅行$&博士！');
+  assert.equal((await sync(b, battle('B'))).shouts.at(-1).text, '当心旅行$&博士！');
+  assert.equal((await send('旅行$&博士', 2)).status, 429);
+  advance(2000);
+  assert.deepEqual((await sync(a, battle('A', false))).roomNicknames, ['房主甲', '同名']);
+  assert.equal((await send('旅行$&博士', 2)).status, 400);
+  assert.equal((await send('房主甲', 2)).status, 200);
 });

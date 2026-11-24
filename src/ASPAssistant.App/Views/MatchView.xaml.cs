@@ -32,6 +32,7 @@ public partial class MatchView : UserControl
         _session = session;
         _settings = settings;
         _overlay = overlay;
+        ShoutPanel.Configure(session, settings);
         _changingPreferences = true;
         try
         {
@@ -58,6 +59,7 @@ public partial class MatchView : UserControl
         _session = null;
         _settings = null;
         _overlay = null;
+        ShoutPanel.Finish();
     }
 
     internal void Refresh()
@@ -134,10 +136,12 @@ public partial class MatchView : UserControl
             "lobby" when room?.Members.Length >= 4 => "房间已满，请在游戏内准备开始。",
             "lobby" when !host => "已加入游戏房间，等待房主开始。",
             "matching" => "请在游戏内等待匹配结果。",
-            "playing" when allMuted => "已屏蔽所有队友。取消屏蔽一人即可发送笔迹。",
+            "playing" when allMuted => "已屏蔽所有队友。取消屏蔽一人即可标记或喊话。",
             "playing" when room?.Members.Length == 1 => "当前房间只有你一人。",
-            "playing" when peers.Length == 0 && roster != null => "队友开启插件后即可互相标记。",
-            "playing" => "点击“开始标记”或按住 Ctrl 在游戏画面上作画。笔迹保留 10 秒。",
+            "playing" when peers.Length == 0 && roster != null => "队友开启插件后即可互相标记和喊话。",
+            "playing" when peers.Length > 0 && !peers.Any(p => p.SupportsShouts && !roster!.Muted.Contains(p.Id)) =>
+                "仍可发送笔迹。快捷喊话需要新版组队服务，以及至少一名未屏蔽的新版插件队友。",
+            "playing" => "可向队友喊话，也可按住 Ctrl 标记游戏画面（笔迹保留 10 秒）。",
             _ => null
         };
         SetText(Description, instruction);
@@ -170,6 +174,7 @@ public partial class MatchView : UserControl
         LeaveButton.IsEnabled = available;
         ApproveLeaveButton.IsEnabled = available;
 
+        ShoutPanel.Refresh(playing, roster);
         UpdateRoster(roster, room, playing);
         var showRoster = room != null || currentOffer != null;
         Show(RosterHeading, showRoster);
@@ -214,7 +219,7 @@ public partial class MatchView : UserControl
                 if (playing && member.HasPlugin && member.AssignedTactic is { Length: > 0 } assigned && assigned != Unknown)
                     tactic += $"（分配为{assigned}）";
                 return new MemberRow(member.Id, name, string.IsNullOrWhiteSpace(member.Color) ? "#FFE0E0E0" : member.Color,
-                    Preference(member.Strategy), Preference(member.Covenant), tactic, mute, $"{mute}{member.Nickname}的笔迹",
+                    Preference(member.Strategy), Preference(member.Covenant), tactic, mute, $"{mute}{member.Nickname}的笔迹和喊话",
                     playing && !self && member.HasPlugin ? Visibility.Visible : Visibility.Collapsed);
             }).ToArray();
         }

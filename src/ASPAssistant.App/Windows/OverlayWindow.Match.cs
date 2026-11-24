@@ -211,6 +211,12 @@ public partial class OverlayWindow
             }
             foreach (var stroke in owner._localInk.Values) DrawStroke(stroke);
             if (owner._draft is { } path) Draw(path.Points, state.SelfId);
+            if (owner._match.IsSynchronized && owner._inkRoom == state.RoomId &&
+                OverlayShout.Latest(state, now) is { } shout && ActualWidth >= 100)
+            {
+                OverlayShout.Draw(dc, RenderSize, VisualTreeHelper.GetDpi(this).PixelsPerDip, state, shout);
+                owner._nextInkExpiry = Math.Min(owner._nextInkExpiry, shout.SentAt + OverlayShout.DurationMs);
+            }
 
             void DrawStroke(MatchStroke stroke)
             {

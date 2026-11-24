@@ -4,12 +4,12 @@ const root = new URL('../', import.meta.url);
 const read = (file) => readFile(new URL(file, root), 'utf8');
 const [html, css, client, account, notifications, editor, desktop, share, diagramFormat, diagramEditor, catalog, portraits,
   gearIcons, strategyIcons, selfSelectedOperators, selfSelectedPortraits, captcha, auth, snapshots, votes, voteCatalog,
-  feedback, desktopMatch, liveMatch, worker] = await Promise.all(
+  feedback, desktopMatch, quickChat, liveMatch, worker] = await Promise.all(
   ['web/index.html', 'web/style.css', 'web/app.js', 'web/account.js', 'web/notifications.js', 'web/editor.js', 'web/desktop-import.js', 'web/share-format.js',
    'web/diagram-format.js', 'web/diagram-editor.js', 'web/catalog.json', 'web/portraits.json', 'web/gear-icons.json', 'web/strategy-icons.json',
    'web/self-selected-operators.json', 'web/self-selected-portraits.json',
    'server/captcha.js', 'server/auth.js', 'server/share-snapshots.js', 'server/operator-votes.js', 'web/operator-vote-catalog.json',
-   'server/feedback.js', 'server/desktop-match.js', 'server/live-match.js', 'server/index.js'].map(read)
+   'server/feedback.js', 'server/desktop-match.js', 'server/quick-chat.json', 'server/live-match.js', 'server/index.js'].map(read)
 );
 const dist = new URL('dist/server/', root);
 await mkdir(dist, { recursive: true });
@@ -23,6 +23,7 @@ await writeFile(new URL('index.js', dist), [
   'const selfSelectedOperators = ' + selfSelectedOperators.trim() + ';',
   'const selfSelectedPortraits = ' + selfSelectedPortraits.trim() + ';',
   'const operatorVoteCatalog = ' + voteCatalog.trim() + ';',
+  'const quickChatCatalog = ' + JSON.stringify(JSON.parse(quickChat)) + ';',
   share, diagramFormat, captcha, auth, snapshots, votes, feedback, desktopMatch, liveMatch, worker
 ].join('\n'));
 console.log('Built dist/server/index.js');

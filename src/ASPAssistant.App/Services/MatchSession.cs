@@ -17,6 +17,9 @@ internal sealed class MatchSession : IDisposable
     private string? _ticket, _account, _dismissedRoom;
     private long _generation, _sequence, _lastSample, _snapshotTick;
     private bool _syncFailed;
+    private long _nextShoutTick;
+    private int _sendingShout;
+    private const int ShoutIntervalMs = 2000;
 
     internal MatchSession(LineupSiteClient site)
     {
@@ -35,8 +38,13 @@ internal sealed class MatchSession : IDisposable
     internal event Action? Changed;
     internal long ServerTimeNow => State is { } state
         ? state.ServerNow + Environment.TickCount64 - _snapshotTick : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    internal bool CanSendStroke => !Busy && IsSynchronized && Observation?.RoomId is { } room && State is { Phase: "playing" } state &&
-        state.GameRoomId == room && state.Members.Any(m => m.HasPlugin && m.Id != state.SelfId && !state.Muted.Contains(m.Id));
+    private bool HasRecipient(bool requireShouts) => !Busy && IsSynchronized && Observation?.RoomId is { } room &&
+        State is { Phase: "playing" } state && state.GameRoomId == room && state.Members.Any(m => m.HasPlugin &&
+            (!requireShouts || m.SupportsShouts) && m.Id != state.SelfId && !state.Muted.Contains(m.Id));
+    internal bool CanSendStroke => HasRecipient(requireShouts: false);
+    internal int ShoutCooldownMs => (int)Math.Max(0, Volatile.Read(ref _nextShoutTick) - Environment.TickCount64);
+    internal bool CanSendShout => !_shutdown.IsCancellationRequested && HasRecipient(requireShouts: true) && State?.RoomId != null &&
+        Volatile.Read(ref _sendingShout) == 0 && ShoutCooldownMs == 0;
 
     internal void SetPreferences(string[] strategies, string[] covenants, string tactic) =>
         _preferences = new([.. strategies], [.. covenants], tactic);
@@ -230,7 +238,7 @@ internal sealed class MatchSession : IDisposable
         return ExchangeAsync(ticket, generation, "sync", new
         {
             game = Observation, preferences.Strategies, preferences.Covenants, preferences.Tactic,
-            sequence = ++_sequence, knownStrokes = State?.Strokes.Select(s => s.Id).ToArray() ?? []
+            sequence = ++_sequence, knownStrokes = State?.Strokes.Select(s => s.Id).ToArray() ?? [], supportsShouts = true
         });
     }
 
@@ -240,7 +248,8 @@ internal sealed class MatchSession : IDisposable
         var snapshot = await _site.MatchAsync(action, ticket, body, _shutdown.Token);
         if (!Current(ticket, generation)) return;
         if (snapshot.Phase is not ("idle" or "lobby" or "matching" or "playing" or "searching" or "offer" or "ended") ||
-            snapshot.Members == null || snapshot.Muted == null || snapshot.Strokes == null)
+            snapshot.Members == null || snapshot.Muted == null || snapshot.Strokes == null || snapshot.Shouts == null || snapshot.RoomNicknames == null ||
+            snapshot.Shouts.Any(s => s == null || string.IsNullOrEmpty(s.Id) || string.IsNullOrEmpty(s.PlayerId) || string.IsNullOrEmpty(s.Text)))
             throw new LineupSiteException("匹配服务返回的房间状态无效。");
 
         if (snapshot.Strokes.Any(s => s.Points.Length == 0))
@@ -277,6 +286,53 @@ internal sealed class MatchSession : IDisposable
         catch (LineupSiteException ex) { if (Current(ticket, generation)) Error = ex.Message; }
         catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { }
         if (!_shutdown.IsCancellationRequested) Changed?.Invoke();
+    }
+
+    internal async Task<bool> SendShoutAsync(QuickPhrase phrase)
+    {
+        if (!CanSendShout || !QuickChatCatalog.IsValid(phrase, State?.RoomNicknames) || _ticket is not { } ticket || State?.RoomId is not { } room ||
+            Interlocked.CompareExchange(ref _sendingShout, 1, 0) != 0) return false;
+        long generation = _generation;
+        try
+        {
+            Changed?.Invoke(); // Disable all send/repeat buttons while waiting for an in-flight poll.
+            await _requests.WaitAsync(_shutdown.Token);
+            try
+            {
+                if (!Current(ticket, generation) || !HasRecipient(requireShouts: true) || State?.RoomId != room || ShoutCooldownMs != 0 ||
+                    !QuickChatCatalog.IsValid(phrase, State.RoomNicknames))
+                    return false;
+                var known = State.Shouts.Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+                await ExchangeAsync(ticket, generation, "shout", new { roomId = room, phrase.Template, phrase.Word, phrase.IsRoomNickname, sequence = ++_sequence });
+                if (!Current(ticket, generation) || State is not { Phase: "playing" } state ||
+                    state.RoomId != room || state.GameRoomId != Observation?.RoomId) return false;
+                // A stale/replayed command may return HTTP 200 with an unchanged snapshot.
+                if (!state.Shouts.Any(s => s.PlayerId == state.SelfId && s.Text == phrase.Text && !known.Contains(s.Id)))
+                {
+                    Error = "服务端未确认这条喊话。";
+                    return false;
+                }
+                Volatile.Write(ref _nextShoutTick, Environment.TickCount64 + ShoutIntervalMs);
+                return true;
+            }
+            finally { _requests.Release(); }
+        }
+        catch (LineupSiteException ex)
+        {
+            if (Current(ticket, generation))
+            {
+                Error = ex.Message;
+                if (ex.Status == HttpStatusCode.TooManyRequests)
+                    Volatile.Write(ref _nextShoutTick, Environment.TickCount64 + ShoutIntervalMs);
+            }
+            return false;
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested) { return false; }
+        finally
+        {
+            Volatile.Write(ref _sendingShout, 0);
+            if (!_shutdown.IsCancellationRequested) Changed?.Invoke();
+        }
     }
 
     internal Task LeaveAsync()

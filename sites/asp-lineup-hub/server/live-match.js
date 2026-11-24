@@ -1,8 +1,45 @@
 const LIVE_MATCH_ACTIONS = new Set(['sync', 'recruit', 'stop-recruit', 'search', 'next', 'cancel-search',
-  'leave', 'force-start', 'mute', 'stroke']);
+  'leave', 'force-start', 'mute', 'stroke', 'shout']);
 const LIVE_HOST_MS = 12_000;
 const LIVE_RELAX_MS = 60_000;
 const LIVE_UNKNOWN = '未知';
+const LIVE_SHOUT_CD_MS = 2000;
+const LIVE_SHOUT_HISTORY = 8;
+const liveShoutTemplates = new Set(quickChatCatalog.templates);
+const liveShoutWords = new Set(Object.values(quickChatCatalog.groups).flat());
+
+function liveRoomNicknames(room) {
+  if (room?.phase !== 'playing') return [];
+  // Use actual names (including seats without a plugin), never the display fallback “未知”.
+  return [...new Set(room.seats.map(s => s.nickname || room.players.find(p => p.uid === s.uid)?.game?.nickname).filter(Boolean))];
+}
+
+function sendLiveShout(player, body, now) {
+  const room = player.room;
+  // A forced test lobby can keep its room UUID after matchmaking merges it.
+  // Require each participant's own observation before routing real-battle chat.
+  const inGame = p => room.forced || (p.game?.phase === 'playing' && p.game.roomId === room.gameId);
+  if (room.phase !== 'playing' || !inGame(player)) throw new HttpError(409, '进入对局后才可快捷喊话。');
+  if (!player.supportsShouts) throw new HttpError(409, '当前客户端不支持快捷喊话，请更新助手。');
+  if (body.sequence === undefined || hasOwn(body, 'text') || !liveShoutTemplates.has(body.template) ||
+      (body.isRoomNickname === true ? !liveRoomNicknames(room).includes(body.word) : !liveShoutWords.has(body.word)))
+    throw new HttpError(400, '请选择快捷喊话的预设句式和词语。');
+  const peers = room.players.filter(p => p !== player && inGame(p) && p.seen + MATCH_IDLE_MS > now &&
+    !p.muted.has(player.member.id) && !player.muted.has(p.member.id));
+  if (!peers.length) throw new HttpError(409, '没有可以接收喊话的队友。');
+  const recipients = peers.filter(p => p.supportsShouts);
+  if (!recipients.length) throw new HttpError(409, '队友的助手不支持快捷喊话，请队友更新后再试。');
+  if (player.lastShoutAt !== undefined && now - player.lastShoutAt < LIVE_SHOUT_CD_MS)
+    throw new HttpError(429, '喊话冷却中，请等待两秒再试。');
+  player.lastShoutAt = now;
+  const message = { id: crypto.randomUUID(), playerId: player.member.id,
+    text: body.template.replace('□', () => body.word), sentAt: now };
+  // Bind the message to participants at send time: late joiners, new tickets
+  // and players who unmute later must not receive someone else's backlog.
+  const audience = new Set([player.member.id, ...recipients.map(p => p.member.id)]);
+  room.shouts.push({ message, audience });
+  if (room.shouts.length > LIVE_SHOUT_HISTORY) room.shouts.shift();
+}
 
 function liveText(value, limit, label) {
   if (value == null) return '';
@@ -56,7 +93,7 @@ function liveMembers(room) {
       strategy: profile?.strategy ?? LIVE_UNKNOWN, covenant: profile?.covenant ?? LIVE_UNKNOWN,
       strategies: profile?.strategies ?? [], covenants: profile?.covenants ?? [],
       tactic: profile?.tactic ?? LIVE_UNKNOWN, assignedTactic: profile?.tactic ?? LIVE_UNKNOWN,
-      color: seat.color, confirmed: true, ready: seat.ready, hasPlugin: !!player };
+      color: seat.color, confirmed: true, ready: seat.ready, hasPlugin: !!player, supportsShouts: player?.supportsShouts === true };
   });
   const known = members.filter(m => m.tactic !== LIVE_UNKNOWN);
   assignMatchTactics(known.map(member => ({ member })));
@@ -130,6 +167,8 @@ export class LiveMatchService extends MatchTicketLedger {
     room.players = room.players.filter(p => p !== player);
     for (const p of room.players) p.muted.delete(player.member.id);
     room.strokes = room.strokes.filter(s => s.playerId !== player.member.id);
+    room.shouts = room.shouts.filter(s => s.message.playerId !== player.member.id);
+    for (const s of room.shouts) s.audience.delete(player.member.id);
     if (leftGame) {
       room.seats = room.seats.filter(s => s.uid !== player.uid);
       if (room.hostUid === player.uid) room.hostUid = '';
@@ -159,7 +198,7 @@ export class LiveMatchService extends MatchTicketLedger {
 
   createRoom(game) {
     const room = { id: crypto.randomUUID(), gameId: game.roomId, phase: game.phase, hostUid: '', forced: false,
-      seats: [], players: [], listing: null, origins: new Set(), strokes: [], strokeIds: new Map() };
+      seats: [], players: [], listing: null, origins: new Set(), strokes: [], strokeIds: new Map(), shouts: [] };
     (game.phase === 'playing' ? this.battles : this.lobbies).set(room.gameId, room);
     return room;
   }
@@ -183,6 +222,7 @@ export class LiveMatchService extends MatchTicketLedger {
     // A forced test has a lobby audience. Discard its visible ink when the actual
     // game adds seats, but keep the replay IDs and any existing real-game ink.
     if (room.forced && game.members.some(m => !room.seats.some(s => s.uid === m.uid))) room.strokes = [];
+    if (room.forced) room.shouts = []; // A test lobby is not the real battle's chat.
     for (const source of sources) {
       this.unlist(source);
       const oldId = source.gameId;
@@ -348,6 +388,7 @@ export class LiveMatchService extends MatchTicketLedger {
         break;
       }
       case 'stroke': sendMatchStroke(player, body, now); break;
+      case 'shout': sendLiveShout(player, body, now); break;
     }
   }
 
@@ -358,13 +399,17 @@ export class LiveMatchService extends MatchTicketLedger {
     const recruiting = this.checkListing(room, now);
     if (player.room) pruneMatchStrokes(room, now);
     const strokes = (player.room?.strokes ?? []).filter(s => !player.muted.has(s.playerId));
+    const shouts = (player.supportsShouts && player.room ? player.room.shouts : []).filter(({ message, audience }) =>
+      audience.has(player.member.id) && !player.muted.has(message.playerId) &&
+      !room.players.find(p => p.member.id === message.playerId)?.muted.has(player.member.id)).map(s => s.message);
     const outside = player.search ? 'searching' : player.game?.phase === 'matching' && !player.game.roomId ? 'matching' : 'idle';
     return { phase: offer ? 'offer' : room?.phase ?? outside, selfId: player.member.id,
       roomId: room?.id ?? null, gameRoomId: room?.gameId ?? null, captainId: captain ?? null, recruiting,
       canForceStart: !offer && room?.phase === 'lobby' && captain === player.member.id && player.game?.hostUid === player.uid &&
         player.seen + LIVE_HOST_MS > now,
       invitation: room?.listing?.invitation ?? null, members: room ? liveMembers(room) : [], muted: [...player.muted],
-      strokes: strokes.map(s => known?.has(s.id) ? { ...s, points: [] } : s), serverNow: now };
+      roomNicknames: liveRoomNicknames(player.room),
+      strokes: strokes.map(s => known?.has(s.id) ? { ...s, points: [] } : s), shouts, serverNow: now };
   }
 
   execute(key, action, body, ip) {
@@ -384,7 +429,7 @@ export class LiveMatchService extends MatchTicketLedger {
       const end = this.ended.get(key);
       return { phase: 'ended', selfId: end?.selfId ?? '', message: end?.message ?? '请重新同步游戏。', serverNow: now,
         roomId: null, gameRoomId: null, captainId: null, invitation: null,
-        recruiting: false, canForceStart: false, members: [], muted: [], strokes: [] };
+        recruiting: false, canForceStart: false, members: [], muted: [], strokes: [], shouts: [] };
     }
     this.checkListing(player?.room, now);
     const sequence = body.sequence;
@@ -407,6 +452,7 @@ export class LiveMatchService extends MatchTicketLedger {
       if (game.selfUid) { player.uid = game.selfUid; this.byUid.set(player.uid, player); }
       if (player.search && JSON.stringify(player.profile) !== JSON.stringify(profile)) player.search.offer = null;
       player.profile = profile;
+      player.supportsShouts = body.supportsShouts === true;
       this.observe(player, game, now);
     } else this.command(player, action, body, now);
     if (sequence !== undefined) player.sequence = sequence;

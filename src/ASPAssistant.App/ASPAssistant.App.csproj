@@ -18,6 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\..\sites\asp-lineup-hub\server\quick-chat.json"
+                      Link="Resources\quick-chat.json" LogicalName="ASPAssistant.QuickChat.json" />
     <Resource Include="Resources\AppIcon.png" />
     <!-- PRTS: 文件:头像_敌人_大鲍勃.png -->
     <Resource Include="Resources\BigBobPortrait.png" />

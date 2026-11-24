@@ -12,8 +12,9 @@ internal sealed partial class LineupSiteClient
 
 internal sealed record MatchPoint(double X, double Y);
 internal sealed record MatchStroke(string Id, string PlayerId, MatchPoint[] Points, long ExpiresAt);
+internal sealed record MatchShout(string Id, string PlayerId, string Text, long SentAt = 0);
 internal sealed record MatchMember(string Id, string Nickname, string Strategy, string Covenant, string Tactic,
-    string AssignedTactic, string Color, bool Confirmed, bool Ready, bool HasPlugin = true);
+    string AssignedTactic, string Color, bool Confirmed, bool Ready, bool HasPlugin = true, bool SupportsShouts = false);
 
 internal sealed record MatchSnapshot
 {
@@ -30,4 +31,6 @@ internal sealed record MatchSnapshot
     public MatchMember[] Members { get; init; } = [];
     public string[] Muted { get; init; } = [];
     public MatchStroke[] Strokes { get; init; } = [];
+    public string[] RoomNicknames { get; init; } = []; // Older relays support fixed vocabulary only.
+    public MatchShout[] Shouts { get; init; } = [];
 }

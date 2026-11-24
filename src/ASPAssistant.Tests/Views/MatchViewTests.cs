@@ -16,7 +16,7 @@ using ASPAssistant.Core.Services;
 namespace ASPAssistant.Tests.Views;
 
 [Collection("WPF views")]
-public class MatchViewTests
+public partial class MatchViewTests
 {
     [Fact]
     public void PreferencesAreTheFirstEditableSectionWhenOpeningMatching()
@@ -357,7 +357,7 @@ public class MatchViewTests
     private static string PublicId(GameRoomSeat seat) => $"participant-{seat.Uid}";
 
     private static MatchMember Member(GameRoomSeat seat) =>
-        new(PublicId(seat), seat.Nickname, "坚不可摧", "炎", "兜底", "兜底", "#89DEEA", true, seat.Ready, seat != Guest);
+        new(PublicId(seat), seat.Nickname, "坚不可摧", "炎", "兜底", "兜底", "#89DEEA", true, seat.Ready, seat != Guest, SupportsShouts: seat != Guest);
 
     private static MatchSnapshot Mirror(GameRoomObservation game) => new()
     {
@@ -444,7 +444,7 @@ public class MatchViewTests
         internal MatchSnapshot Snapshot = new() { Phase = "idle", SelfId = PublicId(Self) };
         internal MatchSnapshot? NextOffer;
         internal JsonElement LastSync;
-        internal int LeaveRequests;
+        internal int LeaveRequests, ShoutRequests;
         internal bool Offline;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -461,6 +461,11 @@ public class MatchViewTests
                 case "stop-recruit": Snapshot = Snapshot with { Recruiting = false, Invitation = null }; break;
                 case "force-start": Snapshot = Snapshot with { Phase = "playing", CanForceStart = false }; break;
                 case "mute": Snapshot = Snapshot with { Muted = body.GetProperty("muted").Deserialize<string[]>()! }; break;
+                case "shout":
+                    ShoutRequests++;
+                    var text = body.GetProperty("template").GetString()!.Replace("□", body.GetProperty("word").GetString());
+                    Snapshot = Snapshot with { Shouts = [.. Snapshot.Shouts, new MatchShout(Guid.NewGuid().ToString(), Snapshot.SelfId, text)] };
+                    break;
                 case "leave": LeaveRequests++; break;
             }
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
